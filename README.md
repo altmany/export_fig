@@ -15,7 +15,7 @@ Perhaps the best way to demonstrate what export_fig can do is with some examples
 
 **Visual accuracy** - MATLAB's exporting functions, namely `saveas` and `print`, change many visual properties of a figure, such as size, axes limits and ticks, and background colour, in unexpected and unintended ways. Export_fig aims to faithfully reproduce the figure as it appears on screen. For example:  
   
-```
+```Matlab
 plot(cos(linspace(0, 7, 1000)));
 set(gcf, 'Position', [100 100 150 150]);
 saveas(gcf, 'test.png');
@@ -52,7 +52,7 @@ on the figure from the example above generates:
   
 Sometimes you might have a figure with an image in. For example:
 
-```
+```Matlab
 imshow(imread('cameraman.tif'))
 hold on
 plot(0:255, sin(linspace(0, 10, 256))*127+128);
@@ -77,7 +77,7 @@ All resolution options (`-m<val>`, `-q<val>` and `-native`) correctly set the re
 
 **Shrinking dots & dashes** - when exporting figures with dashed or dotted lines using either the ZBuffer or OpenGL (default for bitmaps) renderers, the dots and dashes can appear much shorter, even non-existent, in the output file, especially if the lines are thick and/or the resolution is high. For example:  
 
-```
+```Matlab
 plot(sin(linspace(0, 10, 1000)), 'b:', 'LineWidth', 4);
 hold on
 plot(cos(linspace(0, 7, 1000)), 'r--', 'LineWidth', 3);
@@ -109,7 +109,7 @@ then use export_fig's `-transparent` option when exporting:
 
 This will make the background transparent in PDF, EPS and PNG outputs. You can additionally save fully alpha-blended semi-transparent patch objects to the PNG format. For example:
 
-```
+```Matlab
 logo;
 alpha(0.5);
 ```
@@ -126,7 +126,7 @@ and the image blends seamlessly with the background.
 
 **Image quality** - when publishing images of your results, you want them to look as good as possible. By default, when outputting to lossy file formats (PDF, EPS and JPEG), export_fig uses a high quality setting, i.e. low compression, for images, so little information is lost. This is in contrast to MATLAB's print and saveas functions, whose default quality settings are poor. For example:
 
-```
+```Matlab
 A = im2double(imread('peppers.png'));
 B = randn(ceil(size(A, 1)/6), ceil(size(A, 2)/6), 3) * 0.1;
 B = cat(3, kron(B(:,:,1), ones(6)), kron(B(:,:,2), ones(6)), kron(B(:,:,3), ones(6)));
@@ -141,7 +141,9 @@ generates a PDF file, a sub-window of which looks (when zoomed in) like this:
 
 while the command
 
-    export_fig test.pdf
+```Matlab
+export_fig test.pdf
+```
 
 on the same figure produces this:
 
@@ -149,7 +151,9 @@ on the same figure produces this:
 
 While much better, the image still contains some compression artifacts (see the low level noise around the edge of the pepper). You may prefer to export with no artifacts at all, i.e. lossless compression. Alternatively, you might need a smaller file, and be willing to accept more compression. Either way, export_fig has an option that can suit your needs: `-q<val>`, where <val> is a number from 0-100, will set the level of lossy image compression (again in PDF, EPS and JPEG outputs only; other formats are lossless), from high compression (0) to low compression/high quality (100). If you want lossless compression in any of those formats then specify a <val> greater than 100. For example:
 
-    export_fig test.pdf -q101
+```Matlab
+export_fig test.pdf -q101
+```
 
 again on the same figure, produces this:
 
@@ -172,7 +176,7 @@ export_fig('C:/Users/Me/Documents/figures/myfig', '-pdf', '-png');```
 
 **Variable file names** - often you might want to save a series of figures in a for loop, each with a different name. For this you can use the functional form of input arguments, i.e. `export_fig(arg1, arg2)`,  and construct the filename string in a variable. Here's an example of this:  
 
-```
+```Matlab
 for a = 1:5
     plot(rand(5, 2));
     export_fig(sprintf('plot%d.png', a));
@@ -181,27 +185,39 @@ end
 
 When using the functional form like this, be sure to put string variables in quotes:
 
-    export_fig(sprintf('plot%d', a), '-a1', '-pdf', '-png');
+```Matlab
+export_fig(sprintf('plot%d', a), '-a1', '-pdf', '-png');
+```
 
 **Specifying the figure/axes** - if you have mutiple figures open you can specify which figure to export using its handle:  
 
-    export_fig(figure_handle, 'filename.fmt');
+```Matlab
+export_fig(figure_handle, 'filename.fmt');
+```
 
 Equally, if your figure contains several subplots then you can export just one of them by giving export_fig the handle to the relevant axes:
 
-    export_fig(axes_handle, 'filename.fmt');
+```Matlab
+export_fig(axes_handle, 'filename.fmt');
+```
 
 **Multiple formats** - save time by exporting to multiple formats simultaneously. E.g.:  
 
-    export_fig filename -pdf -eps -png -jpg -tiff
+```Matlab
+export_fig filename -pdf -eps -png -jpg -tiff
+```
 
 **Other file formats** - if you'd like to save your figure to a bitmap format that is not supported by export_fig, e.g. animated GIF, PPM file or a frame in a movie, then you can use export_fig to output the image, and optionally an alpha-matte, to the workspace. E.g.:  
 
-    frame = export_fig;
+```Matlab
+frame = export_fig;
+```
 
 or
 
-    [frame, alpha] = export_fig;
+```Matlab
+[frame, alpha] = export_fig;
+```
 
 These variables can then be saved to other image formats using other functions, such as imwrite.
 
@@ -213,7 +229,9 @@ These variables can then be saved to other image formats using other functions, 
   
 **Artifacts** - sometimes the output that you get from export_fig is not what you expected. If an output file contains artifacts that aren't in the on screen figure then make sure that the renderer used for rendering the figure on screen is the same as that used for exporting. To set the renderer used to display the figure, use:  
 
-    set(figure_handle, 'Renderer', 'opengl');
+```Matlab
+set(figure_handle, 'Renderer', 'opengl');
+```
 
 After matching the two renderers, if the artifact appears in the on screen figure then you'll need to fix that before exporting. Alternatively you can try changing the renderer used by export_fig. Finally check that it isn't one of the known issues mentioned in the section below.
 
@@ -228,7 +246,9 @@ to this location using the dialogue box.
 
 **Undefined function errors** - If you download and run export_fig and get an error similar to this:  
 
-    ??? Undefined function or method 'print2array' for input arguments of type 'double'.
+```Matlab
+??? Undefined function or method 'print2array' for input arguments of type 'double'.
+```
   
 then you are missing one or more of the files that come in the export_fig package. Make sure that you click the "Download All" button at the top-right of the download [page](http://www.mathworks.co.uk/matlabcentral/fileexchange/23629-exportfig), then extract all the files in the zip file to the same directory. You should then have all the necessary files.
   
