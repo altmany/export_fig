@@ -20,17 +20,9 @@ export_fig test2.png
 ```
 generates the following:
 
-Figure:
-
-![](https://sites.google.com/site/oliverwoodford/_/rsrc/1275138988274/software/export_fig/fig.png)
-
-test.png:
-
-![](https://sites.google.com/site/oliverwoodford/_/rsrc/1275139004055/software/export_fig/plot.png)
-
-test2.png:
-
-![](https://sites.google.com/site/oliverwoodford/_/rsrc/1275139029078/software/export_fig/plot2.png)
+| Figure: | test.png: | test2.png: |
+|:-------:|:---------:|:----------:|
+|![](https://sites.google.com/site/oliverwoodford/_/rsrc/1275138988274/software/export_fig/fig.png)|![](https://sites.google.com/site/oliverwoodford/_/rsrc/1275139004055/software/export_fig/plot.png)|![](https://sites.google.com/site/oliverwoodford/_/rsrc/1275139029078/software/export_fig/plot2.png)|
 
 Note that the size and background colour of test2.png (the output of export_fig) are the same as those of the on screen figure, in contrast to test.png. Of course, if you want want the figure background to be white (or any other colour) in the exported file then you can set this prior to exporting using:
 ```Matlab
