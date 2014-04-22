@@ -262,8 +262,7 @@ If you think you have found a genuine error or issue with export_fig **that is n
 
 Secondly, if exporting to bitmap, do try all the renderers (i.e. try the options `-opengl`, `-zbuffer` and `-painters` separately), to see if one of them does produce an acceptable output, and if so, use that.
 
-If the figure looks correct on screen, but an error exists in the exported output (which cannot be solved using a different renderer) then please feel free to [email me](https://sites.google.com/site/oliverwoodford/contact-me) a
-.fig file, the export_fig command you use, the output you get, and a description of what you expected. I can't promise anything, but if it's easy to fix I probably will do it. Often I will find that the error is due to a bug in MATLAB's print function, in which case I will suggest you submit it as a bug to TheMathWorks, and inform me of any fix they suggest. Also, if there's a feature you'd like that isn't supported please tell me what it is and I'll consider implementing it.
+If the figure looks correct on screen, but an error exists in the exported output (which cannot be solved using a different renderer) then please feel free to raise an [issue](https://github.com/ojwoodford/export_fig/issues). Please be sure to include the .fig file, the export_fig command you use, the output you get, and a description of what you expected. I can't promise anything, but if it's easy to fix I probably will do it. Often I will find that the error is due to a bug in MATLAB's print function, in which case I will suggest you submit it as a bug to TheMathWorks, and inform me of any fix they suggest. Also, if there's a feature you'd like that isn't supported please tell me what it is and I'll consider implementing it.
 
 ### And finally...
 
