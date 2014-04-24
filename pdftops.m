@@ -94,7 +94,8 @@ if ~good
 end
 % Update the current default path to the path found
 if ~user_string('pdftops', path_)
-    warning('Path to pdftops executable could not be saved. Enter it manually in %s.', fullfile(fileparts(which('user_string.m')), '.ignore', 'pdftops.txt'));
+    warning(['Path to pdftops executable could not be persisted.\n' ...
+        'Check that you have write access to the preferences folder %s'], prefdir);
     return
 end
 return
