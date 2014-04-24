@@ -141,7 +141,8 @@ if ~good
 end
 % Update the current default path to the path found
 if ~user_string('ghostscript', path_)
-    warning('Path to ghostscript installation could not be saved. Enter it manually in %s.', fullfile(fileparts(which('user_string.m')), '.ignore', 'ghostscript.txt'));
+    warning(['Path to ghostscript installation could not be persisted.\n' ...
+        'Check that you have write access to the preferences folder %s.'], prefdir);
     return
 end
 return
