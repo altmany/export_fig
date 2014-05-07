@@ -169,6 +169,8 @@
 %           suggesting it.
 % 25/09/13: Add support for changing resolution in vector formats. Thanks
 %           to Jan Jaap Meijer for suggesting it.
+% 07/05/14: Add support for '~' at start of path. Thanks to Sally Warner
+%           for suggesting it.
 
 function [im, alpha] = export_fig(varargin)
 % Make sure the figure is rendered correctly _now_ so that properties like
@@ -575,6 +577,11 @@ for a = 1:nargin-1
     end
 end
 
+% Convert user dir '~' to full path
+if numel(options.name) > 2 && options.name(1) == '~' && (options.name(2) == '/' || options.name(2) == '\')
+    options.name = fullfile(char(java.lang.System.getProperty('user.home')), options.name(2:end));
+end
+
 % Compute the magnification and resolution
 if isempty(options.magnify)
     if isempty(options.resolution)
@@ -585,8 +592,7 @@ if isempty(options.magnify)
     end
 elseif isempty(options.resolution)
     options.resolution = 864;
-end
-    
+end  
 
 % Check we have a figure handle
 if isempty(fig)
