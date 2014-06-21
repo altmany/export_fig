@@ -20,7 +20,7 @@
 %   fig_handle - The handle of the figure to be saved. Default: gcf.
 %   options - Additional parameter strings to be passed to print.
 
-% Copyright (C) Oliver Woodford 2008-2013
+% Copyright (C) Oliver Woodford 2008-2014
 
 % The idea of editing the EPS file to change line styles comes from Jiro
 % Doke's FIXPSLINESTYLE (fex id: 17928)
@@ -65,6 +65,10 @@ end
 if numel(name) < 5 || ~strcmpi(name(end-3:end), '.eps')
     name = [name '.eps']; % Add the missing extension
 end
+% Set paper size
+old_pos_mode = get(fig, 'PaperPositionMode');
+old_orientation = get(fig, 'PaperOrientation');
+set(fig, 'PaperPositionMode', 'auto', 'PaperOrientation', 'portrait');
 % Find all the used fonts in the figure
 font_handles = findall(fig, '-property', 'FontName');
 fonts = get(font_handles, 'FontName');
@@ -129,10 +133,6 @@ if ~isempty(font_swap)
     [M, M] = sort(M);
     update = reshape(update(M), 1, []);
 end
-% Set paper size
-old_pos_mode = get(fig, 'PaperPositionMode');
-old_orientation = get(fig, 'PaperOrientation');
-set(fig, 'PaperPositionMode', 'auto', 'PaperOrientation', 'portrait');
 % MATLAB bug fix - black and white text can come out inverted sometimes
 % Find the white and black text
 white_text_handles = findobj(fig, 'Type', 'text');
@@ -179,13 +179,21 @@ if ~isempty(font_swap)
         return
     end
 end
-% Fix the line styles
-try
-    fix_lines(name);
-catch
-    warning('fix_lines() failed. This is usually because the figure contains a large number of patch objects. Consider exporting to a bitmap format in this case.');
+if using_hg2()
+    % Move the bounding box to the top of the file
+    try
+        move_bb(name);
+    catch
+        warning('move_bb() failed. This is usually because the figure contains a large number of patch objects. Consider exporting to a bitmap format in this case.');
+    end
+else
+    % Fix the line styles
+    try
+        fix_lines(name);
+    catch
+        warning('fix_lines() failed. This is usually because the figure contains a large number of patch objects. Consider exporting to a bitmap format in this case.');
+    end
 end
-return
 
 function swap_fonts(fname, varargin)
 % Read in the file
@@ -203,7 +211,8 @@ fclose(fh);
 
 % Replace the font names
 for a = 1:2:numel(varargin)
-    fstrm = regexprep(fstrm, [varargin{a} '-?[a-zA-Z]*\>'], varargin{a+1}(~isspace(varargin{a+1})));
+    %fstrm = regexprep(fstrm, [varargin{a} '-?[a-zA-Z]*\>'], varargin{a+1}(~isspace(varargin{a+1})));
+    fstrm = regexprep(fstrm, varargin{a}, varargin{a+1}(~isspace(varargin{a+1})));
 end
 
 % Write out the updated file
@@ -218,4 +227,36 @@ catch ex
     rethrow(ex);
 end
 fclose(fh);
-return
+
+function move_bb(fname)
+% Read in the file
+fh = fopen(fname, 'r');
+if fh == -1
+    error('File %s not found.', fname);
+end
+try
+    fstrm = fread(fh, '*char')';
+catch ex
+    fclose(fh);
+    rethrow(ex);
+end
+fclose(fh);
+
+% Find the bounding box
+[s, e] = regexp(fstrm, '%%BoundingBox: [\w\s()]*%%');
+if numel(s) == 2
+    fstrm = fstrm([1:s(1)-1 s(2):e(2)-2 e(1)-1:s(2)-1 e(2)-1:end]);
+end
+
+% Write out the updated file
+fh = fopen(fname, 'w');
+if fh == -1
+    error('Unable to open %s for writing.', fname2);
+end
+try
+    fwrite(fh, fstrm, 'char*1');
+catch ex
+    fclose(fh);
+    rethrow(ex);
+end
+fclose(fh);

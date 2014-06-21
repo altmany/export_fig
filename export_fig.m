@@ -136,7 +136,7 @@
 %
 %   See also PRINT, SAVEAS.
 
-% Copyright (C) Oliver Woodford 2008-2012
+% Copyright (C) Oliver Woodford 2008-2014
 
 % The idea of using ghostscript is inspired by Peder Axensten's SAVEFIG
 % (fex id: 10889) which is itself inspired by EPS2PDF (fex id: 5782).
@@ -488,7 +488,7 @@ options = struct('name', 'export_fig_out', ...
                  'append', false, ...
                  'im', nout == 1, ...
                  'alpha', nout == 2, ...
-                 'aa_factor', 3, ...
+                 'aa_factor', 0, ...
                  'magnify', [], ...
                  'resolution', [], ...
                  'bookmark', false, ...
@@ -575,6 +575,11 @@ for a = 1:nargin-1
             end
         end
     end
+end
+
+% Set default anti-aliasing now we know the renderer
+if options.aa_factor == 0
+    options.aa_factor = 1 + 2 * (~using_hg2() | (options.renderer == 3));
 end
 
 % Convert user dir '~' to full path
@@ -763,19 +768,21 @@ if fh == -1
     error('Not able to open file %s.', fname);
 end
 % Read the file line by line
-while true
+ c = 1 + using_hg2();
+while c
     % Get the next line
     l = fgets(fh);
     if isequal(l, -1)
         break; % Quit, no rectangle found
     end
     % Check if the line contains the background rectangle
-    if isequal(regexp(l, ' *0 +0 +\d+ +\d+ +rf *[\n\r]+', 'start'), 1)
+    if isequal(regexp(l, ' *0 +0 +\d+ +\d+ +r[fe] *[\n\r]+', 'start'), 1)
         % Set the line to whitespace and quit
         l(1:regexp(l, '[\n\r]', 'start', 'once')-1) = ' ';
         fseek(fh, -numel(l), 0);
         fprintf(fh, l);
-        break;
+        % Reduce the count
+        c = c - 1;
     end
 end
 % Close the file
