@@ -7,4 +7,8 @@
 %        (true) or not (false).
 
 function tf = using_hg2()
-tf = ~verLessThan('matlab', '8.4');
+try
+    tf = ~verLessThan('matlab', '8.4');
+catch
+    tf = false;
+end
