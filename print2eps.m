@@ -179,7 +179,7 @@ if ~isempty(font_swap)
         return
     end
 end
-if using_hg2()
+if using_hg2(fig)
     % Move the bounding box to the top of the file
     try
         move_bb(name);

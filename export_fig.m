@@ -421,7 +421,7 @@ if isvector(options)
         print2eps(tmp_nam, fig, p2eArgs{:});
         % Remove the background, if desired
         if options.transparent && ~isequal(get(fig, 'Color'), 'none')
-            eps_remove_background(tmp_nam);
+            eps_remove_background(tmp_nam, 1 + using_hg2(fig));
         end
         % Add a bookmark to the PDF if desired
         if options.bookmark
@@ -579,7 +579,7 @@ end
 
 % Set default anti-aliasing now we know the renderer
 if options.aa_factor == 0
-    options.aa_factor = 1 + 2 * (~using_hg2() | (options.renderer == 3));
+    options.aa_factor = 1 + 2 * (~using_hg2(fig) | (options.renderer == 3));
 end
 
 % Convert user dir '~' to full path
@@ -760,7 +760,7 @@ v = [max(t-1, 1) min(b+1, h) max(l-1, 1) min(r+1, w)];
 A = A(v(1):v(2),v(3):v(4),:);
 return
 
-function eps_remove_background(fname)
+function eps_remove_background(fname, count)
 % Remove the background of an eps file
 % Open the file
 fh = fopen(fname, 'r+');
@@ -768,8 +768,7 @@ if fh == -1
     error('Not able to open file %s.', fname);
 end
 % Read the file line by line
- c = 1 + using_hg2();
-while c
+while count
     % Get the next line
     l = fgets(fh);
     if isequal(l, -1)
@@ -782,7 +781,7 @@ while c
         fseek(fh, -numel(l), 0);
         fprintf(fh, l);
         % Reduce the count
-        c = c - 1;
+        count = count - 1;
     end
 end
 % Close the file
