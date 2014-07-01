@@ -207,8 +207,8 @@ After matching the two renderers, if the artifact appears in the on screen figur
 **Smoothed/interpolated images in output PDF** - if you produce a PDF using export_fig and images in the PDF look overly smoothed or interpolated, this is because the software you are using to view the PDF is smoothing or interpolating the image data. The image is not smoothed in the PDF file itself. If the software has an option to disable this feature, you should select it. Alternatively, use another PDF viewer that doesn't exhibit this problem.  
   
 **Locating Ghostscript/pdftops** - You may find a dialogue box appears when using export_fig, asking you to locate either [Ghostscript](http://www.ghostscript.com) or [pdftops](http://www.foolabs.com/xpdf). These are separate applications which export_fig requires to perform certain functions. If such a dialogue appears it is because export_fig can't find the application automatically. This is because you either haven't installed it, or it isn't in the normal place. Make sure you install the applications correctly first. They can be downloaded from the following places:  
-1. Ghostscript:     [www.ghostscript.com](http://www.ghostscript.com)
-2. pdftops (install the Xpdf package): [www.foolabs.com/xpdf](http://www.foolabs.com/xpdf)
+ 1. Ghostscript:     [www.ghostscript.com](http://www.ghostscript.com)
+ 2. pdftops (install the Xpdf package): [www.foolabs.com/xpdf](http://www.foolabs.com/xpdf)
 
 If you choose to install them in a non-default location then point export_fig
 to this location using the dialogue box.
@@ -237,9 +237,9 @@ Also, when using the painters renderer, ghostscript will sometimes throw an erro
 **Lines in patch objects** - when exporting patch objects to PDF using the painters renderer (default), sometimes the output can appear to have lines across the middle of rectangular patches; these lines are the colour of the background, as if there is a crack in the patch, allowing you to see through. This issue is a feature of the software used to display the PDF, rather than the PDF itself. Sometimes disabling anti-aliasing in this software can get rid of the lines.  
   
 **Out of memory** - if you run into memory issues when using export_fig, some ways to get round this are:  
-1. Reduce the level of anti-aliasing.
-2. Reduce the size of the on screen figure.
-3. Reduce the resolution (dpi) the figure is exported at.  
+ 1. Reduce the level of anti-aliasing.
+ 2. Reduce the size of the on screen figure.
+ 3. Reduce the resolution (dpi) the figure is exported at.  
   
 **Errors** - the other common type of errors people get with export_fig are OpenGL errors. This isn't a fault of export_fig, but either a bug in MATLAB's `print`, or your graphics driver getting itself into a state. Always make sure your graphics driver is up-to-date. If it still doesn't work, try using the ZBuffer renderer.  
   
