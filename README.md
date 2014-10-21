@@ -105,7 +105,7 @@ generates a figure like this:
 
 ![](https://sites.google.com/site/oliverwoodford/_/rsrc/1321287050167/software/export_fig/logo.png.jpg)
 
-If you then export this to PNG using the `-transparent` option` `you can then put the resulting image into, for example, a presentation slide with fancy, textured background, like so:
+If you then export this to PNG using the `-transparent` option you can then put the resulting image into, for example, a presentation slide with fancy, textured background, like so:
 
 ![](https://sites.google.com/site/oliverwoodford/_/rsrc/1275128181107/software/export_fig/overlay.png?height=375&width=400)
 
