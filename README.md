@@ -22,7 +22,7 @@ generates the following:
 
 | Figure: | test.png: | test2.png: |
 |:-------:|:---------:|:----------:|
-|![](https://sites.google.com/site/oliverwoodford/_/rsrc/1275138988274/software/export_fig/fig.png)|![](https://sites.google.com/site/oliverwoodford/_/rsrc/1275139004055/software/export_fig/plot.png)|![](https://sites.google.com/site/oliverwoodford/_/rsrc/1275139029078/software/export_fig/plot2.png)|
+|![](https://farm6.staticflickr.com/5616/15589249291_16e485c29a_o_d.png)|![](https://farm4.staticflickr.com/3944/15406302850_4d2e1c7afa_o_d.png)|![](https://farm6.staticflickr.com/5607/15568225476_8ce9bd5f6b_o_d.png)|
 
 Note that the size and background colour of test2.png (the output of export_fig) are the same as those of the on screen figure, in contrast to test.png. Of course, if you want want the figure background to be white (or any other colour) in the exported file then you can set this prior to exporting using:
 ```Matlab
@@ -37,7 +37,7 @@ export_fig test.png -m2.5
 ```
 on the figure from the example above generates:
 
-![](https://sites.google.com/site/oliverwoodford/_/rsrc/1275141545505/software/export_fig/plot3.png)
+![](https://farm4.staticflickr.com/3937/15591910915_dc7040c477_o_d.png)
 
 Sometimes you might have a figure with an image in. For example:
 ```Matlab
@@ -48,7 +48,7 @@ set(gcf, 'Position', [100 100 150 150]);
 ```
 generates this figure:
 
-![](https://sites.google.com/site/oliverwoodford/_/rsrc/1275142174599/software/export_fig/fig2.png)
+![](https://farm4.staticflickr.com/3942/15589249581_ff87a56a3f_o_d.png)
   
 Here the image is displayed in the figure at resolution lower than its native resolution. However, you might want to export the figure at a resolution such that the image is output at its native (i.e. original) size (in pixels). Ordinarily this would require some non-trivial computation to work out what that resolution should be, but export_fig has an option to do this for you. Using:
 ```Matlab
@@ -56,7 +56,7 @@ export_fig test.png -native
 ```
 produces:
 
-![](https://sites.google.com/site/oliverwoodford/_/rsrc/1275142693372/software/export_fig/camera.png)
+![](https://farm6.staticflickr.com/5604/15589249591_da2b2652e4_o_d.png)
 
 with the image being the size (in pixels) of the original image. Note that if you want an image to be a particular size, in pixels, in the output (other than its original size) then you can resize it to this size and use the `-native` option to achieve this.
 
@@ -72,7 +72,7 @@ export_fig test.png
 ```
 generates:
 
-![](https://sites.google.com/site/oliverwoodford/_/rsrc/1275067898764/software/export_fig/test.png)
+![](https://farm4.staticflickr.com/3956/15592747732_f943d4aa0a_o_d.png)
 
 This problem can be overcome by using the painters renderer. For example:
 ```Matlab
@@ -80,7 +80,7 @@ export_fig test.png -painters
 ```
 used on the same figure generates:
 
-![](https://sites.google.com/site/oliverwoodford/_/rsrc/1275067997573/software/export_fig/test2.png)
+![](https://farm4.staticflickr.com/3945/14971168504_77692f11f5_o_d.png)
 
 Note that not only are the plot lines correct, but the grid lines are too.
 
@@ -103,11 +103,11 @@ alpha(0.5);
 
 generates a figure like this:
 
-![](https://sites.google.com/site/oliverwoodford/_/rsrc/1321287050167/software/export_fig/logo.png.jpg)
+![](https://farm4.staticflickr.com/3933/15405290339_b08de33528_o_d.png)
 
 If you then export this to PNG using the `-transparent` option you can then put the resulting image into, for example, a presentation slide with fancy, textured background, like so:
 
-![](https://sites.google.com/site/oliverwoodford/_/rsrc/1275128181107/software/export_fig/overlay.png?height=375&width=400)
+![](https://farm6.staticflickr.com/5599/15406302920_59beaefff1_o_d.png)
 
 and the image blends seamlessly with the background.
 
@@ -122,7 +122,7 @@ print -dpdf test.pdf
 ```
 generates a PDF file, a sub-window of which looks (when zoomed in) like this:
 
-![](https://sites.google.com/site/oliverwoodford/_/rsrc/1275124307835/software/export_fig/peppers_bad.png)
+![](https://farm6.staticflickr.com/5613/15405290309_881b2774d6_o_d.png)
 
 while the command
 
@@ -131,7 +131,7 @@ export_fig test.pdf
 ```
 on the same figure produces this:
 
-![](https://sites.google.com/site/oliverwoodford/_/rsrc/1275124443133/software/export_fig/peppers_good.png)
+![](https://farm4.staticflickr.com/3947/14971168174_687473133f_o_d.png)
 
 While much better, the image still contains some compression artifacts (see the low level noise around the edge of the pepper). You may prefer to export with no artifacts at all, i.e. lossless compression. Alternatively, you might need a smaller file, and be willing to accept more compression. Either way, export_fig has an option that can suit your needs: `-q<val>`, where <val> is a number from 0-100, will set the level of lossy image compression (again in PDF, EPS and JPEG outputs only; other formats are lossless), from high compression (0) to low compression/high quality (100). If you want lossless compression in any of those formats then specify a <val> greater than 100. For example:
 ```Matlab
@@ -139,7 +139,7 @@ export_fig test.pdf -q101
 ```
 again on the same figure, produces this:
 
-![](https://sites.google.com/site/oliverwoodford/_/rsrc/1275124976179/software/export_fig/peppers_lossless.png)
+![](https://farm6.staticflickr.com/5608/15405803908_934512c1fe_o_d.png)
 
 Notice that all the noise has gone.
 
@@ -252,7 +252,7 @@ If the figure looks correct on screen, but an error exists in the exported outpu
 
 ### And finally...
 
-![](https://sites.google.com/site/oliverwoodford/_/rsrc/1331719751135/software/export_fig/export_fig.jpg?height=141&width=200)
+![](https://farm4.staticflickr.com/3956/15591911455_b9008bd77e_o_d.jpg?height=141&width=200)
 
 If you've ever wondered what's going on in the icon on the export_fig download page (reproduced on the left), then this explanantion is for you. The icon is designed to demonstrate as many of export_fig's features as possible. Given a
 figure containing a translucent mesh (top right), export_fig can export to pdf (bottom centre), which allows the figure to be zoomed in without losing quality (because it's a vector graphic), but isn't able to reproduce the translucency, and also, depending on the viewer, creates small gaps between the patches, which are seen here as thin white lines. By contrast, when exporting to png (top left), translucency is preserved (see how the graphic below shows through), the figure is anti-aliased, but zooming in does not reveal more detail.
