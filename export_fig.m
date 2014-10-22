@@ -132,7 +132,7 @@
 %           case when the background is transparent.
 %
 %   Some helpful examples and tips can be found at:
-%      http://sites.google.com/site/oliverwoodford/software/export_fig
+%      https://github.com/ojwoodford/export_fig
 %
 %   See also PRINT, SAVEAS.
 
