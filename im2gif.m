@@ -48,7 +48,7 @@ function im2gif(A, varargin)
 
 if options.crop ~= 0
     % Crop
-    A = crop_borders(A);
+    A = crop_borders(A, A(ceil(end/2),1,:,1));
 end
 
 % Convert to indexed image
@@ -183,66 +183,4 @@ switch lower(info(1).Format)
             A = A(:,:,1:3);
         end
 end
-end
-
-%% Crop the borders
-function A = crop_borders(A)
-[h, w, c, n] = size(A);
-bcol = A(ceil(end/2),1,:,1);
-bail = false;
-for l = 1:w
-    for a = 1:c
-        if ~all(col(A(:,l,a,:)) == bcol(a))
-            bail = true;
-            break;
-        end
-    end
-    if bail
-        break;
-    end
-end
-bcol = A(ceil(end/2),w,:,1);
-bail = false;
-for r = w:-1:l
-    for a = 1:c
-        if ~all(col(A(:,r,a,:)) == bcol(a))
-            bail = true;
-            break;
-        end
-    end
-    if bail
-        break;
-    end
-end
-bcol = A(1,ceil(end/2),:,1);
-bail = false;
-for t = 1:h
-    for a = 1:c
-        if ~all(col(A(t,:,a,:)) == bcol(a))
-            bail = true;
-            break;
-        end
-    end
-    if bail
-        break;
-    end
-end
-bcol = A(h,ceil(end/2),:,1);
-bail = false;
-for b = h:-1:t
-    for a = 1:c
-        if ~all(col(A(b,:,a,:)) == bcol(a))
-            bail = true;
-            break;
-        end
-    end
-    if bail
-        break;
-    end
-end
-A = A(t:b,l:r,:,:);
-end
-
-function A = col(A)
-A = A(:);
 end

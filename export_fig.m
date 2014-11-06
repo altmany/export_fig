@@ -292,7 +292,7 @@ if isbitmap(options)
         A = uint8(A);
         % Crop the background
         if options.crop
-            [alpha, v] = crop_background(alpha, 0);
+            [alpha, v] = crop_borders(alpha, 0, 1);
             A = A(v(1):v(2),v(3):v(4),:);
         end
         if options.png
@@ -339,7 +339,7 @@ if isbitmap(options)
         end
         % Crop the background
         if options.crop
-            A = crop_background(A, tcol);
+            A = crop_borders(A, tcol, 1);
         end
         % Downscale the image
         A = downsize(A, options.aa_factor);
@@ -698,66 +698,6 @@ if size(A, 3) == 3 && ...
         all(reshape(A(:,:,2) == A(:,:,3), [], 1))
     A = A(:,:,1); % Save only one channel for 8-bit output
 end
-end
-
-function [A, v] = crop_background(A, bcol)
-% Map the foreground pixels
-[h, w, c] = size(A);
-if isscalar(bcol) && c > 1
-    bcol = bcol(ones(1, c));
-end
-bail = false;
-for l = 1:w
-    for a = 1:c
-        if ~all(A(:,l,a) == bcol(a))
-            bail = true;
-            break;
-        end
-    end
-    if bail
-        break;
-    end
-end
-bail = false;
-for r = w:-1:l
-    for a = 1:c
-        if ~all(A(:,r,a) == bcol(a))
-            bail = true;
-            break;
-        end
-    end
-    if bail
-        break;
-    end
-end
-bail = false;
-for t = 1:h
-    for a = 1:c
-        if ~all(A(t,:,a) == bcol(a))
-            bail = true;
-            break;
-        end
-    end
-    if bail
-        break;
-    end
-end
-bail = false;
-for b = h:-1:t
-    for a = 1:c
-        if ~all(A(b,:,a) == bcol(a))
-            bail = true;
-            break;
-        end
-    end
-    if bail
-        break;
-    end
-end
-% Crop the background, leaving one boundary pixel to avoid bleeding on
-% resize
-v = [max(t-1, 1) min(b+1, h) max(l-1, 1) min(r+1, w)];
-A = A(v(1):v(2),v(3):v(4),:);
 end
 
 function eps_remove_background(fname, count)
