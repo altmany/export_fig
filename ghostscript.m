@@ -49,7 +49,7 @@ if ismac
 end
 % Call ghostscript
 [varargout{1:nargout}] = system(sprintf('%s"%s" %s', shell_cmd, gs_path, cmd));
-return
+end
 
 function path_ = gs_path
 % Return a valid path
@@ -132,6 +132,7 @@ while 1
     end
 end
 error('Ghostscript not found. Have you installed it from www.ghostscript.com?');
+end
 
 function good = check_store_gs_path(path_)
 % Check the path is valid
@@ -144,7 +145,7 @@ if ~user_string('ghostscript', path_)
     warning('Path to ghostscript installation could not be saved. Enter it manually in %s.', fullfile(fileparts(which('user_string.m')), '.ignore', 'ghostscript.txt'));
     return
 end
-return
+end
 
 function good = check_gs_path(path_)
 % Check the path is valid
@@ -154,4 +155,4 @@ if ismac
 end
 [good, message] = system(sprintf('%s"%s" -h', shell_cmd, path_));
 good = good == 0;
-return
+end

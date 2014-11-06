@@ -47,5 +47,5 @@ if strcmp(str(1:min(13, end)), '% Produced by')
     fwrite(fid, '%'); % Turn ' ' into '%'
 end
 fclose(fid);
-return
+end
 

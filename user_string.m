@@ -84,4 +84,4 @@ else
     string = fgetl(fid);
     fclose(fid);
 end
-return
+end

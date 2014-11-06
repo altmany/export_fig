@@ -97,7 +97,7 @@ end
 axs = findall(fh);
 % Delete everything except for the input objects and associated items
 delete(axs(~ismember(axs, [ah; allchildren(ah); allancestors(ah)])));
-return
+end
 
 function ah = allchildren(ah)
 ah = findall(ah);
@@ -105,7 +105,7 @@ if iscell(ah)
     ah = cell2mat(ah);
 end
 ah = ah(:);
-return
+end
 
 function ph = allancestors(ah)
 ph = [];
@@ -116,4 +116,4 @@ for a = 1:numel(ah)
         h = get(h, 'parent');
     end
 end
-return
+end

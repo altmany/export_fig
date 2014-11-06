@@ -468,7 +468,7 @@ else
         set(Hlims(a), 'XLimMode', Xlims{a}, 'YLimMode', Ylims{a}, 'ZLimMode', Zlims{a}, 'XTickMode', Xtick{a}, 'YTickMode', Ytick{a}, 'ZTickMode', Ztick{a});
     end
 end
-return
+end
 
 function [fig, options] = parse_args(nout, varargin)
 % Parse the input arguments
@@ -658,7 +658,7 @@ if native && isbitmap(options)
         break
     end
 end
-return
+end
 
 function A = downsize(A, factor)
 % Downsample an image
@@ -685,11 +685,11 @@ catch
     % Subsample
     A = A(1+floor(mod(end-1, factor)/2):factor:end,1+floor(mod(end-1, factor)/2):factor:end,:);
 end
-return
+end
 
 function A = rgb2grey(A)
 A = cast(reshape(reshape(single(A), [], 3) * single([0.299; 0.587; 0.114]), size(A, 1), size(A, 2)), class(A));
-return
+end
 
 function A = check_greyscale(A)
 % Check if the image is greyscale
@@ -698,7 +698,7 @@ if size(A, 3) == 3 && ...
         all(reshape(A(:,:,2) == A(:,:,3), [], 1))
     A = A(:,:,1); % Save only one channel for 8-bit output
 end
-return
+end
 
 function [A, v] = crop_background(A, bcol)
 % Map the foreground pixels
@@ -758,7 +758,7 @@ end
 % resize
 v = [max(t-1, 1) min(b+1, h) max(l-1, 1) min(r+1, w)];
 A = A(v(1):v(2),v(3):v(4),:);
-return
+end
 
 function eps_remove_background(fname, count)
 % Remove the background of an eps file
@@ -786,22 +786,22 @@ while count
 end
 % Close the file
 fclose(fh);
-return
+end
 
 function b = isvector(options)
 b = options.pdf || options.eps;
-return
+end
 
 function b = isbitmap(options)
 b = options.png || options.tif || options.jpg || options.bmp || options.im || options.alpha;
-return
+end
 
 % Helper function
 function A = make_cell(A)
 if ~iscell(A)
     A = {A};
 end
-return
+end
 
 function add_bookmark(fname, bookmark_text)
 % Adds a bookmark to the temporary EPS file after %%EndPageSetup
@@ -835,4 +835,4 @@ catch ex
     rethrow(ex);
 end
 fclose(fh);
-return
+end

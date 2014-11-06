@@ -55,3 +55,4 @@ delete(cmdfile);
 if append
     movefile(output, varargin{1});
 end
+end

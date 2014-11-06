@@ -30,4 +30,4 @@ else
     fh = hgload(tmp_nam);
     delete(tmp_nam);
 end
-return
+end

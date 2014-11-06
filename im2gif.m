@@ -80,7 +80,7 @@ map(B(1)+1,:) = im2double(A(1,1,:));
 
 % Save as a gif
 imwrite(B, map, options.outfile, 'LoopCount', round(options.loops(1)), 'DelayTime', options.delay);
-return
+end
 
 %% Parse the input arguments
 function [A, options] = parse_args(A, varargin)
@@ -135,7 +135,7 @@ if ischar(A)
     % Read in the image
     A = imread_rgb(A);
 end
-return
+end
 
 %% Read image to uint8 rgb array
 function [A, alpha] = imread_rgb(name)
@@ -183,7 +183,7 @@ switch lower(info(1).Format)
             A = A(:,:,1:3);
         end
 end
-return
+end
 
 %% Crop the borders
 function A = crop_borders(A)
@@ -241,8 +241,8 @@ for b = h:-1:t
     end
 end
 A = A(t:b,l:r,:,:);
-return
+end
 
 function A = col(A)
 A = A(:);
-return
+end

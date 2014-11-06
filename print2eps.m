@@ -194,6 +194,7 @@ else
         warning('fix_lines() failed. This is usually because the figure contains a large number of patch objects. Consider exporting to a bitmap format in this case.');
     end
 end
+end
 
 function swap_fonts(fname, varargin)
 % Read in the file
@@ -227,6 +228,7 @@ catch ex
     rethrow(ex);
 end
 fclose(fh);
+end
 
 function move_bb(fname)
 % Read in the file
@@ -260,3 +262,4 @@ catch ex
     rethrow(ex);
 end
 fclose(fh);
+end

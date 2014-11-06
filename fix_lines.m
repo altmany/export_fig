@@ -151,4 +151,4 @@ catch ex
     rethrow(ex);
 end
 fclose(fh);
-return
+end

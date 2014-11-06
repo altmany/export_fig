@@ -171,7 +171,7 @@ if isequal(res, round(res))
         A = A(1:min(end,px(1)),1:min(end,px(2)),:);
     end
 end
-return
+end
 
 % Function to return (and create, where necessary) the font path
 function fp = font_path()
@@ -195,4 +195,4 @@ else
     fp = [fp '/usr/share/fonts:/usr/local/share/fonts:/usr/share/fonts/X11:/usr/local/share/fonts/X11:/usr/share/fonts/truetype:/usr/local/share/fonts/truetype'];
 end
 user_string('gs_font_path', fp);
-return
+end
