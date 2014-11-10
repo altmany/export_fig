@@ -244,6 +244,9 @@ catch ex
 end
 fclose(fh);
 
+% Convert miter joins to line joins
+fstrm = regexprep(fstrm, '10.0 ML\n', '1 LJ\n');
+
 % Find the bounding box
 [s, e] = regexp(fstrm, '%%BoundingBox: [\w\s()]*%%');
 if numel(s) == 2
