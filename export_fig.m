@@ -579,7 +579,11 @@ end
 
 % Set default anti-aliasing now we know the renderer
 if options.aa_factor == 0
-    options.aa_factor = 1 + 2 * (~(using_hg2(fig) && strcmp(get(fig, 'GraphicsSmoothing'), 'on')) | (options.renderer == 3));
+    if strcmp(get(fig,'type'),'figure')
+        options.aa_factor = 1 + 2 * (~(using_hg2(fig) && strcmp(get(fig, 'GraphicsSmoothing'), 'on')) | (options.renderer == 3));
+    else
+        options.aa_factor = 1 + 2 * (~(using_hg2(fig)) | (options.renderer == 3));
+    end
 end
 
 % Convert user dir '~' to full path
