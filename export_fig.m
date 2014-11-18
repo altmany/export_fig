@@ -220,7 +220,10 @@ if ~cls
     Ztick = make_cell(get(Hlims, 'ZTickMode'));
 end
 % Set all axes limit and tick modes to manual, so the limits and ticks can't change
-set(Hlims, 'XLimMode', 'manual', 'YLimMode', 'manual', 'ZLimMode', 'manual', 'XTickMode', 'manual', 'YTickMode', 'manual', 'ZTickMode', 'manual');
+set(Hlims, 'XLimMode', 'manual', 'YLimMode', 'manual', 'ZLimMode', 'manual');
+set_tick_mode(Hlims, 'X');
+set_tick_mode(Hlims, 'Y');
+set_tick_mode(Hlims, 'Z');
 % Set to print exactly what is there
 set(fig, 'InvertHardcopy', 'off');
 % Set the renderer
@@ -775,4 +778,15 @@ catch ex
     rethrow(ex);
 end
 fclose(fh);
+end
+
+function set_tick_mode(Hlims, ax)
+% Set the tick mode of linear axes to manual
+% Leave log axes alone as these are tricky
+M = get(Hlims, [ax 'Scale']);
+if ~iscell(M)
+    M = {M};
+end
+M = cellfun(@(c) strcmp(c, 'linear'), M);
+set(Hlims(M), [ax 'TickMode'], 'manual');
 end
