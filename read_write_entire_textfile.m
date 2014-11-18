@@ -17,7 +17,7 @@
 %           output is the same as that input. 
 
 function fstrm = read_write_entire_textfile(fname, fstrm)
-modes = {'r', 'w'};
+modes = {'rt', 'wt'};
 writing = nargin > 1;
 fh = fopen(fname, modes{1+writing});
 if fh == -1

@@ -164,105 +164,38 @@ set(white_text_handles, 'Color', [1 1 1]);
 set(white_line_handles, 'Color', [1 1 1]);
 % Reset paper size
 set(fig, 'PaperPositionMode', old_pos_mode, 'PaperOrientation', old_orientation);
-% Correct the fonts
+% Reset the font names in the figure
 if ~isempty(font_swap)
-    % Reset the font names in the figure
     for a = update
         set(font_handles(a), 'FontName', fonts{a}, 'FontSize', fonts_size(a));
     end
-    % Replace the font names in the eps file
-    font_swap = font_swap(2:3,:);
-    try
-        swap_fonts(name, font_swap{:});
-    catch
-        warning('swap_fonts() failed. This is usually because the figure contains a large number of patch objects. Consider exporting to a bitmap format in this case.');
-        return
+end
+% Do post-processing on the eps file
+try
+    fstrm = read_write_entire_textfile(name);
+catch
+    warning('Loading EPS file failed, so unable to perform post-processing. This is usually because the figure contains a large number of patch objects. Consider exporting to a bitmap format in this case.');
+    return
+end
+% Replace the font names
+if ~isempty(font_swap)
+    for a = 1:size(font_swap, 2)
+        %fstrm = regexprep(fstrm, [font_swap{1,a} '-?[a-zA-Z]*\>'], font_swap{3,a}(~isspace(font_swap{3,a})));
+        fstrm = regexprep(fstrm, font_swap{2,a}, font_swap{3,a}(~isspace(font_swap{3,a})));
     end
 end
 if using_hg2(fig)
+    % Convert miter joins to line joins
+    fstrm = regexprep(fstrm, '10.0 ML\n', '1 LJ\n');
     % Move the bounding box to the top of the file
-    try
-        move_bb(name);
-    catch
-        warning('move_bb() failed. This is usually because the figure contains a large number of patch objects. Consider exporting to a bitmap format in this case.');
+    [s, e] = regexp(fstrm, '%%BoundingBox: [\w\s()]*%%');
+    if numel(s) == 2
+        fstrm = fstrm([1:s(1)-1 s(2):e(2)-2 e(1)-1:s(2)-1 e(2)-1:end]);
     end
 else
     % Fix the line styles
-    try
-        fix_lines(name);
-    catch
-        warning('fix_lines() failed. This is usually because the figure contains a large number of patch objects. Consider exporting to a bitmap format in this case.');
-    end
+    fstrm = fix_lines(fstrm);
 end
-end
-
-function swap_fonts(fname, varargin)
-% Read in the file
-fh = fopen(fname, 'r');
-if fh == -1
-    error('File %s not found.', fname);
-end
-try
-    fstrm = fread(fh, '*char')';
-catch ex
-    fclose(fh);
-    rethrow(ex);
-end
-fclose(fh);
-
-% Replace the font names
-for a = 1:2:numel(varargin)
-    %fstrm = regexprep(fstrm, [varargin{a} '-?[a-zA-Z]*\>'], varargin{a+1}(~isspace(varargin{a+1})));
-    fstrm = regexprep(fstrm, varargin{a}, varargin{a+1}(~isspace(varargin{a+1})));
-end
-
-% Write out the updated file
-fh = fopen(fname, 'w');
-if fh == -1
-    error('Unable to open %s for writing.', fname2);
-end
-try
-    fwrite(fh, fstrm, 'char*1');
-catch ex
-    fclose(fh);
-    rethrow(ex);
-end
-fclose(fh);
-end
-
-function move_bb(fname)
-% Read in the file
-fh = fopen(fname, 'r');
-if fh == -1
-    error('File %s not found.', fname);
-end
-try
-    fstrm = fread(fh, '*char')';
-catch ex
-    fclose(fh);
-    rethrow(ex);
-end
-fclose(fh);
-
-% Convert miter joins to line joins
-fstrm = regexprep(fstrm, '10.0 ML\n', '1 LJ\n');
-
-% Find the bounding box
-[s, e] = regexp(fstrm, '%%BoundingBox: [\w\s()]*%%');
-if numel(s) == 2
-    fstrm = fstrm([1:s(1)-1 s(2):e(2)-2 e(1)-1:s(2)-1 e(2)-1:end]);
-end
-
-% Write out the updated file
-fh = fopen(fname, 'w');
-if fh == -1
-    error('Unable to open %s for writing.', fname2);
-end
-try
-    fwrite(fh, fstrm, 'char*1');
-catch ex
-    fclose(fh);
-    rethrow(ex);
-end
-fclose(fh);
+% Write out the fixed eps file
+read_write_entire_textfile(name, fstrm);
 end
