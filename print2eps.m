@@ -3,7 +3,8 @@
 % Examples:
 %   print2eps filename
 %   print2eps(filename, fig_handle)
-%   print2eps(filename, fig_handle, options)
+%   print2eps(filename, fig_handle, bb_padding)
+%   print2eps(filename, fig_handle, bb_padding, options)
 %
 % This function saves a figure as an eps file, with two improvements over
 % MATLAB's print command. First, it improves the line style, making dashed
@@ -17,7 +18,10 @@
 %              relative path) of the file the figure is to be saved as. A
 %              ".eps" extension is added if not there already. If a path is
 %              not specified, the figure is saved in the current directory.
-%   fig_handle - The handle of the figure to be saved. Default: gcf.
+%   fig_handle - The handle of the figure to be saved. Default: gcf().
+%   bb_padding - Scalar value of amount of padding to add to border around
+%                the figure, in points. Can be negative as well as
+%                positive. Default: 0.
 %   options - Additional parameter strings to be passed to print.
 
 % Copyright (C) Oliver Woodford 2008-2014
@@ -49,17 +53,20 @@
 %           for reporting the issue.
 % 22/03/13: Extend font swapping to axes labels. Thanks to Rasmus Ischebeck
 %           for reporting the issue.
-% 23/07/13: Bug fix to font swapping. Thank to George for reporting the
+% 23/07/13: Bug fix to font swapping. Thanks to George for reporting the
 %           issue.
 % 13/08/13: Fix MATLAB feature of not exporting white lines correctly.
 %           Thanks to Sebastian Heﬂlinger for reporting it.
 
-function print2eps(name, fig, varargin)
+function print2eps(name, fig, bb_padding, varargin)
 options = {'-depsc2'};
-if nargin < 2
-    fig = gcf;
-elseif nargin > 2
+if nargin > 3
     options = [options varargin];
+elseif nargin < 3
+    bb_padding = 0;
+    if nargin < 2
+        fig = gcf();
+    end
 end
 % Construct the filename
 if numel(name) < 5 || ~strcmpi(name(end-3:end), '.eps')
@@ -195,6 +202,11 @@ if using_hg2(fig)
 else
     % Fix the line styles
     fstrm = fix_lines(fstrm);
+end
+% Apply the bounding box padding
+if bb_padding
+    add_padding = @(n1, n2, n3, n4) sprintf(' %d', str2double({n1, n2, n3, n4}) + [-bb_padding -bb_padding bb_padding bb_padding]);
+    fstrm = regexprep(fstrm, '%%BoundingBox:[ ]+([-]?\d+)[ ]+([-]?\d+)[ ]+([-]?\d+)[ ]+([-]?\d+)', '%%BoundingBox:${add_padding($1, $2, $3, $4)}');
 end
 % Write out the fixed eps file
 read_write_entire_textfile(name, fstrm);

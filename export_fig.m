@@ -12,6 +12,7 @@
 %   export_fig ... -r<val>
 %   export_fig ... -a<val>
 %   export_fig ... -q<val>
+%   export_fig ... -p<val>
 %   export_fig ... -<renderer>
 %   export_fig ... -<colorspace>
 %   export_fig ... -append
@@ -117,6 +118,9 @@
 %             default for pdf & eps. Note: lossless compression can
 %             sometimes give a smaller file size than the default lossy
 %             compression, depending on the type of images.
+%   -p<val> - option to add a border of width val to eps and pdf files,
+%             where val is in units of the intermediate eps file. Default:
+%             0 (i.e. no padding).
 %   -append - option indicating that if the file (pdfs only) already
 %             exists, the figure is to be appended as a new page, instead
 %             of being overwritten (default).
@@ -421,7 +425,7 @@ if isvector(options)
     end
     try
         % Generate an eps
-        print2eps(tmp_nam, fig, p2eArgs{:});
+        print2eps(tmp_nam, fig, options.bb_padding, p2eArgs{:});
         % Remove the background, if desired
         if options.transparent && ~isequal(get(fig, 'Color'), 'none')
             eps_remove_background(tmp_nam, 1 + using_hg2(fig));
@@ -492,6 +496,7 @@ options = struct('name', 'export_fig_out', ...
                  'im', nout == 1, ...
                  'alpha', nout == 2, ...
                  'aa_factor', 0, ...
+                 'bb_padding', 0, ...
                  'magnify', [], ...
                  'resolution', [], ...
                  'bookmark', false, ...
@@ -542,7 +547,7 @@ for a = 1:nargin-1
                 case 'native'
                     native = true;
                 otherwise
-                    val = str2double(regexp(varargin{a}, '(?<=-(m|M|r|R|q|Q))(\d*\.)?\d+(e-?\d+)?', 'match'));
+                    val = str2double(regexp(varargin{a}, '(?<=-(m|M|r|R|q|Q|p|P))-?\d*.?\d+', 'match'));
                     if ~isscalar(val)
                         error('option %s not recognised', varargin{a});
                     end
@@ -553,6 +558,8 @@ for a = 1:nargin-1
                             options.resolution = val;
                         case 'q'
                             options.quality = max(val, 0);
+                        case 'p'
+                            options.bb_padding = val;
                     end
             end
         else

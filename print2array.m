@@ -70,7 +70,7 @@ tmp_nam = [tempname '.tif'];
 if nargin > 2 && strcmp(renderer, '-painters')
     % Print to eps file
     tmp_eps = [tempname '.eps'];
-    print2eps(tmp_eps, fig, renderer, '-loose');
+    print2eps(tmp_eps, fig, 0, renderer, '-loose');
     try
         % Initialize the command to export to tiff using ghostscript
         cmd_str = ['-dEPSCrop -q -dNOPAUSE -dBATCH ' res_str ' -sDEVICE=tiff24nc'];
