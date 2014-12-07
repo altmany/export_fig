@@ -142,25 +142,14 @@ if ~isempty(font_swap)
 end
 % MATLAB bug fix - black and white text can come out inverted sometimes
 % Find the white and black text
-white_text_handles = findobj(fig, 'Type', 'text');
-M = get(white_text_handles, 'Color');
-if iscell(M)
-    M = cell2mat(M);
-end
-M = sum(M, 2);
-black_text_handles = white_text_handles(M == 0);
-white_text_handles = white_text_handles(M == 3);
+black_text_handles = findobj(fig, 'Type', 'text', 'Color', [0 0 0]);
+white_text_handles = findobj(fig, 'Type', 'text', 'Color', [1 1 1]);
 % Set the font colors slightly off their correct values
 set(black_text_handles, 'Color', [0 0 0] + eps);
 set(white_text_handles, 'Color', [1 1 1] - eps);
 % MATLAB bug fix - white lines can come out funny sometimes
 % Find the white lines
-white_line_handles = findobj(fig, 'Type', 'line');
-M = get(white_line_handles, 'Color');
-if iscell(M)
-    M = cell2mat(M);
-end
-white_line_handles = white_line_handles(sum(M, 2) == 3);
+white_line_handles = findobj(fig, 'Type', 'line', 'Color', [1 1 1]);
 % Set the line color slightly off white
 set(white_line_handles, 'Color', [1 1 1] - 0.00001);
 % Print to eps file
