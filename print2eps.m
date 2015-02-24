@@ -57,6 +57,8 @@
 %           issue.
 % 13/08/13: Fix MATLAB feature of not exporting white lines correctly.
 %           Thanks to Sebastian Heﬂlinger for reporting it.
+% 24/02/15: Fix for Matlab R2014b bug (issue #31): LineWidths<0.75 are not
+%           set in the EPS (default line width is used)
 
 function print2eps(name, fig, bb_padding, varargin)
 options = {'-depsc2'};

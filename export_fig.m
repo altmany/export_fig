@@ -175,6 +175,8 @@
 %           to Jan Jaap Meijer for suggesting it.
 % 07/05/14: Add support for '~' at start of path. Thanks to Sally Warner
 %           for suggesting it.
+% 24/02/15: Fix Matlab R2014b bug (issue #34): plot markers are not
+%           displayed when ZLimMode='manual'
 
 function [im, alpha] = export_fig(varargin)
 % Make sure the figure is rendered correctly _now_ so that properties like
