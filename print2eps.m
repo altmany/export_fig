@@ -31,9 +31,9 @@
 % The idea of changing dash length with line width came from comments on
 % fex id: 5743, but the implementation is mine :)
 
-% 14/11/2011: Fix a MATLAB bug rendering black or white text incorrectly.
-%             Thanks to Mathieu Morlighem for reporting the issue and
-%             obtaining a fix from TMW.
+% 14/11/11: Fix a MATLAB bug rendering black or white text incorrectly.
+%           Thanks to Mathieu Morlighem for reporting the issue and
+%           obtaining a fix from TMW.
 % 08/12/11: Added ability to correct fonts. Several people have requested
 %           this at one time or another, and also pointed me to printeps
 %           (fex id: 7501), so thank you to them. My implementation (which
@@ -59,6 +59,7 @@
 %           Thanks to Sebastian Heﬂlinger for reporting it.
 % 24/02/15: Fix for Matlab R2014b bug (issue #31): LineWidths<0.75 are not
 %           set in the EPS (default line width is used)
+% 25/02/15: Fixed issue #32: BoundingBox problem caused uncropped EPS/PDF files
 
 function print2eps(name, fig, bb_padding, varargin)
 options = {'-depsc2'};
@@ -238,7 +239,7 @@ if using_hg2(fig)
     % Convert miter joins to line joins
     fstrm = regexprep(fstrm, '10.0 ML\n', '1 LJ\n');
     % Move the bounding box to the top of the file
-    [s, e] = regexp(fstrm, '%%BoundingBox: [\w\s()]*%%');
+    [s, e] = regexp(fstrm, '%%BoundingBox: [^%]*%%');
     if numel(s) == 2
         fstrm = fstrm([1:s(1)-1 s(2):e(2)-2 e(1)-1:s(2)-1 e(2)-1:end]);
     end
