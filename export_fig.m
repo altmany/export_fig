@@ -224,10 +224,14 @@ if ~cls
     Ztick = make_cell(get(Hlims, 'ZTickMode'));
 end
 % Set all axes limit and tick modes to manual, so the limits and ticks can't change
-set(Hlims, 'XLimMode', 'manual', 'YLimMode', 'manual', 'ZLimMode', 'manual');
+% Fix Matlab R2014b bug (issue #34): plot markers are not displayed when ZLimMode='manual'
+set(Hlims, 'XLimMode', 'manual', 'YLimMode', 'manual');
 set_tick_mode(Hlims, 'X');
 set_tick_mode(Hlims, 'Y');
-set_tick_mode(Hlims, 'Z');
+if ~using_hg2(fig)
+    set(Hlims,'ZLimMode', 'manual');
+    set_tick_mode(Hlims, 'Z');
+end
 % Set to print exactly what is there
 set(fig, 'InvertHardcopy', 'off');
 % Set the renderer
