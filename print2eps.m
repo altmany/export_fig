@@ -154,6 +154,60 @@ white_line_handles = findobj(fig, 'Type', 'line', 'Color', [1 1 1]);
 set(white_line_handles, 'Color', [1 1 1] - 0.00001);
 % Print to eps file
 print(fig, options{:}, name);
+% Do post-processing on the eps file
+try
+    % Read the EPS file into memory
+    fstrm = read_write_entire_textfile(name);
+    
+    % Fix for Matlab R2014b bug (issue #31): LineWidths<0.75 are not set in the EPS (default line width is used)
+    if using_hg2(fig)
+        % Modify all thin lines in the figure to have 10x LineWidths
+        hLines = findall(fig,'Type','line');
+        hThinLines = [];
+        for lineIdx = 1 : numel(hLines)
+            thisLine = hLines(lineIdx);
+            if thisLine.LineWidth < 0.75 && strcmpi(thisLine.Visible,'on')
+                hThinLines(end+1) = thisLine; %#ok<AGROW>
+                thisLine.LineWidth = thisLine.LineWidth * 10;
+            end
+        end
+        % If any thin lines were found
+        if ~isempty(hThinLines)
+            % Prepare an EPS with large-enough line widths
+            print(fig, options{:}, name);
+            % Restore the original LineWidths in the figure
+            for lineIdx = 1 : numel(hThinLines)
+                thisLine = handle(hThinLines(lineIdx));
+                thisLine.LineWidth = thisLine.LineWidth / 10;
+            end
+            % Compare the original and the new EPS files and correct the original stream's LineWidths
+            fstrm_new = read_write_entire_textfile(name);
+            idx = 500;  % skip heading with its possibly-different timestamp
+            markerStr = sprintf('10.0 ML\nN');
+            markerLen = length(markerStr);
+            while ~isempty(idx) && idx < length(fstrm)
+                delta = fstrm(idx+1:end) - fstrm_new(idx+1:length(fstrm));
+                idx = idx + find(delta,1);
+                if ~isempty(idx) && ...
+                   isequal(fstrm(idx-markerLen+1:idx), markerStr) && ...
+                   ~isempty(regexp(fstrm_new(idx-markerLen+1:idx+12),'10.0 ML\n[\d\.]+ LW\nN')) %#ok<RGXP1>
+                    value = str2double(regexprep(fstrm_new(idx:idx+12),' .*',''));
+                    if isnan(value), break; end  % something's wrong... - bail out
+                    newStr = sprintf('%0.3f LW\n',value/10);
+                    fstrm = [fstrm(1:idx-1) newStr fstrm(idx:end)];
+                    idx = idx + 12;
+                else
+                    break;
+                end
+            end
+            % In HG2, grid lines and axes Ruler Axles have a default LineWidth of 0.5 => replace en-bulk (assume that 1.0 LineWidth = 1.333 LW)
+            %  hAxes=gca; hAxes.YGridHandle.LineWidth, hAxes.YRuler.Axle.LineWidth
+            fstrm = regexprep(fstrm, '10.0 ML\nN', '10.0 ML\n0.667 LW\nN');
+        end
+    end
+catch
+    fstrm = '';
+end
 % Reset the font and line colors
 set(black_text_handles, 'Color', [0 0 0]);
 set(white_text_handles, 'Color', [1 1 1]);
@@ -166,10 +220,8 @@ if ~isempty(font_swap)
         set(font_handles(a), 'FontName', fonts{a}, 'FontSize', fonts_size(a));
     end
 end
-% Do post-processing on the eps file
-try
-    fstrm = read_write_entire_textfile(name);
-catch
+% Bail out if EPS post-processing is not possible
+if isempty(fstrm)
     warning('Loading EPS file failed, so unable to perform post-processing. This is usually because the figure contains a large number of patch objects. Consider exporting to a bitmap format in this case.');
     return
 end
