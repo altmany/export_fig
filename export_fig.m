@@ -238,7 +238,7 @@ try
         set_tick_mode(Hlims, 'Z');
     end
 catch
-    % ignore - fixes issue #4 (using HG2 on R2014a and earlier)
+    % ignore - fix issue #4 (using HG2 on R2014a and earlier)
 end
 
 % Set to print exactly what is there
@@ -488,7 +488,7 @@ else
         try
             set(Hlims(a), 'XLimMode', Xlims{a}, 'YLimMode', Ylims{a}, 'ZLimMode', Zlims{a}, 'XTickMode', Xtick{a}, 'YTickMode', Ytick{a}, 'ZTickMode', Ztick{a});
         catch
-            % ignore - fixes issue #4 (using HG2 on R2014a and earlier)
+            % ignore - fix issue #4 (using HG2 on R2014a and earlier)
         end
     end
 end
