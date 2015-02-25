@@ -505,7 +505,7 @@ else
         end
     end
     % Revert the tex-labels font weights
-    try set(texLabels, 'FontWeight','normal'); catch, end
+    try set(texLabels, 'FontWeight','bold'); catch, end
 end
 end
 
