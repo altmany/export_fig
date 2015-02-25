@@ -177,6 +177,8 @@
 %           for suggesting it.
 % 24/02/15: Fix Matlab R2014b bug (issue #34): plot markers are not
 %           displayed when ZLimMode='manual'
+% 25/02/15: Fix issue #4 (using HG2 on R2014a and earlier)
+% 25/02/15: Fix issue #21 (bold TeX axes labels/titles in R2014b)
 
 function [im, alpha] = export_fig(varargin)
 % Make sure the figure is rendered correctly _now_ so that properties like
@@ -239,6 +241,17 @@ try
     end
 catch
     % ignore - fix issue #4 (using HG2 on R2014a and earlier)
+end
+
+% Fix issue #21 (bold TeX axes labels/titles in R2014b)
+try
+    if using_hg2(fig)
+        % Set the FontWeight of axes labels/titles to 'normal'
+        texLabels = findall(fig, 'type','text', 'FontWeight','bold');
+        set(texLabels, 'FontWeight','normal');
+    end
+catch
+    % ignore
 end
 
 % Set to print exactly what is there
@@ -491,6 +504,8 @@ else
             % ignore - fix issue #4 (using HG2 on R2014a and earlier)
         end
     end
+    % Revert the tex-labels font weights
+    try set(texLabels, 'FontWeight','normal'); catch, end
 end
 end
 
