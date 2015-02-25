@@ -227,12 +227,16 @@ if ~cls
 end
 % Set all axes limit and tick modes to manual, so the limits and ticks can't change
 % Fix Matlab R2014b bug (issue #34): plot markers are not displayed when ZLimMode='manual'
-set(Hlims, 'XLimMode', 'manual', 'YLimMode', 'manual');
-set_tick_mode(Hlims, 'X');
-set_tick_mode(Hlims, 'Y');
-if ~using_hg2(fig)
-    set(Hlims,'ZLimMode', 'manual');
-    set_tick_mode(Hlims, 'Z');
+try
+    set(Hlims, 'XLimMode', 'manual', 'YLimMode', 'manual');
+    set_tick_mode(Hlims, 'X');
+    set_tick_mode(Hlims, 'Y');
+    if ~using_hg2(fig)
+        set(Hlims,'ZLimMode', 'manual');
+        set_tick_mode(Hlims, 'Z');
+    end
+catch
+    % ignore - fixes issue #4 (using HG2 on R2014a and earlier)
 end
 % Set to print exactly what is there
 set(fig, 'InvertHardcopy', 'off');
@@ -478,7 +482,11 @@ else
     set(fig, 'InvertHardcopy', old_mode);
     % Reset the axes limit and tick modes
     for a = 1:numel(Hlims)
-        set(Hlims(a), 'XLimMode', Xlims{a}, 'YLimMode', Ylims{a}, 'ZLimMode', Zlims{a}, 'XTickMode', Xtick{a}, 'YTickMode', Ytick{a}, 'ZTickMode', Ztick{a});
+        try
+            set(Hlims(a), 'XLimMode', Xlims{a}, 'YLimMode', Ylims{a}, 'ZLimMode', Zlims{a}, 'XTickMode', Xtick{a}, 'YTickMode', Ytick{a}, 'ZTickMode', Ztick{a});
+        catch
+            % ignore - fixes issue #4 (using HG2 on R2014a and earlier)
+        end
     end
 end
 end
