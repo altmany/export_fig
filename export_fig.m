@@ -179,6 +179,8 @@
 %           displayed when ZLimMode='manual'
 % 25/02/15: Fix issue #4 (using HG2 on R2014a and earlier)
 % 25/02/15: Fix issue #21 (bold TeX axes labels/titles in R2014b)
+% 26/02/15: If temp dir is not writable, use the user-specified folder
+%           for temporary EPS/PDF files (Javier Paredes)
 
 function [im, alpha] = export_fig(varargin)
 % Make sure the figure is rendered correctly _now_ so that properties like
@@ -436,10 +438,25 @@ if isvector(options)
     end
     % Generate some filenames
     tmp_nam = [tempname '.eps'];
+    try
+        % Ensure that the temp dir is writable (Javier Paredes 30/1/15)
+        fid = fopen(tmp_nam,'w');
+        fwrite(fid,1);
+        fclose(fid);
+        isTempDirOk = true;
+    catch
+        % Temp dir is not writable, so use the user-specified folder
+        [dummy,fname,fext] = fileparts(tmp_nam); %#ok<ASGLU>
+        fpath = fileparts(options.name);
+        tmp_nam = fullfile(fpath,[fname fext]);
+        isTempDirOk = false;
+    end
     if options.pdf
         pdf_nam = [options.name '.pdf'];
-    else
+    elseif isTempDirOk
         pdf_nam = [tempname '.pdf'];
+    else
+        pdf_nam = fullfile(fpath,[fname '.pdf']);
     end
     % Generate the options for print
     p2eArgs = {renderer, sprintf('-r%d', options.resolution)};
