@@ -14,6 +14,9 @@
 
 % Copyright (C) Oliver Woodford 2012
 
+% 26/02/15: If temp dir is not writable, use the dest folder for temp
+%           destination files (Javier Paredes)
+
 function fh = copyfig(fh)
 % Set the default
 if nargin == 0
@@ -26,6 +29,18 @@ if isempty(findall(fh, 'Type', 'axes', 'Tag', 'legend'))
 else
     % copyobj will change the figure, so save and then load it instead
     tmp_nam = [tempname '.fig'];
+    try
+        % Ensure that the temp dir is writable (Javier Paredes 26/2/15)
+        fid = fopen(tmp_nam,'w');
+        fwrite(fid,1);
+        fclose(fid);
+        delete(tmp_nam);  % cleanup
+    catch
+        % Temp dir is not writable, so use the current folder
+        [dummy,fname,fext] = fileparts(tmp_nam); %#ok<ASGLU>
+        fpath = pwd;
+        tmp_nam = fullfile(fpath,[fname fext]);
+    end
     hgsave(fh, tmp_nam);
     fh = hgload(tmp_nam);
     delete(tmp_nam);
