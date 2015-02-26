@@ -74,6 +74,7 @@ try
     fid = fopen(tmp_nam,'w');
     fwrite(fid,1);
     fclose(fid);
+    delete(tmp_nam);  % cleanup
     isTempDirOk = true;
 catch
     % Temp dir is not writable, so use the current folder

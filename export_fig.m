@@ -443,6 +443,7 @@ if isvector(options)
         fid = fopen(tmp_nam,'w');
         fwrite(fid,1);
         fclose(fid);
+        delete(tmp_nam);
         isTempDirOk = true;
     catch
         % Temp dir is not writable, so use the user-specified folder
