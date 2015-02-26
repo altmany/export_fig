@@ -43,6 +43,8 @@
 % which was fixed for lossless compression settings.
 
 % 9/12/2011 Pass font path to ghostscript.
+% 26/02/15: If temp dir is not writable, use the dest folder for temp
+%           destination files (Javier Paredes)
 
 function eps2pdf(source, dest, crop, append, gray, quality)
 % Intialise the options string for ghostscript
@@ -77,6 +79,18 @@ end
 if nargin > 3 && append && exist(dest, 'file') == 2
     % File exists - append current figure to the end
     tmp_nam = tempname;
+    try
+        % Ensure that the temp dir is writable (Javier Paredes 26/2/15)
+        fid = fopen(tmp_nam,'w');
+        fwrite(fid,1);
+        fclose(fid);
+        delete(tmp_nam);
+    catch
+        % Temp dir is not writable, so use the dest folder
+        [dummy,fname,fext] = fileparts(tmp_nam); %#ok<ASGLU>
+        fpath = fileparts(dest);
+        tmp_nam = fullfile(fpath,[fname fext]);
+    end
     % Copy the file
     copyfile(dest, tmp_nam);
     % Add the output file names
