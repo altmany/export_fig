@@ -42,6 +42,8 @@
 %           it.
 % 26/10/12: Set PaperOrientation to portrait. Thanks to Michael Watts for
 %           reporting the issue.
+% 26/02/15: If temp dir is not writable, use the current folder for temp
+%           EPS/TIF files (Javier Paredes)
 
 function [A, bcol] = print2array(fig, res, renderer)
 % Generate default input arguments, if needed
@@ -67,9 +69,26 @@ bcol = get(fig, 'Color');
 res_str = ['-r' num2str(ceil(get(0, 'ScreenPixelsPerInch')*res))];
 % Generate temporary file name
 tmp_nam = [tempname '.tif'];
+try
+    % Ensure that the temp dir is writable (Javier Paredes 26/2/15)
+    fid = fopen(tmp_nam,'w');
+    fwrite(fid,1);
+    fclose(fid);
+    isTempDirOk = true;
+catch
+    % Temp dir is not writable, so use the current folder
+    [dummy,fname,fext] = fileparts(tmp_nam); %#ok<ASGLU>
+    fpath = pwd;
+    tmp_nam = fullfile(fpath,[fname fext]);
+    isTempDirOk = false;
+end
 if nargin > 2 && strcmp(renderer, '-painters')
     % Print to eps file
-    tmp_eps = [tempname '.eps'];
+    if isTempDirOk
+        tmp_eps = [tempname '.eps'];
+    else
+        tmp_eps = fullfile(fpath,[fname '.eps']);
+    end
     print2eps(tmp_eps, fig, 0, renderer, '-loose');
     try
         % Initialize the command to export to tiff using ghostscript
