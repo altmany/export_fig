@@ -11,9 +11,10 @@
 
 function tf = using_hg2(fig)
 try
-    if nargin < 1,  fig = gcf;  end
+    if nargin < 1,  fig = figure('visible','off');  end
     tf = ~graphicsversion(fig, 'handlegraphics');
 catch
     tf = false;
 end
+if nargin < 1,  delete(fig);  end
 end
