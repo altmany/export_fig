@@ -44,6 +44,7 @@
 %           reporting the issue.
 % 26/02/15: If temp dir is not writable, use the current folder for temp
 %           EPS/TIF files (Javier Paredes)
+% 27/02/15: Display suggested workarounds to internal print() error (issue #16)
 
 function [A, bcol] = print2array(fig, res, renderer)
 % Generate default input arguments, if needed
@@ -169,6 +170,8 @@ else
     set(fig, 'PaperPositionMode', old_pos_mode, 'PaperOrientation', old_orientation);
     % Throw any error that occurred
     if err
+        % Display suggested workarounds to internal print() error (issue #16)
+        fprintf(2, 'An error occured with Matlab''s builtin print function.\nTry setting the figure Renderer to ''painters'' or use opengl(''software'').\n\n');
         rethrow(ex);
     end
     % Set the background color
