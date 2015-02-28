@@ -49,6 +49,8 @@
 % 26/02/15: If temp dir is not writable, use the dest folder for temp
 %           destination files (Javier Paredes)
 % 28/02/15: Enable users to specify optional ghostscript options (issue #36)
+% 01/03/15: Upon GS error, retry without the -sFONTPATH= option (this might solve
+%           some /findfont errors according to James Rankin, FEX Comment 23/01/15)
 
 function eps2pdf(source, dest, crop, append, gray, quality, gs_options)
 % Intialise the options string for ghostscript
@@ -129,6 +131,13 @@ else
 end
 % Check for error
 if status
+    % Retry without the -sFONTPATH= option (this might solve some GS
+    % /findfont errors according to James Rankin, FEX Comment 23/01/15)
+    if ~isempty(fp)
+        options = regexprep(options, ' -sFONTPATH=[^ ]+ ',' ');
+        status = ghostscript(options);
+        if ~status, return; end  % hurray! (no error)
+    end
     % Report error
     if isempty(message)
         error('Unable to generate pdf. Check destination directory is writable.');
