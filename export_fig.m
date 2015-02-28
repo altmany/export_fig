@@ -126,6 +126,8 @@
 %             of being overwritten (default).
 %   -bookmark - option to indicate that a bookmark with the name of the
 %               figure is to be created in the output file (pdf only).
+%   -d<gs_option> - option to indicate a ghostscript setting. For example,
+%                   -dMaxBitmap=0 or -dNoOutputFonts (issue #36, GS 9.15+).
 %   handle - The handle of the figure, axes or uipanels (can be an array of
 %            handles, but the objects must be in the same figure) to be
 %            saved. Default: gcf.
@@ -184,6 +186,7 @@
 % 27/02/15: Modified repository URL from github.com/ojwoodford to /altmany
 %           Indented main function
 %           Added top-level try-catch block to display useful workarounds
+% 28/02/15: Enable users to specify optional ghostscript options (issue #36)
 
 function [im, alpha] = export_fig(varargin)
     try
@@ -488,7 +491,7 @@ function [im, alpha] = export_fig(varargin)
                     add_bookmark(tmp_nam, fig_nam);
                 end
                 % Generate a pdf
-                eps2pdf(tmp_nam, pdf_nam, 1, options.append, options.colourspace==2, options.quality);
+                eps2pdf(tmp_nam, pdf_nam, 1, options.append, options.colourspace==2, options.quality, options.gs_options);
             catch ex
                 % Delete the eps
                 delete(tmp_nam);
@@ -573,7 +576,8 @@ options = struct('name', 'export_fig_out', ...
                  'magnify', [], ...
                  'resolution', [], ...
                  'bookmark', false, ...
-                 'quality', []);
+                 'quality', [], ...
+                 'gs_options', {{}});
 native = false; % Set resolution to native of an image
 
 % Go through the other arguments
@@ -620,19 +624,24 @@ for a = 1:nargin-1
                 case 'native'
                     native = true;
                 otherwise
-                    val = str2double(regexp(varargin{a}, '(?<=-(m|M|r|R|q|Q|p|P))-?\d*.?\d+', 'match'));
-                    if ~isscalar(val)
-                        error('option %s not recognised', varargin{a});
-                    end
-                    switch lower(varargin{a}(2))
-                        case 'm'
-                            options.magnify = val;
-                        case 'r'
-                            options.resolution = val;
-                        case 'q'
-                            options.quality = max(val, 0);
-                        case 'p'
-                            options.bb_padding = val;
+                    if strcmpi(varargin{a}(1:2),'-d')
+                        varargin{a}(2) = 'd';  % ensure lowercase 'd'
+                        options.gs_options{end+1} = varargin{a};
+                    else
+                        val = str2double(regexp(varargin{a}, '(?<=-(m|M|r|R|q|Q|p|P))-?\d*.?\d+', 'match'));
+                        if ~isscalar(val)
+                            error('option %s not recognised', varargin{a});
+                        end
+                        switch lower(varargin{a}(2))
+                            case 'm'
+                                options.magnify = val;
+                            case 'r'
+                                options.resolution = val;
+                            case 'q'
+                                options.quality = max(val, 0);
+                            case 'p'
+                                options.bb_padding = val;
+                        end
                     end
             end
         else

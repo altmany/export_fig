@@ -5,6 +5,7 @@
 %   A = print2array(figure_handle)
 %   A = print2array(figure_handle, resolution)
 %   A = print2array(figure_handle, resolution, renderer)
+%   A = print2array(figure_handle, resolution, renderer, gs_options)
 %   [A bcol] = print2array(...)
 %
 % This function outputs a bitmap image of the given figure, at the desired
@@ -19,6 +20,8 @@
 %                resolution. Default: 1.
 %   renderer - string containing the renderer paramater to be passed to
 %              print. Default: '-opengl'.
+%   gs_options - optional ghostscript options (e.g.: '-dNoOutputFonts'). If
+%                multiple options are needed, enclose in call array: {'-a','-b'}
 %
 % OUT:
 %   A - MxNx3 uint8 image of the figure.
@@ -45,8 +48,9 @@
 % 26/02/15: If temp dir is not writable, use the current folder for temp
 %           EPS/TIF files (Javier Paredes)
 % 27/02/15: Display suggested workarounds to internal print() error (issue #16)
+% 28/02/15: Enable users to specify optional ghostscript options (issue #36)
 
-function [A, bcol] = print2array(fig, res, renderer)
+function [A, bcol] = print2array(fig, res, renderer, gs_options)
 % Generate default input arguments, if needed
 if nargin < 2
     res = 1;
@@ -84,6 +88,18 @@ catch
     tmp_nam = fullfile(fpath,[fname fext]);
     isTempDirOk = false;
 end
+% Enable users to specify optional ghostscript options (issue #36)
+if nargin > 3 && ~isempty(gs_options)
+    if iscell(gs_options)
+        gs_options = sprintf(' %s',gs_options{:});
+    elseif ~ischar(gs_options)
+        error('gs_options input argument must be a string or cell-array of strings');
+    else
+        gs_options = [' ' gs_options];
+    end
+else
+    gs_options = '';
+end
 if nargin > 2 && strcmp(renderer, '-painters')
     % Print to eps file
     if isTempDirOk
@@ -101,7 +117,7 @@ if nargin > 2 && strcmp(renderer, '-painters')
             cmd_str = [cmd_str ' -sFONTPATH="' fp '"'];
         end
         % Add the filenames
-        cmd_str = [cmd_str ' -sOutputFile="' tmp_nam '" "' tmp_eps '"'];
+        cmd_str = [cmd_str ' -sOutputFile="' tmp_nam '" "' tmp_eps '"' gs_options];
         % Execute the ghostscript command
         ghostscript(cmd_str);
     catch me

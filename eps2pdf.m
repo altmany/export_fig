@@ -6,6 +6,7 @@
 %   eps2pdf(source, dest, crop, append)
 %   eps2pdf(source, dest, crop, append, gray)
 %   eps2pdf(source, dest, crop, append, gray, quality)
+%   eps2pdf(source, dest, crop, append, gray, quality, gs_options)
 %
 % This function converts an eps file to pdf format. The output can be
 % optionally cropped and also converted to grayscale. If the output pdf
@@ -31,6 +32,8 @@
 %   quality - scalar indicating the level of image bitmap quality to
 %             output. A larger value gives a higher quality. quality > 100
 %             gives lossless output. Default: ghostscript prepress default.
+%   gs_options - optional ghostscript options (e.g.: '-dNoOutputFonts'). If
+%                multiple options are needed, enclose in call array: {'-a','-b'}
 
 % Copyright (C) Oliver Woodford 2009-2011
 
@@ -45,8 +48,9 @@
 % 9/12/2011 Pass font path to ghostscript.
 % 26/02/15: If temp dir is not writable, use the dest folder for temp
 %           destination files (Javier Paredes)
+% 28/02/15: Enable users to specify optional ghostscript options (issue #36)
 
-function eps2pdf(source, dest, crop, append, gray, quality)
+function eps2pdf(source, dest, crop, append, gray, quality, gs_options)
 % Intialise the options string for ghostscript
 options = ['-q -dNOPAUSE -dBATCH -sDEVICE=pdfwrite -dPDFSETTINGS=/prepress -sOutputFile="' dest '"'];
 % Set crop option
@@ -74,6 +78,17 @@ if nargin > 5 && ~isempty(quality)
         s = sprintf('<< /QFactor %.2f /Blend 1 /HSample [%d 1 1 %d] /VSample [%d 1 1 %d] >>', quality, v, v, v, v);
         options = sprintf('%s -c ".setpdfwrite << /ColorImageDict %s /GrayImageDict %s >> setdistillerparams"', options, s, s);
     end
+end
+% Enable users to specify optional ghostscript options (issue #36)
+if nargin > 6 && ~isempty(gs_options)
+    if iscell(gs_options)
+        gs_options = sprintf(' %s',gs_options{:});
+    elseif ~ischar(gs_options)
+        error('gs_options input argument must be a string or cell-array of strings');
+    else
+        gs_options = [' ' gs_options];
+    end
+    options = [options gs_options];
 end
 % Check if the output file exists
 if nargin > 3 && append && exist(dest, 'file') == 2
@@ -118,6 +133,10 @@ if status
     if isempty(message)
         error('Unable to generate pdf. Check destination directory is writable.');
     else
+        fprintf(2, 'Ghostscript error: perhaps %s is open by some other application\n', dest);
+        if ~isempty(gs_options)
+            fprintf(2, '  or maybe the%s option(s) are not accepted by your GS version\n\n', gs_options);
+        end
         error(message);
     end
 end
