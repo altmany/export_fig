@@ -127,7 +127,7 @@
 %   -bookmark - option to indicate that a bookmark with the name of the
 %               figure is to be created in the output file (pdf only).
 %   -d<gs_option> - option to indicate a ghostscript setting. For example,
-%                   -dMaxBitmap=0 or -dNoOutputFonts (issue #36, GS 9.15+).
+%                   -dMaxBitmap=0 or -dNoOutputFonts (Ghostscript 9.15+).
 %   handle - The handle of the figure, axes or uipanels (can be an array of
 %            handles, but the objects must be in the same figure) to be
 %            saved. Default: gcf.
