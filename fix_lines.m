@@ -37,8 +37,15 @@
 % Thank you to Laurence K for suggesting the check to see if the file was
 % opened.
 
+% 01/03/15: Issue #20: warn users if using this function in HG2 (R2014b+)
+
 function fstrm = fix_lines(fstrm, fname2)
 
+% Issue #20: warn users if using this function in HG2 (R2014b+)
+if using_hg2
+    warning('export_fig:hg2','The fix_lines function should not be used in this Matlab version.');
+end
+    
 if nargout == 0 || nargin > 1
     if nargin < 2
         % Overwrite the input file
