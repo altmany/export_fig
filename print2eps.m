@@ -60,6 +60,7 @@
 % 24/02/15: Fix for Matlab R2014b bug (issue #31): LineWidths<0.75 are not
 %           set in the EPS (default line width is used)
 % 25/02/15: Fixed issue #32: BoundingBox problem caused uncropped EPS/PDF files
+% 05/03/15: Fixed issue #43: Inability to perform EPS file post-processing
 
 function print2eps(name, fig, bb_padding, varargin)
 options = {'-depsc2'};
@@ -161,9 +162,12 @@ print(fig, options{:}, name);
 try
     % Read the EPS file into memory
     fstrm = read_write_entire_textfile(name);
-    
-    % Fix for Matlab R2014b bug (issue #31): LineWidths<0.75 are not set in the EPS (default line width is used)
-    if using_hg2(fig)
+catch
+    fstrm = '';
+end
+% Fix for Matlab R2014b bug (issue #31): LineWidths<0.75 are not set in the EPS (default line width is used)
+try
+    if ~isempty(fstrm) && using_hg2(fig)
         % Modify all thin lines in the figure to have 10x LineWidths
         hLines = findall(fig,'Type','line');
         hThinLines = [];
@@ -189,7 +193,8 @@ try
             markerStr = sprintf('10.0 ML\nN');
             markerLen = length(markerStr);
             while ~isempty(idx) && idx < length(fstrm)
-                delta = fstrm(idx+1:end) - fstrm_new(idx+1:length(fstrm));
+                lastIdx = min(length(fstrm), length(fstrm_new));
+                delta = fstrm(idx+1:lastIdx) - fstrm_new(idx+1:lastIdx);
                 idx = idx + find(delta,1);
                 if ~isempty(idx) && ...
                    isequal(fstrm(idx-markerLen+1:idx), markerStr) && ...
@@ -208,8 +213,8 @@ try
             fstrm = regexprep(fstrm, '10.0 ML\nN', '10.0 ML\n0.667 LW\nN');
         end
     end
-catch
-    fstrm = '';
+catch err
+    fprintf(2, 'Error fixing LineWidths in EPS file: %s\n at %s:%d\n', err.message, err.stack(1).file, err.stack(1).line);
 end
 % Reset the font and line colors
 set(black_text_handles, 'Color', [0 0 0]);
