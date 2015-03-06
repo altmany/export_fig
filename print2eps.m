@@ -20,8 +20,9 @@
 %              not specified, the figure is saved in the current directory.
 %   fig_handle - The handle of the figure to be saved. Default: gcf().
 %   bb_padding - Scalar value of amount of padding to add to border around
-%                the figure, in points. Can be negative as well as
-%                positive. Default: 0.
+%                the cropped image, in points (if >1) or percent (if <1).
+%                Can be negative as well as positive; Default: 0.
+%                May be a 2-element vector of padding and crop amount. 
 %   options - Additional parameter strings to be passed to print.
 
 % Copyright (C) Oliver Woodford 2008-2014
@@ -61,6 +62,7 @@
 %           set in the EPS (default line width is used)
 % 25/02/15: Fixed issue #32: BoundingBox problem caused uncropped EPS/PDF files
 % 05/03/15: Fixed issue #43: Inability to perform EPS file post-processing
+% 06/03/15: Improved image cropping thanks to Oscar Hartogensis
 
 function print2eps(name, fig, bb_padding, varargin)
 options = {'-depsc2'};
@@ -71,6 +73,13 @@ elseif nargin < 3
     if nargin < 2
         fig = gcf();
     end
+end
+% Retrieve crop value (2nd element of bb_padding vector, or default=0)
+try
+    bb_crop = bb_padding(2);
+    bb_padding = bb_padding(1);  % reached this point, so it's a vector
+catch
+    bb_crop = 0;  % scalar value, so use default bb_crop value of 0
 end
 % Construct the filename
 if numel(name) < 5 || ~strcmpi(name(end-3:end), '.eps')
@@ -252,9 +261,41 @@ else
     % Fix the line styles
     fstrm = fix_lines(fstrm);
 end
-% Apply the bounding box padding
-if bb_padding
-    add_padding = @(n1, n2, n3, n4) sprintf(' %d', str2double({n1, n2, n3, n4}) + [-bb_padding -bb_padding bb_padding bb_padding]);
+% Apply the bounding box padding & cropping, replacing Matlab's print()'s bounding box
+if bb_crop
+    % Calculate a new bounding box based on a bitmap print using crop_border.m
+    % 1. Determine the Matlab BoundingBox and PageBoundingBox
+    [s,e] = regexp(fstrm, '%%BoundingBox: [^%]*%%'); % location BB in eps file
+    if numel(s)==2, s=s(2); e=e(2); end
+    aa = fstrm(s+15:e-3); % dimensions bb - STEP1
+    bb_matlab = cell2mat(textscan(aa,'%f32%f32%f32%f32'));  % dimensions bb - STEP2   
+
+    [s,e] = regexp(fstrm, '%%PageBoundingBox: [^%]*%%'); % location bb in eps file
+    if numel(s)==2, s=s(2); e=e(2); end
+    aa = fstrm(s+19:e-3); % dimensions bb - STEP1
+    pagebb_matlab = cell2mat(textscan(aa,'%f32%f32%f32%f32'));  % dimensions bb - STEP2   
+
+    % 2. Create a bitmap image and use crop_borders to create the relative
+    %    bb with respect to the PageBoundingBox
+    [A, bcol] = print2array(fig, 1, '-opengl');
+    [aa, aa, aa, bb_rel] = crop_borders(A, bcol, bb_padding);
+
+    % 3. Calculate the new Bounding Box
+    pagew = pagebb_matlab(3)-pagebb_matlab(1);
+    pageh = pagebb_matlab(4)-pagebb_matlab(2);
+    bb_new = [pagebb_matlab(1)+pagew*bb_rel(1) pagebb_matlab(2)+pageh*bb_rel(2) ...
+              pagebb_matlab(1)+pagew*bb_rel(3) pagebb_matlab(2)+pageh*bb_rel(4)];
+    bb_offset = (bb_new-bb_matlab);
+    
+    % Apply the bounding box padding
+    if bb_padding
+        if abs(bb_padding)<1
+            bb_padding = round((mean([bb_new(3)-bb_new(1) bb_new(4)-bb_new(2)])*bb_padding)/0.5)*0.5; % ADJUST BB_PADDING
+        end
+        add_padding = @(n1, n2, n3, n4) sprintf(' %d', str2double({n1, n2, n3, n4}) + [-bb_padding -bb_padding bb_padding bb_padding] + bb_offset);
+    else
+        add_padding = @(n1, n2, n3, n4) sprintf(' %d', str2double({n1, n2, n3, n4}) + bb_offset); % fix small but noticeable bounding box shift
+    end
     fstrm = regexprep(fstrm, '%%BoundingBox:[ ]+([-]?\d+)[ ]+([-]?\d+)[ ]+([-]?\d+)[ ]+([-]?\d+)', '%%BoundingBox:${add_padding($1, $2, $3, $4)}');
 end
 % Write out the fixed eps file

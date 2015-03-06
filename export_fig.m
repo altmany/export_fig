@@ -118,9 +118,13 @@
 %             default for pdf & eps. Note: lossless compression can
 %             sometimes give a smaller file size than the default lossy
 %             compression, depending on the type of images.
-%   -p<val> - option to add a border of width val to eps and pdf files,
-%             where val is in units of the intermediate eps file. Default:
-%             0 (i.e. no padding).
+%   -p<val> - option to pad a border of width val to exported files, where
+%             val is either a relative size with respect to cropped image
+%             size (i.e. p=0.01 adds a 1% border). For EPS & PDF formats,
+%             val can also be integer in units of 1/72" points (abs(val)>1).
+%             val can be positive (padding) or negative (extra cropping).
+%             If used, the -nocrop flag will be ignored, i.e. the image will
+%             always be cropped and then padded. Default: 0 (i.e. no padding).
 %   -append - option indicating that if the file (pdfs only) already
 %             exists, the figure is to be appended as a new page, instead
 %             of being overwritten (default).
@@ -187,10 +191,12 @@
 %           Indented main function
 %           Added top-level try-catch block to display useful workarounds
 % 28/02/15: Enable users to specify optional ghostscript options (issue #36)
+% 06/03/15: Improved image cropping thanks to Oscar Hartogensis
 
 function [im, alpha] = export_fig(varargin)
     try
         hadError = false;
+        displaySuggestedWorkarounds = true;
         % Make sure the figure is rendered correctly _now_ so that properties like
         % axes limits are up-to-date.
         drawnow;
@@ -279,6 +285,10 @@ function [im, alpha] = export_fig(varargin)
         end
         % Do the bitmap formats first
         if isbitmap(options)
+            if abs(options.bb_padding) > 1
+                displaySuggestedWorkarounds = false;
+                error('For bitmap output (png,jpg,tif,bmp) the padding value (-p) must be between -1<p<1')
+            end		
             % Get the background colour
             if options.transparent && (options.png || options.alpha)
                 % Get out an alpha channel
@@ -335,8 +345,16 @@ function [im, alpha] = export_fig(varargin)
                 A = uint8(A);
                 % Crop the background
                 if options.crop
-                    [alpha, v] = crop_borders(alpha, 0, 1);
-                    A = A(v(1):v(2),v(3):v(4),:);
+                    %[alpha, v] = crop_borders(alpha, 0, 1);
+                    %A = A(v(1):v(2),v(3):v(4),:);
+                    [alpha, vA, vB] = crop_borders(alpha, 0, options.bb_padding);
+                    if ~any(isnan(vB)) % positive padding
+                        B = repmat(uint8(zeros(1,1,3)),size(alpha));
+                        B(vB(1):vB(2), vB(3):vB(4), :) = A(vA(1):vA(2), vA(3):vA(4), :); % ADDED BY OH
+                        A = B;
+                    else  % negative padding
+                        A = A(vA(1):vA(2), vA(3):vA(4), :);
+                    end						
                 end
                 if options.png
                     % Compute the resolution
@@ -382,7 +400,7 @@ function [im, alpha] = export_fig(varargin)
                 end
                 % Crop the background
                 if options.crop
-                    A = crop_borders(A, tcol, 1);
+                    A = crop_borders(A, tcol, options.bb_padding);
                 end
                 % Downscale the image
                 A = downsize(A, options.aa_factor);
@@ -477,7 +495,7 @@ function [im, alpha] = export_fig(varargin)
             end
             try
                 % Generate an eps
-                print2eps(tmp_nam, fig, options.bb_padding, p2eArgs{:});
+                print2eps(tmp_nam, fig, [options.bb_padding, options.crop], p2eArgs{:});
                 % Remove the background, if desired
                 if options.transparent && ~isequal(get(fig, 'Color'), 'none')
                     eps_remove_background(tmp_nam, 1 + using_hg2(fig));
@@ -535,20 +553,22 @@ function [im, alpha] = export_fig(varargin)
         end
     catch err
         % Display possible workarounds before the error message
-        if ~hadError,  fprintf(2, 'export_fig error. ');  end
-        fprintf(2, 'Please ensure:\n');
-        fprintf(2, '  that you are using the <a href="https://github.com/altmany/export_fig/archive/master.zip">latest version</a> of export_fig\n');
-        fprintf(2, '  and that you have <a href="http://www.ghostscript.com">Ghostscript</a> installed\n');
-        try
-            if options.eps
-                fprintf(2, '  and that you have <a href="http://www.foolabs.com/xpdf">pdftops</a> installed\n');
+        if displaySuggestedWorkarounds
+            if ~hadError,  fprintf(2, 'export_fig error. ');  end
+            fprintf(2, 'Please ensure:\n');
+            fprintf(2, '  that you are using the <a href="https://github.com/altmany/export_fig/archive/master.zip">latest version</a> of export_fig\n');
+            fprintf(2, '  and that you have <a href="http://www.ghostscript.com">Ghostscript</a> installed\n');
+            try
+                if options.eps
+                    fprintf(2, '  and that you have <a href="http://www.foolabs.com/xpdf">pdftops</a> installed\n');
+                end
+            catch
+                % ignore - probably an error in parse_args
             end
-        catch
-            % ignore - probably an error in parse_args
+            fprintf(2, '  and that you do not have <a href="matlab:which export_fig -all">multiple versions</a> of export_fig installed by mistake\n');
+            fprintf(2, '  and that you did not made a mistake in the <a href="matlab:help export_fig">expected input arguments</a>\n');
+            fprintf(2, '\nIf the problem persists, then please <a href="https://github.com/altmany/export_fig/issues">report a new issue</a>.\n\n');
         end
-        fprintf(2, '  and that you do not have <a href="matlab:which export_fig -all">multiple versions</a> of export_fig installed by mistake\n');
-        fprintf(2, '  and that you did not made a mistake in the <a href="matlab:help export_fig">expected input arguments</a>\n');
-        fprintf(2, '\nIf the problem persists, then please <a href="https://github.com/altmany/export_fig/issues">report a new issue</a>.\n\n');
         rethrow(err)
     end
 end
@@ -667,6 +687,11 @@ for a = 1:nargin-1
             end
         end
     end
+end
+
+% Do border padding with repsect to a cropped image
+if options.bb_padding
+    options.crop = true;
 end
 
 % Set default anti-aliasing now we know the renderer
