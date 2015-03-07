@@ -191,7 +191,7 @@
 %           Indented main function
 %           Added top-level try-catch block to display useful workarounds
 % 28/02/15: Enable users to specify optional ghostscript options (issue #36)
-% 06/03/15: Improved image cropping thanks to Oscar Hartogensis
+% 06/03/15: Improved image padding & cropping thanks to Oscar Hartogensis
 
 function [im, alpha] = export_fig(varargin)
     try

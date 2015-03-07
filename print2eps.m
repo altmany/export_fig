@@ -62,7 +62,7 @@
 %           set in the EPS (default line width is used)
 % 25/02/15: Fixed issue #32: BoundingBox problem caused uncropped EPS/PDF files
 % 05/03/15: Fixed issue #43: Inability to perform EPS file post-processing
-% 06/03/15: Improved image cropping thanks to Oscar Hartogensis
+% 06/03/15: Improved image padding & cropping thanks to Oscar Hartogensis
 
 function print2eps(name, fig, bb_padding, varargin)
 options = {'-depsc2'};
