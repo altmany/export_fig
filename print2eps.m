@@ -63,6 +63,7 @@
 % 25/02/15: Fixed issue #32: BoundingBox problem caused uncropped EPS/PDF files
 % 05/03/15: Fixed issue #43: Inability to perform EPS file post-processing
 % 06/03/15: Improved image padding & cropping thanks to Oscar Hartogensis
+% 21/03/15: Fixed edge-case of missing handles having a 'FontName' property
 
 function print2eps(name, fig, bb_padding, varargin)
 options = {'-depsc2'};
@@ -92,7 +93,9 @@ set(fig, 'PaperPositionMode', 'auto', 'PaperOrientation', 'portrait');
 % Find all the used fonts in the figure
 font_handles = findall(fig, '-property', 'FontName');
 fonts = get(font_handles, 'FontName');
-if ~iscell(fonts)
+if isempty(fonts)
+    fonts = {};
+elseif ~iscell(fonts)
     fonts = {fonts};
 end
 % Map supported font aliases onto the correct name
