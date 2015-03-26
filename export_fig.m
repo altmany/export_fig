@@ -105,9 +105,10 @@
 %   -a1, -a2, -a3, -a4 - option indicating the amount of anti-aliasing to
 %                        use for bitmap outputs. '-a1' means no anti-
 %                        aliasing; '-a4' is the maximum amount (default).
-%   -<renderer> - option to force a particular renderer (painters, opengl
-%                 or zbuffer) to be used over the default: opengl for
-%                 bitmaps; painters for vector formats.
+%   -<renderer> - option to force a particular renderer (painters, opengl or
+%                 zbuffer). Default value: opengl for bitmap formats or
+%                 figures with patches and/or transparent annotations;
+%                 painters for vector formats without patches/transparencies.
 %   -<colorspace> - option indicating which colorspace color figures should
 %                   be saved in: RGB (default), CMYK or gray. CMYK is only
 %                   supported in pdf, eps and tiff output.
@@ -195,6 +196,7 @@
 % 26/03/15: Fixed issue #49 (bug with transparent grayscale images); fixed out-of-memory issue
 % 26/03/15: Fixed issue #42: non-normalized annotations on HG1
 % 26/03/15: Fixed issue #46: Ghostscript crash if figure units <> pixels
+% 27/03/15: Fixed issue #39: bad export of transparent annotations/patches
 
 function [im, alpha] = export_fig(varargin)
     try
@@ -483,7 +485,13 @@ function [im, alpha] = export_fig(varargin)
         if isvector(options)
             % Set the default renderer to painters
             if ~options.renderer
-                renderer = '-painters';
+                if isempty(findall(fig,'-property','FaceAlpha','-and','-not','FaceAlpha','1')) && ...
+                   isempty(findall(fig,'type','patch'))
+                   renderer = '-painters';
+                else
+                    % This is *MUCH* slower, but more accurate for patches and transparent annotations (issue #39)
+                   renderer = '-opengl';
+                end
             end
             % Generate some filenames
             tmp_nam = [tempname '.eps'];
