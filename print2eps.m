@@ -64,6 +64,7 @@
 % 05/03/15: Fixed issue #43: Inability to perform EPS file post-processing
 % 06/03/15: Improved image padding & cropping thanks to Oscar Hartogensis
 % 21/03/15: Fixed edge-case of missing handles having a 'FontName' property
+% 26/03/15: Attempt to fix issue #45: white lines in subplots do not print correctly
 
 function print2eps(name, fig, bb_padding, varargin)
 options = {'-depsc2'};
@@ -158,14 +159,14 @@ if ~isempty(font_swap)
 end
 % MATLAB bug fix - black and white text can come out inverted sometimes
 % Find the white and black text
-black_text_handles = findobj(fig, 'Type', 'text', 'Color', [0 0 0]);
-white_text_handles = findobj(fig, 'Type', 'text', 'Color', [1 1 1]);
+black_text_handles = findall(fig, 'Type', 'text', 'Color', [0 0 0]);
+white_text_handles = findall(fig, 'Type', 'text', 'Color', [1 1 1]);
 % Set the font colors slightly off their correct values
 set(black_text_handles, 'Color', [0 0 0] + eps);
 set(white_text_handles, 'Color', [1 1 1] - eps);
 % MATLAB bug fix - white lines can come out funny sometimes
 % Find the white lines
-white_line_handles = findobj(fig, 'Type', 'line', 'Color', [1 1 1]);
+white_line_handles = findall(fig, 'Type', 'line', 'Color', [1 1 1]);
 % Set the line color slightly off white
 set(white_line_handles, 'Color', [1 1 1] - 0.00001);
 % Print to eps file
