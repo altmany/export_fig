@@ -193,6 +193,7 @@
 % 28/02/15: Enable users to specify optional ghostscript options (issue #36)
 % 06/03/15: Improved image padding & cropping thanks to Oscar Hartogensis
 % 26/03/15: Fixed issue #49 (bug with transparent grayscale images); fixed out-of-memory issue
+% 26/03/15: Fixed issue #42: non-normalized annotations on HG1
 
 function [im, alpha] = export_fig(varargin)
     try
@@ -269,6 +270,14 @@ function [im, alpha] = export_fig(varargin)
             end
         catch
             % ignore
+        end
+
+        % Fix issue #42: non-normalized annotations on HG1 (internal Matlab bug)
+        annotationHandles = [];
+        if ~using_hg2(fig)
+            annotationHandles = findall(fig,'Type','hggroup','-and','-not','Units','norm');
+            originalUnits = get(annotationHandles,'Units');
+            set(annotationHandles,'Units','norm');
         end
 
         % Set to print exactly what is there
@@ -559,6 +568,15 @@ function [im, alpha] = export_fig(varargin)
             end
             % Revert the tex-labels font weights
             try set(texLabels, 'FontWeight','bold'); catch, end
+            % Revert annotation units
+            for handleIdx = 1 : numel(annotationHandles)
+                try
+                    oldUnits = originalUnits{handleIdx};
+                catch
+                    oldUnits = originalUnits;
+                end
+                try set(annotationHandles(handleIdx),'Units',oldUnits); catch, end
+            end
         end
     catch err
         % Display possible workarounds before the error message
