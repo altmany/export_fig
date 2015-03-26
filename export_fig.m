@@ -192,6 +192,7 @@
 %           Added top-level try-catch block to display useful workarounds
 % 28/02/15: Enable users to specify optional ghostscript options (issue #36)
 % 06/03/15: Improved image padding & cropping thanks to Oscar Hartogensis
+% 26/03/15: Fixed issue #49 (bug with transparent grayscale images); fixed out-of-memory issue
 
 function [im, alpha] = export_fig(varargin)
     try
@@ -317,19 +318,27 @@ function [im, alpha] = export_fig(varargin)
                 % Correct the colorbar axes colours
                 set(hCB(yCol==0), 'YColor', [0 0 0]);
                 set(hCB(xCol==0), 'XColor', [0 0 0]);
+
+                % The following code might cause out-of-memory errors, so it was chanegd
                 % Print large version to array
-                B = print2array(fig, magnify, renderer);
+                %B = print2array(fig, magnify, renderer);
                 % Downscale the image
-                B = downsize(single(B), options.aa_factor);
+                %B = downsize(single(B), options.aa_factor);
+                B = single(print2array(fig, magnify/options.aa_factor, renderer));
+
                 % Set background to white (and set size)
                 set(fig, 'Color', 'w', 'Position', pos);
                 % Correct the colorbar axes colours
                 set(hCB(yCol==3), 'YColor', [1 1 1]);
                 set(hCB(xCol==3), 'XColor', [1 1 1]);
+
+                % The following code might cause out-of-memory errors, so it was chanegd
                 % Print large version to array
-                A = print2array(fig, magnify, renderer);
+                %A = print2array(fig, magnify, renderer);
                 % Downscale the image
-                A = downsize(single(A), options.aa_factor);
+                %A = downsize(single(A), options.aa_factor);
+                A = single(print2array(fig, magnify/options.aa_factor, renderer));
+
                 % Set the background colour (and size) back to normal
                 set(fig, 'Color', tcol, 'Position', pos);
                 % Compute the alpha map
@@ -349,7 +358,7 @@ function [im, alpha] = export_fig(varargin)
                     %A = A(v(1):v(2),v(3):v(4),:);
                     [alpha, vA, vB] = crop_borders(alpha, 0, options.bb_padding);
                     if ~any(isnan(vB)) % positive padding
-                        B = repmat(uint8(zeros(1,1,3)),size(alpha));
+                        B = repmat(uint8(zeros(1,1,size(A,3))),size(alpha));
                         B(vB(1):vB(2), vB(3):vB(4), :) = A(vA(1):vA(2), vA(3):vA(4), :); % ADDED BY OH
                         A = B;
                     else  % negative padding
