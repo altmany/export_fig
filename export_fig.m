@@ -194,6 +194,7 @@
 % 06/03/15: Improved image padding & cropping thanks to Oscar Hartogensis
 % 26/03/15: Fixed issue #49 (bug with transparent grayscale images); fixed out-of-memory issue
 % 26/03/15: Fixed issue #42: non-normalized annotations on HG1
+% 26/03/15: Fixed issue #46: Ghostscript crash if figure units <> pixels
 
 function [im, alpha] = export_fig(varargin)
     try
@@ -279,6 +280,10 @@ function [im, alpha] = export_fig(varargin)
             originalUnits = get(annotationHandles,'Units');
             set(annotationHandles,'Units','norm');
         end
+
+        % Fix issue #46: Ghostscript crash if figure units <> pixels
+        oldFigUnits = get(fig,'Units');
+        set(fig,'Units','pixels');
 
         % Set to print exactly what is there
         set(fig, 'InvertHardcopy', 'off');
@@ -577,6 +582,8 @@ function [im, alpha] = export_fig(varargin)
                 end
                 try set(annotationHandles(handleIdx),'Units',oldUnits); catch, end
             end
+            % Revert figure units
+            set(fig,'Units',oldFigUnits);
         end
     catch err
         % Display possible workarounds before the error message
