@@ -34,8 +34,8 @@
 %   - Variable image compression, including lossless (pdf, eps, jpg)
 %   - Optionally append to file (pdf, tiff)
 %   - Vector formats: pdf, eps
-%   - Bitmap formats: png, tiff, jpg, bmp, export to workspace 
-%   
+%   - Bitmap formats: png, tiff, jpg, bmp, export to workspace
+%
 % This function is especially suited to exporting figures for use in
 % publications and presentations, because of the high quality and
 % portability of media produced.
@@ -305,7 +305,7 @@ function [im, alpha] = export_fig(varargin)
             if abs(options.bb_padding) > 1
                 displaySuggestedWorkarounds = false;
                 error('For bitmap output (png,jpg,tif,bmp) the padding value (-p) must be between -1<p<1')
-            end		
+            end
             % Get the background colour
             if options.transparent && (options.png || options.alpha)
                 % Get out an alpha channel
@@ -379,7 +379,7 @@ function [im, alpha] = export_fig(varargin)
                         A = B;
                     else  % negative padding
                         A = A(vA(1):vA(2), vA(3):vA(4), :);
-                    end						
+                    end
                 end
                 if options.png
                     % Compute the resolution
@@ -486,11 +486,11 @@ function [im, alpha] = export_fig(varargin)
             % Set the default renderer to painters
             if ~options.renderer
                 if isempty(findall(fig,'-property','FaceAlpha','-and','-not','FaceAlpha','1')) && ...
-                   isempty(findall(fig,'type','patch'))
-                   renderer = '-painters';
+                        isempty(findall(fig,'type','patch'))
+                    renderer = '-painters';
                 else
                     % This is *MUCH* slower, but more accurate for patches and transparent annotations (issue #39)
-                   renderer = '-opengl';
+                    renderer = '-opengl';
                 end
             end
             % Generate some filenames
@@ -616,333 +616,333 @@ function [im, alpha] = export_fig(varargin)
 end
 
 function [fig, options] = parse_args(nout, varargin)
-% Parse the input arguments
-% Set the defaults
-fig = get(0, 'CurrentFigure');
-options = struct('name', 'export_fig_out', ...
-                 'crop', true, ...
-                 'transparent', false, ...
-                 'renderer', 0, ... % 0: default, 1: OpenGL, 2: ZBuffer, 3: Painters
-                 'pdf', false, ...
-                 'eps', false, ...
-                 'png', false, ...
-                 'tif', false, ...
-                 'jpg', false, ...
-                 'bmp', false, ...
-                 'colourspace', 0, ... % 0: RGB/gray, 1: CMYK, 2: gray
-                 'append', false, ...
-                 'im', nout == 1, ...
-                 'alpha', nout == 2, ...
-                 'aa_factor', 0, ...
-                 'bb_padding', 0, ...
-                 'magnify', [], ...
-                 'resolution', [], ...
-                 'bookmark', false, ...
-                 'quality', [], ...
-                 'gs_options', {{}});
-native = false; % Set resolution to native of an image
+    % Parse the input arguments
+    % Set the defaults
+    fig = get(0, 'CurrentFigure');
+    options = struct('name', 'export_fig_out', ...
+        'crop', true, ...
+        'transparent', false, ...
+        'renderer', 0, ... % 0: default, 1: OpenGL, 2: ZBuffer, 3: Painters
+        'pdf', false, ...
+        'eps', false, ...
+        'png', false, ...
+        'tif', false, ...
+        'jpg', false, ...
+        'bmp', false, ...
+        'colourspace', 0, ... % 0: RGB/gray, 1: CMYK, 2: gray
+        'append', false, ...
+        'im', nout == 1, ...
+        'alpha', nout == 2, ...
+        'aa_factor', 0, ...
+        'bb_padding', 0, ...
+        'magnify', [], ...
+        'resolution', [], ...
+        'bookmark', false, ...
+        'quality', [], ...
+        'gs_options', {{}});
+    native = false; % Set resolution to native of an image
 
-% Go through the other arguments
-for a = 1:nargin-1
-    if all(ishandle(varargin{a}))
-        fig = varargin{a};
-    elseif ischar(varargin{a}) && ~isempty(varargin{a})
-        if varargin{a}(1) == '-'
-            switch lower(varargin{a}(2:end))
-                case 'nocrop'
-                    options.crop = false;
-                case {'trans', 'transparent'}
-                    options.transparent = true;
-                case 'opengl'
-                    options.renderer = 1;
-                case 'zbuffer'
-                    options.renderer = 2;
-                case 'painters'
-                    options.renderer = 3;
-                case 'pdf'
-                    options.pdf = true;
-                case 'eps'
-                    options.eps = true;
-                case 'png'
-                    options.png = true;
-                case {'tif', 'tiff'}
-                    options.tif = true;
-                case {'jpg', 'jpeg'}
-                    options.jpg = true;
-                case 'bmp'
-                    options.bmp = true;
-                case 'rgb'
-                    options.colourspace = 0;
-                case 'cmyk'
-                    options.colourspace = 1;
-                case {'gray', 'grey'}
-                    options.colourspace = 2;
-                case {'a1', 'a2', 'a3', 'a4'}
-                    options.aa_factor = str2double(varargin{a}(3));
-                case 'append'
-                    options.append = true;
-                case 'bookmark'
-                    options.bookmark = true;
-                case 'native'
-                    native = true;
-                otherwise
-                    if strcmpi(varargin{a}(1:2),'-d')
-                        varargin{a}(2) = 'd';  % ensure lowercase 'd'
-                        options.gs_options{end+1} = varargin{a};
-                    else
-                        val = str2double(regexp(varargin{a}, '(?<=-(m|M|r|R|q|Q|p|P))-?\d*.?\d+', 'match'));
-                        if ~isscalar(val)
-                            error('option %s not recognised', varargin{a});
+    % Go through the other arguments
+    for a = 1:nargin-1
+        if all(ishandle(varargin{a}))
+            fig = varargin{a};
+        elseif ischar(varargin{a}) && ~isempty(varargin{a})
+            if varargin{a}(1) == '-'
+                switch lower(varargin{a}(2:end))
+                    case 'nocrop'
+                        options.crop = false;
+                    case {'trans', 'transparent'}
+                        options.transparent = true;
+                    case 'opengl'
+                        options.renderer = 1;
+                    case 'zbuffer'
+                        options.renderer = 2;
+                    case 'painters'
+                        options.renderer = 3;
+                    case 'pdf'
+                        options.pdf = true;
+                    case 'eps'
+                        options.eps = true;
+                    case 'png'
+                        options.png = true;
+                    case {'tif', 'tiff'}
+                        options.tif = true;
+                    case {'jpg', 'jpeg'}
+                        options.jpg = true;
+                    case 'bmp'
+                        options.bmp = true;
+                    case 'rgb'
+                        options.colourspace = 0;
+                    case 'cmyk'
+                        options.colourspace = 1;
+                    case {'gray', 'grey'}
+                        options.colourspace = 2;
+                    case {'a1', 'a2', 'a3', 'a4'}
+                        options.aa_factor = str2double(varargin{a}(3));
+                    case 'append'
+                        options.append = true;
+                    case 'bookmark'
+                        options.bookmark = true;
+                    case 'native'
+                        native = true;
+                    otherwise
+                        if strcmpi(varargin{a}(1:2),'-d')
+                            varargin{a}(2) = 'd';  % ensure lowercase 'd'
+                            options.gs_options{end+1} = varargin{a};
+                        else
+                            val = str2double(regexp(varargin{a}, '(?<=-(m|M|r|R|q|Q|p|P))-?\d*.?\d+', 'match'));
+                            if ~isscalar(val)
+                                error('option %s not recognised', varargin{a});
+                            end
+                            switch lower(varargin{a}(2))
+                                case 'm'
+                                    options.magnify = val;
+                                case 'r'
+                                    options.resolution = val;
+                                case 'q'
+                                    options.quality = max(val, 0);
+                                case 'p'
+                                    options.bb_padding = val;
+                            end
                         end
-                        switch lower(varargin{a}(2))
-                            case 'm'
-                                options.magnify = val;
-                            case 'r'
-                                options.resolution = val;
-                            case 'q'
-                                options.quality = max(val, 0);
-                            case 'p'
-                                options.bb_padding = val;
-                        end
-                    end
-            end
-        else
-            [p, options.name, ext] = fileparts(varargin{a});
-            if ~isempty(p)
-                options.name = [p filesep options.name];
-            end
-            switch lower(ext)
-                case {'.tif', '.tiff'}
-                    options.tif = true;
-                case {'.jpg', '.jpeg'}
-                    options.jpg = true;
-                case '.png'
-                    options.png = true;
-                case '.bmp'
-                    options.bmp = true;
-                case '.eps'
-                    options.eps = true;
-                case '.pdf'
-                    options.pdf = true;
-                otherwise
-                    options.name = varargin{a};
+                end
+            else
+                [p, options.name, ext] = fileparts(varargin{a});
+                if ~isempty(p)
+                    options.name = [p filesep options.name];
+                end
+                switch lower(ext)
+                    case {'.tif', '.tiff'}
+                        options.tif = true;
+                    case {'.jpg', '.jpeg'}
+                        options.jpg = true;
+                    case '.png'
+                        options.png = true;
+                    case '.bmp'
+                        options.bmp = true;
+                    case '.eps'
+                        options.eps = true;
+                    case '.pdf'
+                        options.pdf = true;
+                    otherwise
+                        options.name = varargin{a};
+                end
             end
         end
     end
-end
 
-% Do border padding with repsect to a cropped image
-if options.bb_padding
-    options.crop = true;
-end
+    % Do border padding with repsect to a cropped image
+    if options.bb_padding
+        options.crop = true;
+    end
 
-% Set default anti-aliasing now we know the renderer
-if options.aa_factor == 0
-    options.aa_factor = 1 + 2 * (~(using_hg2(fig) && strcmp(get(ancestor(fig, 'figure'), 'GraphicsSmoothing'), 'on')) | (options.renderer == 3));
-end
+    % Set default anti-aliasing now we know the renderer
+    if options.aa_factor == 0
+        options.aa_factor = 1 + 2 * (~(using_hg2(fig) && strcmp(get(ancestor(fig, 'figure'), 'GraphicsSmoothing'), 'on')) | (options.renderer == 3));
+    end
 
-% Convert user dir '~' to full path
-if numel(options.name) > 2 && options.name(1) == '~' && (options.name(2) == '/' || options.name(2) == '\')
-    options.name = fullfile(char(java.lang.System.getProperty('user.home')), options.name(2:end));
-end
+    % Convert user dir '~' to full path
+    if numel(options.name) > 2 && options.name(1) == '~' && (options.name(2) == '/' || options.name(2) == '\')
+        options.name = fullfile(char(java.lang.System.getProperty('user.home')), options.name(2:end));
+    end
 
-% Compute the magnification and resolution
-if isempty(options.magnify)
-    if isempty(options.resolution)
-        options.magnify = 1;
+    % Compute the magnification and resolution
+    if isempty(options.magnify)
+        if isempty(options.resolution)
+            options.magnify = 1;
+            options.resolution = 864;
+        else
+            options.magnify = options.resolution ./ get(0, 'ScreenPixelsPerInch');
+        end
+    elseif isempty(options.resolution)
         options.resolution = 864;
-    else
-        options.magnify = options.resolution ./ get(0, 'ScreenPixelsPerInch');
     end
-elseif isempty(options.resolution)
-    options.resolution = 864;
-end  
 
-% Check we have a figure handle
-if isempty(fig)
-    error('No figure found');
-end
-
-% Set the default format
-if ~isvector(options) && ~isbitmap(options)
-    options.png = true;
-end
-
-% Check whether transparent background is wanted (old way)
-if isequal(get(ancestor(fig(1), 'figure'), 'Color'), 'none')
-    options.transparent = true;
-end
-
-% If requested, set the resolution to the native vertical resolution of the
-% first suitable image found
-if native && isbitmap(options)
-    % Find a suitable image
-    list = findobj(fig, 'Type', 'image', 'Tag', 'export_fig_native');
-    if isempty(list)
-        list = findobj(fig, 'Type', 'image', 'Visible', 'on');
+    % Check we have a figure handle
+    if isempty(fig)
+        error('No figure found');
     end
-    for hIm = list(:)'
-        % Check height is >= 2
-        height = size(get(hIm, 'CData'), 1);
-        if height < 2
-            continue
+
+    % Set the default format
+    if ~isvector(options) && ~isbitmap(options)
+        options.png = true;
+    end
+
+    % Check whether transparent background is wanted (old way)
+    if isequal(get(ancestor(fig(1), 'figure'), 'Color'), 'none')
+        options.transparent = true;
+    end
+
+    % If requested, set the resolution to the native vertical resolution of the
+    % first suitable image found
+    if native && isbitmap(options)
+        % Find a suitable image
+        list = findobj(fig, 'Type', 'image', 'Tag', 'export_fig_native');
+        if isempty(list)
+            list = findobj(fig, 'Type', 'image', 'Visible', 'on');
         end
-        % Account for the image filling only part of the axes, or vice
-        % versa
-        yl = get(hIm, 'YData');
-        if isscalar(yl)
-            yl = [yl(1)-0.5 yl(1)+height+0.5];
-        else
-            if ~diff(yl)
+        for hIm = list(:)'
+            % Check height is >= 2
+            height = size(get(hIm, 'CData'), 1);
+            if height < 2
                 continue
             end
-            yl = yl + [-0.5 0.5] * (diff(yl) / (height - 1));
+            % Account for the image filling only part of the axes, or vice
+            % versa
+            yl = get(hIm, 'YData');
+            if isscalar(yl)
+                yl = [yl(1)-0.5 yl(1)+height+0.5];
+            else
+                if ~diff(yl)
+                    continue
+                end
+                yl = yl + [-0.5 0.5] * (diff(yl) / (height - 1));
+            end
+            hAx = get(hIm, 'Parent');
+            yl2 = get(hAx, 'YLim');
+            % Find the pixel height of the axes
+            oldUnits = get(hAx, 'Units');
+            set(hAx, 'Units', 'pixels');
+            pos = get(hAx, 'Position');
+            set(hAx, 'Units', oldUnits);
+            if ~pos(4)
+                continue
+            end
+            % Found a suitable image
+            % Account for stretch-to-fill being disabled
+            pbar = get(hAx, 'PlotBoxAspectRatio');
+            pos = min(pos(4), pbar(2)*pos(3)/pbar(1));
+            % Set the magnification to give native resolution
+            options.magnify = (height * diff(yl2)) / (pos * diff(yl));
+            break
         end
-        hAx = get(hIm, 'Parent');
-        yl2 = get(hAx, 'YLim');
-        % Find the pixel height of the axes
-        oldUnits = get(hAx, 'Units');
-        set(hAx, 'Units', 'pixels');
-        pos = get(hAx, 'Position');
-        set(hAx, 'Units', oldUnits);
-        if ~pos(4)
-            continue
-        end
-        % Found a suitable image
-        % Account for stretch-to-fill being disabled
-        pbar = get(hAx, 'PlotBoxAspectRatio');
-        pos = min(pos(4), pbar(2)*pos(3)/pbar(1));
-        % Set the magnification to give native resolution
-        options.magnify = (height * diff(yl2)) / (pos * diff(yl));
-        break
     end
-end
 end
 
 function A = downsize(A, factor)
-% Downsample an image
-if factor == 1
-    % Nothing to do
-    return
-end
-try
-    % Faster, but requires image processing toolbox
-    A = imresize(A, 1/factor, 'bilinear');
-catch
-    % No image processing toolbox - resize manually
-    % Lowpass filter - use Gaussian as is separable, so faster
-    % Compute the 1d Gaussian filter
-    filt = (-factor-1:factor+1) / (factor * 0.6);
-    filt = exp(-filt .* filt);
-    % Normalize the filter
-    filt = single(filt / sum(filt));
-    % Filter the image
-    padding = floor(numel(filt) / 2);
-    for a = 1:size(A, 3)
-        A(:,:,a) = conv2(filt, filt', single(A([ones(1, padding) 1:end repmat(end, 1, padding)],[ones(1, padding) 1:end repmat(end, 1, padding)],a)), 'valid');
+    % Downsample an image
+    if factor == 1
+        % Nothing to do
+        return
     end
-    % Subsample
-    A = A(1+floor(mod(end-1, factor)/2):factor:end,1+floor(mod(end-1, factor)/2):factor:end,:);
-end
+    try
+        % Faster, but requires image processing toolbox
+        A = imresize(A, 1/factor, 'bilinear');
+    catch
+        % No image processing toolbox - resize manually
+        % Lowpass filter - use Gaussian as is separable, so faster
+        % Compute the 1d Gaussian filter
+        filt = (-factor-1:factor+1) / (factor * 0.6);
+        filt = exp(-filt .* filt);
+        % Normalize the filter
+        filt = single(filt / sum(filt));
+        % Filter the image
+        padding = floor(numel(filt) / 2);
+        for a = 1:size(A, 3)
+            A(:,:,a) = conv2(filt, filt', single(A([ones(1, padding) 1:end repmat(end, 1, padding)],[ones(1, padding) 1:end repmat(end, 1, padding)],a)), 'valid');
+        end
+        % Subsample
+        A = A(1+floor(mod(end-1, factor)/2):factor:end,1+floor(mod(end-1, factor)/2):factor:end,:);
+    end
 end
 
 function A = rgb2grey(A)
-A = cast(reshape(reshape(single(A), [], 3) * single([0.299; 0.587; 0.114]), size(A, 1), size(A, 2)), class(A));
+    A = cast(reshape(reshape(single(A), [], 3) * single([0.299; 0.587; 0.114]), size(A, 1), size(A, 2)), class(A));
 end
 
 function A = check_greyscale(A)
-% Check if the image is greyscale
-if size(A, 3) == 3 && ...
-        all(reshape(A(:,:,1) == A(:,:,2), [], 1)) && ...
-        all(reshape(A(:,:,2) == A(:,:,3), [], 1))
-    A = A(:,:,1); % Save only one channel for 8-bit output
-end
+    % Check if the image is greyscale
+    if size(A, 3) == 3 && ...
+            all(reshape(A(:,:,1) == A(:,:,2), [], 1)) && ...
+            all(reshape(A(:,:,2) == A(:,:,3), [], 1))
+        A = A(:,:,1); % Save only one channel for 8-bit output
+    end
 end
 
 function eps_remove_background(fname, count)
-% Remove the background of an eps file
-% Open the file
-fh = fopen(fname, 'r+');
-if fh == -1
-    error('Not able to open file %s.', fname);
-end
-% Read the file line by line
-while count
-    % Get the next line
-    l = fgets(fh);
-    if isequal(l, -1)
-        break; % Quit, no rectangle found
+    % Remove the background of an eps file
+    % Open the file
+    fh = fopen(fname, 'r+');
+    if fh == -1
+        error('Not able to open file %s.', fname);
     end
-    % Check if the line contains the background rectangle
-    if isequal(regexp(l, ' *0 +0 +\d+ +\d+ +r[fe] *[\n\r]+', 'start'), 1)
-        % Set the line to whitespace and quit
-        l(1:regexp(l, '[\n\r]', 'start', 'once')-1) = ' ';
-        fseek(fh, -numel(l), 0);
-        fprintf(fh, l);
-        % Reduce the count
-        count = count - 1;
+    % Read the file line by line
+    while count
+        % Get the next line
+        l = fgets(fh);
+        if isequal(l, -1)
+            break; % Quit, no rectangle found
+        end
+        % Check if the line contains the background rectangle
+        if isequal(regexp(l, ' *0 +0 +\d+ +\d+ +r[fe] *[\n\r]+', 'start'), 1)
+            % Set the line to whitespace and quit
+            l(1:regexp(l, '[\n\r]', 'start', 'once')-1) = ' ';
+            fseek(fh, -numel(l), 0);
+            fprintf(fh, l);
+            % Reduce the count
+            count = count - 1;
+        end
     end
-end
-% Close the file
-fclose(fh);
+    % Close the file
+    fclose(fh);
 end
 
 function b = isvector(options)
-b = options.pdf || options.eps;
+    b = options.pdf || options.eps;
 end
 
 function b = isbitmap(options)
-b = options.png || options.tif || options.jpg || options.bmp || options.im || options.alpha;
+    b = options.png || options.tif || options.jpg || options.bmp || options.im || options.alpha;
 end
 
 % Helper function
 function A = make_cell(A)
-if ~iscell(A)
-    A = {A};
-end
+    if ~iscell(A)
+        A = {A};
+    end
 end
 
 function add_bookmark(fname, bookmark_text)
-% Adds a bookmark to the temporary EPS file after %%EndPageSetup
-% Read in the file
-fh = fopen(fname, 'r');
-if fh == -1
-    error('File %s not found.', fname);
-end
-try
-    fstrm = fread(fh, '*char')';
-catch ex
+    % Adds a bookmark to the temporary EPS file after %%EndPageSetup
+    % Read in the file
+    fh = fopen(fname, 'r');
+    if fh == -1
+        error('File %s not found.', fname);
+    end
+    try
+        fstrm = fread(fh, '*char')';
+    catch ex
+        fclose(fh);
+        rethrow(ex);
+    end
     fclose(fh);
-    rethrow(ex);
-end
-fclose(fh);
 
-% Include standard pdfmark prolog to maximize compatibility
-fstrm = strrep(fstrm, '%%BeginProlog', sprintf('%%%%BeginProlog\n/pdfmark where {pop} {userdict /pdfmark /cleartomark load put} ifelse'));
-% Add page bookmark
-fstrm = strrep(fstrm, '%%EndPageSetup', sprintf('%%%%EndPageSetup\n[ /Title (%s) /OUT pdfmark',bookmark_text));
+    % Include standard pdfmark prolog to maximize compatibility
+    fstrm = strrep(fstrm, '%%BeginProlog', sprintf('%%%%BeginProlog\n/pdfmark where {pop} {userdict /pdfmark /cleartomark load put} ifelse'));
+    % Add page bookmark
+    fstrm = strrep(fstrm, '%%EndPageSetup', sprintf('%%%%EndPageSetup\n[ /Title (%s) /OUT pdfmark',bookmark_text));
 
-% Write out the updated file
-fh = fopen(fname, 'w');
-if fh == -1
-    error('Unable to open %s for writing.', fname);
-end
-try
-    fwrite(fh, fstrm, 'char*1');
-catch ex
+    % Write out the updated file
+    fh = fopen(fname, 'w');
+    if fh == -1
+        error('Unable to open %s for writing.', fname);
+    end
+    try
+        fwrite(fh, fstrm, 'char*1');
+    catch ex
+        fclose(fh);
+        rethrow(ex);
+    end
     fclose(fh);
-    rethrow(ex);
-end
-fclose(fh);
 end
 
 function set_tick_mode(Hlims, ax)
-% Set the tick mode of linear axes to manual
-% Leave log axes alone as these are tricky
-M = get(Hlims, [ax 'Scale']);
-if ~iscell(M)
-    M = {M};
-end
-M = cellfun(@(c) strcmp(c, 'linear'), M);
-set(Hlims(M), [ax 'TickMode'], 'manual');
+    % Set the tick mode of linear axes to manual
+    % Leave log axes alone as these are tricky
+    M = get(Hlims, [ax 'Scale']);
+    if ~iscell(M)
+        M = {M};
+    end
+    M = cellfun(@(c) strcmp(c, 'linear'), M);
+    set(Hlims(M), [ax 'TickMode'], 'manual');
 end
