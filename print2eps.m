@@ -65,6 +65,7 @@
 % 06/03/15: Improved image padding & cropping thanks to Oscar Hartogensis
 % 21/03/15: Fixed edge-case of missing handles having a 'FontName' property
 % 26/03/15: Attempt to fix issue #45: white lines in subplots do not print correctly
+% 27/03/15: Attempt to fix issue #44: white artifact lines appearing in patch exports
 
 function print2eps(name, fig, bb_padding, varargin)
     options = {'-depsc2'};
@@ -326,6 +327,18 @@ function print2eps(name, fig, bb_padding, varargin)
         end
         fstrm = regexprep(fstrm, '%%BoundingBox:[ ]+([-]?\d+)[ ]+([-]?\d+)[ ]+([-]?\d+)[ ]+([-]?\d+)', '%%BoundingBox:${add_padding($1, $2, $3, $4)}');
     end
+
+    % Fix issue #44: white artifact lines appearing in patch exports
+    % Note: the problem is due to the fact that Matlab's print() function exports patches
+    %       as a combination of filled triangles, and a white line appears where the triangles touch
+    % In the workaround below, we will modify such dual-triangles into a filled rectangled.
+    % We are careful to only modify regexps that exactly match specific patterns - it's better to not
+    % correct some white-line artifacts than to change the geometry of a patch, or to corrupt the EPS
+    %   e.g.: '0 -450 937 0 0 450 3 MP PP 937 0 0 -450 0 450 3 MP PP' => '0 -450 937 0 0 450 0 0 4 MP'
+    fstrm = regexprep(fstrm, '\n([-\d.]+ [-\d.]+) ([-\d.]+ [-\d.]+) ([-\d.]+ [-\d.]+) 3 MP\nPP\n\2 \1 \3 3 MP\nPP\n','\n$1 $2 $3 0 0 4 MP\nPP\n');
+    fstrm = regexprep(fstrm, '\n([-\d.]+ [-\d.]+) ([-\d.]+ [-\d.]+) ([-\d.]+ [-\d.]+) 3 MP\nPP\n\2 \3 \1 3 MP\nPP\n','\n$1 $2 $3 0 0 4 MP\nPP\n');
+    fstrm = regexprep(fstrm, '\n([-\d.]+ [-\d.]+) ([-\d.]+ [-\d.]+) ([-\d.]+ [-\d.]+) 3 MP\nPP\n\3 \1 \2 3 MP\nPP\n','\n$1 $2 $3 0 0 4 MP\nPP\n');
+    fstrm = regexprep(fstrm, '\n([-\d.]+ [-\d.]+) ([-\d.]+ [-\d.]+) ([-\d.]+ [-\d.]+) 3 MP\nPP\n\3 \2 \1 3 MP\nPP\n','\n$1 $2 $3 0 0 4 MP\nPP\n');
 
     % Write out the fixed eps file
     read_write_entire_textfile(name, fstrm);
