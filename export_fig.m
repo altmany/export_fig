@@ -197,6 +197,7 @@
 % 26/03/15: Fixed issue #42: non-normalized annotations on HG1
 % 26/03/15: Fixed issue #46: Ghostscript crash if figure units <> pixels
 % 27/03/15: Fixed issue #39: bad export of transparent annotations/patches
+% 28/03/15: Fixed issue #50: error on some Matlab versions with the fix for issue #42
 
 function [im, alpha] = export_fig(varargin)
     try
@@ -277,10 +278,14 @@ function [im, alpha] = export_fig(varargin)
 
         % Fix issue #42: non-normalized annotations on HG1 (internal Matlab bug)
         annotationHandles = [];
-        if ~using_hg2(fig)
-            annotationHandles = findall(fig,'Type','hggroup','-and','-not','Units','norm');
-            originalUnits = get(annotationHandles,'Units');
-            set(annotationHandles,'Units','norm');
+        try
+            if ~using_hg2(fig)
+                annotationHandles = findall(fig,'Type','hggroup','-and','-property','Units','-and','-not','Units','norm');
+                originalUnits = get(annotationHandles,'Units');
+                set(annotationHandles,'Units','norm');
+            end
+        catch
+            % should never happen, but ignore in any case - issue #50
         end
 
         % Fix issue #46: Ghostscript crash if figure units <> pixels
