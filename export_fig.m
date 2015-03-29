@@ -198,6 +198,7 @@
 % 26/03/15: Fixed issue #46: Ghostscript crash if figure units <> pixels
 % 27/03/15: Fixed issue #39: bad export of transparent annotations/patches
 % 28/03/15: Fixed issue #50: error on some Matlab versions with the fix for issue #42
+% 29/03/15: Fixed issue #33: bugs in Matlab's print() function with -cmyk
 
 function [im, alpha] = export_fig(varargin)
     try
@@ -523,8 +524,9 @@ function [im, alpha] = export_fig(varargin)
             end
             % Generate the options for print
             p2eArgs = {renderer, sprintf('-r%d', options.resolution)};
-            if options.colourspace == 1
-                p2eArgs = [p2eArgs {'-cmyk'}];
+            if options.colourspace == 1  % CMYK
+                % Issue #33: due to internal bugs in Matlab's print() function, we can't use its -cmyk option
+                %p2eArgs = [p2eArgs {'-cmyk'}];
             end
             if ~options.crop
                 p2eArgs = [p2eArgs {'-loose'}];
@@ -535,6 +537,11 @@ function [im, alpha] = export_fig(varargin)
                 % Remove the background, if desired
                 if options.transparent && ~isequal(get(fig, 'Color'), 'none')
                     eps_remove_background(tmp_nam, 1 + using_hg2(fig));
+                end
+                % Fix colorspace to CMYK, if requested (workaround for issue #33)
+                if options.colourspace == 1  % CMYK
+                    % Issue #33: due to internal bugs in Matlab's print() function, we can't use its -cmyk option
+                    change_rgb_to_cmyk(tmp_nam);
                 end
                 % Add a bookmark to the PDF if desired
                 if options.bookmark
@@ -852,7 +859,7 @@ function A = downsize(A, factor)
 end
 
 function A = rgb2grey(A)
-    A = cast(reshape(reshape(single(A), [], 3) * single([0.299; 0.587; 0.114]), size(A, 1), size(A, 2)), class(A));
+    A = cast(reshape(reshape(single(A), [], 3) * single([0.299; 0.587; 0.114]), size(A, 1), size(A, 2)), class(A)); %#ok<ZEROLIKE>
 end
 
 function A = check_greyscale(A)
@@ -950,4 +957,24 @@ function set_tick_mode(Hlims, ax)
     end
     M = cellfun(@(c) strcmp(c, 'linear'), M);
     set(Hlims(M), [ax 'TickMode'], 'manual');
+end
+
+function change_rgb_to_cmyk(fname)  % convert RGB => CMYK within an EPS file
+    % Do post-processing on the eps file
+    try
+        % Read the EPS file into memory
+        fstrm = read_write_entire_textfile(fname);
+
+        % Replace all gray-scale colors
+        fstrm = regexprep(fstrm, '\n([\d.]+) +GC\n', '\n0 0 0 ${num2str(1-str2num($1))} CC\n');
+        
+        % Replace all RGB colors
+        fstrm = regexprep(fstrm, '\n[0.]+ +[0.]+ +[0.]+ +RC\n', '\n0 0 0 1 CC\n');  % pure black
+        fstrm = regexprep(fstrm, '\n([\d.]+) +([\d.]+) +([\d.]+) +RC\n', '\n${sprintf(''%.4g '',[1-[str2num($1),str2num($2),str2num($3)]/max([str2num($1),str2num($2),str2num($3)]),1-max([str2num($1),str2num($2),str2num($3)])])} CC\n');
+
+        % Overwrite the file with the modified contents
+        read_write_entire_textfile(fname, fstrm);
+    catch
+        % never mind - leave as is...
+    end
 end
