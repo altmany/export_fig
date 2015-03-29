@@ -1,8 +1,8 @@
-%EXPORT_FIG  Exports figures suitable for publication
+%EXPORT_FIG  Exports figures in a publication-quality format
 %
 % Examples:
-%   im = export_fig
-%   [im alpha] = export_fig
+%   imageData = export_fig
+%   [imageData, alpha] = export_fig
 %   export_fig filename
 %   export_fig filename -format1 -format2
 %   export_fig ... -nocrop
@@ -20,8 +20,8 @@
 %   export_fig(..., handle)
 %
 % This function saves a figure or single axes to one or more vector and/or
-% bitmap file formats, and/or outputs a rasterized version to the
-% workspace, with the following properties:
+% bitmap file formats, and/or outputs a rasterized version to the workspace,
+% with the following properties:
 %   - Figure/axes reproduced as it appears on screen
 %   - Cropped borders (optional)
 %   - Embedded fonts (vector formats)
@@ -45,21 +45,20 @@
 % output file. For transparent background (and semi-transparent patch
 % objects), use the -transparent option or set the figure 'Color' property
 % to 'none'. To make axes transparent set the axes 'Color' property to
-% 'none'. Pdf, eps and png are the only file formats to support a
-% transparent background, whilst the png format alone supports transparency
-% of patch objects.
+% 'none'. PDF, EPS and PNG are the only formats that support a transparent
+% background, while only PNG format supports transparency of patch objects.
 %
 % The choice of renderer (opengl, zbuffer or painters) has a large impact
-% on the quality of output. Whilst the default value (opengl for bitmaps,
-% painters for vector formats) generally gives good results, if you aren't
-% satisfied then try another renderer.  Notes: 1) For vector formats (eps,
-% pdf), only painters generates vector graphics. 2) For bitmaps, only
+% on the quality of output. The default value (opengl for bitmaps, painters
+% for vector formats) generally gives good results, but if you aren't
+% satisfied then try another renderer.  Notes: 1) For vector formats (EPS,
+% PDF), only painters generates vector graphics. 2) For bitmaps, only
 % opengl can render transparent patch objects correctly. 3) For bitmaps,
 % only painters will correctly scale line dash and dot lengths when
 % magnifying or anti-aliasing. 4) Fonts may be substitued with Courier when
 % using painters.
 %
-% When exporting to vector format (pdf & eps) and bitmap format using the
+% When exporting to vector format (PDF & EPS) and bitmap format using the
 % painters renderer, this function requires that ghostscript is installed
 % on your system. You can download this from:
 %   http://www.ghostscript.com
@@ -67,7 +66,7 @@
 % suite of functions. You can download this from:
 %   http://www.foolabs.com/xpdf
 %
-%IN:
+% Inputs:
 %   filename - string containing the name (optionally including full or
 %              relative path) of the file the figure is to be saved as. If
 %              a path is not specified, the figure is saved in the current
@@ -137,17 +136,17 @@
 %            handles, but the objects must be in the same figure) to be
 %            saved. Default: gcf.
 %
-%OUT:
-%   im - MxNxC uint8 image array of the figure.
-%   alpha - MxN single array of alphamatte values in range [0,1], for the
-%           case when the background is transparent.
+% Outputs:
+%   imageData - MxNxC uint8 image array of the exported image.
+%   alpha     - MxN single array of alphamatte values in the range [0,1],
+%               for the case when the background is transparent.
 %
 %   Some helpful examples and tips can be found at:
 %      https://github.com/altmany/export_fig
 %
-%   See also PRINT, SAVEAS.
+%   See also PRINT, SAVEAS, ScreenCapture (on the Matlab File Exchange)
 
-% Copyright (C) Oliver Woodford 2008-2014
+% Copyright (C) Oliver Woodford 2008-2014, Yair Altman 2015-
 
 % The idea of using ghostscript is inspired by Peder Axensten's SAVEFIG
 % (fex id: 10889) which is itself inspired by EPS2PDF (fex id: 5782).
@@ -201,7 +200,7 @@
 % 29/03/15: Fixed issue #33: bugs in Matlab's print() function with -cmyk
 % 29/03/15: Improved processing of input args (accept space between param name & value, related to issue #51)
 
-function [im, alpha] = export_fig(varargin)
+function [imageData, alpha] = export_fig(varargin)
     hadError = false;
     displaySuggestedWorkarounds = true;
 
@@ -413,7 +412,7 @@ function [im, alpha] = export_fig(varargin)
                 end
                 if options.alpha
                     % Store the image
-                    im = A;
+                    imageData = A;
                     % Clear the alpha bit
                     options.alpha = false;
                 end
@@ -425,7 +424,7 @@ function [im, alpha] = export_fig(varargin)
                 end
                 if options.im
                     % Store the new image
-                    im = A;
+                    imageData = A;
                 end
             else
                 % Print large version to array
@@ -456,10 +455,10 @@ function [im, alpha] = export_fig(varargin)
                 end
                 % Outputs
                 if options.im
-                    im = A;
+                    imageData = A;
                 end
                 if options.alpha
-                    im = A;
+                    imageData = A;
                     alpha = zeros(size(A, 1), size(A, 2), 'single');
                 end
             end
