@@ -199,113 +199,125 @@
 % 27/03/15: Fixed issue #39: bad export of transparent annotations/patches
 % 28/03/15: Fixed issue #50: error on some Matlab versions with the fix for issue #42
 % 29/03/15: Fixed issue #33: bugs in Matlab's print() function with -cmyk
+% 29/03/15: Improved processing of input args (accept space between param name & value, related to issue #51)
 
 function [im, alpha] = export_fig(varargin)
-    try
-        hadError = false;
-        displaySuggestedWorkarounds = true;
-        % Make sure the figure is rendered correctly _now_ so that properties like
-        % axes limits are up-to-date.
-        drawnow;
-        % Parse the input arguments
-        [fig, options] = parse_args(nargout, varargin{:});
-        % Isolate the subplot, if it is one
-        cls = all(ismember(get(fig, 'Type'), {'axes', 'uipanel'}));
-        if cls
-            % Given handles of one or more axes, so isolate them from the rest
-            fig = isolate_axes(fig);
-        else
-            % Check we have a figure
-            if ~isequal(get(fig, 'Type'), 'figure');
-                error('Handle must be that of a figure, axes or uipanel');
-            end
-            % Get the old InvertHardcopy mode
-            old_mode = get(fig, 'InvertHardcopy');
-        end
-        % Hack the font units where necessary (due to a font rendering bug in
-        % print?). This may not work perfectly in all cases. Also it can change the
-        % figure layout if reverted, so use a copy.
-        magnify = options.magnify * options.aa_factor;
-        if isbitmap(options) && magnify ~= 1
-            fontu = findobj(fig, 'FontUnits', 'normalized');
-            if ~isempty(fontu)
-                % Some normalized font units found
-                if ~cls
-                    fig = copyfig(fig);
-                    set(fig, 'Visible', 'off');
-                    fontu = findobj(fig, 'FontUnits', 'normalized');
-                    cls = true;
-                end
-                set(fontu, 'FontUnits', 'points');
-            end
-        end
+    hadError = false;
+    displaySuggestedWorkarounds = true;
 
-        try
-            % MATLAB "feature": axes limits and tick marks can change when printing
-            Hlims = findall(fig, 'Type', 'axes');
+    % Make sure the figure is rendered correctly _now_ so that properties like
+    % axes limits are up-to-date.
+    drawnow;
+
+    % Check we have a figure handle
+    fig = get(0, 'CurrentFigure');
+    if isempty(fig)
+        error('No figure found');
+    end
+
+    % Parse the input arguments
+    options = parse_args(nargout, fig, varargin{:});
+
+    % Isolate the subplot, if it is one
+    cls = all(ismember(get(fig, 'Type'), {'axes', 'uipanel'}));
+    if cls
+        % Given handles of one or more axes, so isolate them from the rest
+        fig = isolate_axes(fig);
+    else
+        % Check we have a figure
+        if ~isequal(get(fig, 'Type'), 'figure');
+            error('Handle must be that of a figure, axes or uipanel');
+        end
+        % Get the old InvertHardcopy mode
+        old_mode = get(fig, 'InvertHardcopy');
+    end
+
+    % Hack the font units where necessary (due to a font rendering bug in print?).
+    % This may not work perfectly in all cases.
+    % Also it can change the figure layout if reverted, so use a copy.
+    magnify = options.magnify * options.aa_factor;
+    if isbitmap(options) && magnify ~= 1
+        fontu = findall(fig, 'FontUnits', 'normalized');
+        if ~isempty(fontu)
+            % Some normalized font units found
             if ~cls
-                % Record the old axes limit and tick modes
-                Xlims = make_cell(get(Hlims, 'XLimMode'));
-                Ylims = make_cell(get(Hlims, 'YLimMode'));
-                Zlims = make_cell(get(Hlims, 'ZLimMode'));
-                Xtick = make_cell(get(Hlims, 'XTickMode'));
-                Ytick = make_cell(get(Hlims, 'YTickMode'));
-                Ztick = make_cell(get(Hlims, 'ZTickMode'));
+                fig = copyfig(fig);
+                set(fig, 'Visible', 'off');
+                fontu = findall(fig, 'FontUnits', 'normalized');
+                cls = true;
             end
+            set(fontu, 'FontUnits', 'points');
+        end
+    end
 
-            % Set all axes limit and tick modes to manual, so the limits and ticks can't change
-            % Fix Matlab R2014b bug (issue #34): plot markers are not displayed when ZLimMode='manual'
-            set(Hlims, 'XLimMode', 'manual', 'YLimMode', 'manual');
-            set_tick_mode(Hlims, 'X');
-            set_tick_mode(Hlims, 'Y');
-            if ~using_hg2(fig)
-                set(Hlims,'ZLimMode', 'manual');
-                set_tick_mode(Hlims, 'Z');
-            end
-        catch
-            % ignore - fix issue #4 (using HG2 on R2014a and earlier)
+    try
+        % MATLAB "feature": axes limits and tick marks can change when printing
+        Hlims = findall(fig, 'Type', 'axes');
+        if ~cls
+            % Record the old axes limit and tick modes
+            Xlims = make_cell(get(Hlims, 'XLimMode'));
+            Ylims = make_cell(get(Hlims, 'YLimMode'));
+            Zlims = make_cell(get(Hlims, 'ZLimMode'));
+            Xtick = make_cell(get(Hlims, 'XTickMode'));
+            Ytick = make_cell(get(Hlims, 'YTickMode'));
+            Ztick = make_cell(get(Hlims, 'ZTickMode'));
         end
 
-        % Fix issue #21 (bold TeX axes labels/titles in R2014b)
-        try
-            if using_hg2(fig)
-                % Set the FontWeight of axes labels/titles to 'normal'
-                texLabels = findall(fig, 'type','text', 'FontWeight','bold');
-                set(texLabels, 'FontWeight','normal');
-            end
-        catch
-            % ignore
+        % Set all axes limit and tick modes to manual, so the limits and ticks can't change
+        % Fix Matlab R2014b bug (issue #34): plot markers are not displayed when ZLimMode='manual'
+        set(Hlims, 'XLimMode', 'manual', 'YLimMode', 'manual');
+        set_tick_mode(Hlims, 'X');
+        set_tick_mode(Hlims, 'Y');
+        if ~using_hg2(fig)
+            set(Hlims,'ZLimMode', 'manual');
+            set_tick_mode(Hlims, 'Z');
         end
+    catch
+        % ignore - fix issue #4 (using HG2 on R2014a and earlier)
+    end
 
-        % Fix issue #42: non-normalized annotations on HG1 (internal Matlab bug)
-        annotationHandles = [];
-        try
-            if ~using_hg2(fig)
-                annotationHandles = findall(fig,'Type','hggroup','-and','-property','Units','-and','-not','Units','norm');
-                originalUnits = get(annotationHandles,'Units');
-                set(annotationHandles,'Units','norm');
-            end
-        catch
-            % should never happen, but ignore in any case - issue #50
+    % Fix issue #21 (bold TeX axes labels/titles in R2014b)
+    try
+        if using_hg2(fig)
+            % Set the FontWeight of axes labels/titles to 'normal'
+            texLabels = findall(fig, 'type','text', 'FontWeight','bold');
+            set(texLabels, 'FontWeight','normal');
         end
+    catch
+        % ignore
+    end
 
-        % Fix issue #46: Ghostscript crash if figure units <> pixels
-        oldFigUnits = get(fig,'Units');
-        set(fig,'Units','pixels');
-
-        % Set to print exactly what is there
-        set(fig, 'InvertHardcopy', 'off');
-        % Set the renderer
-        switch options.renderer
-            case 1
-                renderer = '-opengl';
-            case 2
-                renderer = '-zbuffer';
-            case 3
-                renderer = '-painters';
-            otherwise
-                renderer = '-opengl'; % Default for bitmaps
+    % Fix issue #42: non-normalized annotations on HG1 (internal Matlab bug)
+    annotationHandles = [];
+    try
+        if ~using_hg2(fig)
+            annotationHandles = findall(fig,'Type','hggroup','-and','-property','Units','-and','-not','Units','norm');
+            originalUnits = get(annotationHandles,'Units');
+            set(annotationHandles,'Units','norm');
         end
+    catch
+        % should never happen, but ignore in any case - issue #50
+    end
+
+    % Fix issue #46: Ghostscript crash if figure units <> pixels
+    oldFigUnits = get(fig,'Units');
+    set(fig,'Units','pixels');
+
+    % Set to print exactly what is there
+    set(fig, 'InvertHardcopy', 'off');
+    % Set the renderer
+    switch options.renderer
+        case 1
+            renderer = '-opengl';
+        case 2
+            renderer = '-zbuffer';
+        case 3
+            renderer = '-painters';
+        otherwise
+            renderer = '-opengl'; % Default for bitmaps
+    end
+
+    try
         % Do the bitmap formats first
         if isbitmap(options)
             if abs(options.bb_padding) > 1
@@ -316,7 +328,7 @@ function [im, alpha] = export_fig(varargin)
             if options.transparent && (options.png || options.alpha)
                 % Get out an alpha channel
                 % MATLAB "feature": black colorbar axes can change to white and vice versa!
-                hCB = findobj(fig, 'Type', 'axes', 'Tag', 'Colorbar');
+                hCB = findall(fig, 'Type','axes', 'Tag','Colorbar');
                 if isempty(hCB)
                     yCol = [];
                     xCol = [];
@@ -627,11 +639,11 @@ function [im, alpha] = export_fig(varargin)
     end
 end
 
-function [fig, options] = parse_args(nout, varargin)
+function options = parse_args(nout, fig, varargin)
     % Parse the input arguments
     % Set the defaults
-    fig = get(0, 'CurrentFigure');
-    options = struct('name', 'export_fig_out', ...
+    options = struct(...
+        'name', 'export_fig_out', ...
         'crop', true, ...
         'transparent', false, ...
         'renderer', 0, ... % 0: default, 1: OpenGL, 2: ZBuffer, 3: Painters
@@ -655,7 +667,12 @@ function [fig, options] = parse_args(nout, varargin)
     native = false; % Set resolution to native of an image
 
     % Go through the other arguments
-    for a = 1:nargin-1
+    skipNext = false;
+    for a = 1:nargin-2
+        if skipNext
+            skipNext = false;
+            continue;
+        end
         if all(ishandle(varargin{a}))
             fig = varargin{a};
         elseif ischar(varargin{a}) && ~isempty(varargin{a})
@@ -703,8 +720,15 @@ function [fig, options] = parse_args(nout, varargin)
                             options.gs_options{end+1} = varargin{a};
                         else
                             val = str2double(regexp(varargin{a}, '(?<=-(m|M|r|R|q|Q|p|P))-?\d*.?\d+', 'match'));
-                            if ~isscalar(val)
-                                error('option %s not recognised', varargin{a});
+                            if isempty(val)
+                                % Issue #51: improved processing of input args (accept space between param name & value)
+                                val = str2double(varargin{a+1});
+                                if isscalar(val) && ~isnan(val)
+                                    skipNext = true;
+                                end
+                            end
+                            if ~isscalar(val) && ~isnan(val)
+                                error('option %s not recognised or cannot be parsed', varargin{a});
                             end
                             switch lower(varargin{a}(2))
                                 case 'm'
@@ -770,11 +794,6 @@ function [fig, options] = parse_args(nout, varargin)
         options.resolution = 864;
     end
 
-    % Check we have a figure handle
-    if isempty(fig)
-        error('No figure found');
-    end
-
     % Set the default format
     if ~isvector(options) && ~isbitmap(options)
         options.png = true;
@@ -789,9 +808,9 @@ function [fig, options] = parse_args(nout, varargin)
     % first suitable image found
     if native && isbitmap(options)
         % Find a suitable image
-        list = findobj(fig, 'Type', 'image', 'Tag', 'export_fig_native');
+        list = findall(fig, 'Type','image', 'Tag','export_fig_native');
         if isempty(list)
-            list = findobj(fig, 'Type', 'image', 'Visible', 'on');
+            list = findall(fig, 'Type','image', 'Visible','on');
         end
         for hIm = list(:)'
             % Check height is >= 2
