@@ -199,9 +199,11 @@
 % 28/03/15: Fixed issue #50: error on some Matlab versions with the fix for issue #42
 % 29/03/15: Fixed issue #33: bugs in Matlab's print() function with -cmyk
 % 29/03/15: Improved processing of input args (accept space between param name & value, related to issue #51)
-% 30/03/15: When exporting *.fig files, remove .fig from the generated filename (abc.fig => abc.pdf)
+% 30/03/15: When exporting *.fig files, then saveas *.fig if figure is open, otherwise export the specified fig file
+% 30/03/15: Fixed edge case bug introduced yesterday (commit #ae1755bd2e11dc4e99b95a7681f6e211b3fa9358)
 
 function [imageData, alpha] = export_fig(varargin)
+    [imageData, alpha] = deal([]);
     hadError = false;
     displaySuggestedWorkarounds = true;
 
@@ -209,14 +211,16 @@ function [imageData, alpha] = export_fig(varargin)
     % axes limits are up-to-date.
     drawnow;
 
-    % Check we have a figure handle
+    % Parse the input arguments
     fig = get(0, 'CurrentFigure');
-    if isempty(fig)
+    [fig, options] = parse_args(nargout, fig, varargin{:});
+
+    % Ensure that we have a figure handle
+    if isequal(fig,-1)
+        return;  % silent bail-out
+    elseif isempty(fig)
         error('No figure found');
     end
-
-    % Parse the input arguments
-    options = parse_args(nargout, fig, varargin{:});
 
     % Isolate the subplot, if it is one
     cls = all(ismember(get(fig, 'Type'), {'axes', 'uipanel'}));
@@ -589,7 +593,7 @@ function [imageData, alpha] = export_fig(varargin)
                 end
             end
         end
-        if cls
+        if cls || options.closeFig
             % Close the created figure
             close(fig);
         else
@@ -639,7 +643,7 @@ function [imageData, alpha] = export_fig(varargin)
     end
 end
 
-function options = parse_args(nout, fig, varargin)
+function [fig, options] = parse_args(nout, fig, varargin)
     % Parse the input arguments
     % Set the defaults
     options = struct(...
@@ -662,6 +666,7 @@ function options = parse_args(nout, fig, varargin)
         'magnify', [], ...
         'resolution', [], ...
         'bookmark', false, ...
+        'closeFig', false, ...
         'quality', [], ...
         'gs_options', {{}});
     native = false; % Set resolution to native of an image
@@ -761,13 +766,26 @@ function options = parse_args(nout, fig, varargin)
                     case '.pdf'
                         options.pdf = true;
                     case '.fig'
-                        % do nothing (keep options.name without the .fig extension)
+                        % If no open figure, then load the specified .fig file and continue
+                        if isempty(fig)
+                            fig = openfig(varargin{a},'invisible');
+                            varargin{a} = fig;
+                            options.closeFig = true;
+                        else
+                            % save the current figure as the specified .fig file and exit
+                            saveas(fig(1),varargin{a});
+                            fig = -1;
+                            return
+                        end
                     otherwise
                         options.name = varargin{a};
                 end
             end
         end
     end
+
+    % Quick bail-out if no figure found
+    if isempty(fig),  return;  end
 
     % Do border padding with repsect to a cropped image
     if options.bb_padding
