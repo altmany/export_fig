@@ -66,6 +66,7 @@
 % 21/03/15: Fixed edge-case of missing handles having a 'FontName' property
 % 26/03/15: Attempt to fix issue #45: white lines in subplots do not print correctly
 % 27/03/15: Attempt to fix issue #44: white artifact lines appearing in patch exports
+% 30/03/15: Fixed issue #52: improved performance on HG2 (R2014b+)
 
 function print2eps(name, fig, bb_padding, varargin)
     options = {'-depsc2'};
@@ -196,6 +197,19 @@ function print2eps(name, fig, bb_padding, varargin)
     % Fix for Matlab R2014b bug (issue #31): LineWidths<0.75 are not set in the EPS (default line width is used)
     try
         if ~isempty(fstrm) && using_hg2(fig)
+            % Convert miter joins to line joins
+            %fstrm = regexprep(fstrm, '\n10.0 ML\n', '\n1 LJ\n');
+            % This is faster (the original regexprep could take many seconds when the axes contains many lines):
+            fstrm = strrep(fstrm, sprintf('\n10.0 ML\n'), sprintf('\n1 LJ\n'));
+
+            % In HG2, grid lines and axes Ruler Axles have a default LineWidth of 0.5 => replace en-bulk (assume that 1.0 LineWidth = 1.333 LW)
+            %   hAxes=gca; hAxes.YGridHandle.LineWidth, hAxes.YRuler.Axle.LineWidth
+            %fstrm = regexprep(fstrm, '(GC\n2 setlinecap\n1 LJ)\nN', '$1\n0.667 LW\nN');
+            % This is faster:
+            fstrm = strrep(fstrm, sprintf('GC\n2 setlinecap\n1 LJ\nN'), sprintf('GC\n2 setlinecap\n1 LJ\n0.667 LW\nN'));
+
+            % This is more accurate but *MUCH* slower (issue #52)
+            %{
             % Modify all thin lines in the figure to have 10x LineWidths
             hLines = findall(fig,'Type','line');
             hThinLines = [];
@@ -238,11 +252,15 @@ function print2eps(name, fig, bb_padding, varargin)
                         break;
                     end
                 end
-
-                % In HG2, grid lines and axes Ruler Axles have a default LineWidth of 0.5 => replace en-bulk (assume that 1.0 LineWidth = 1.333 LW)
-                %  hAxes=gca; hAxes.YGridHandle.LineWidth, hAxes.YRuler.Axle.LineWidth
-                fstrm = regexprep(fstrm, '10.0 ML\nN', '10.0 ML\n0.667 LW\nN');
             end
+            %}
+
+            % This is much faster although less accurate: fix all non-gray lines to have a LineWidth of 0.75 (=1 LW)
+            % Note: This will give incorrect LineWidth of 075 for lines having LineWidth<0.75, as well as for non-gray grid-lines (if present)
+            %       However, in practice these edge-cases are very rare indeed, and the difference in LineWidth should not be noticeable
+            %fstrm = regexprep(fstrm, '([CR]C\n2 setlinecap\n1 LJ)\nN', '$1\n1 LW\nN');
+            % This is faster (the original regexprep could take many seconds when the axes contains many lines):
+            fstrm = strrep(fstrm, sprintf('C\n2 setlinecap\n1 LJ\nN'), sprintf('C\n2 setlinecap\n1 LJ\n1 LW\nN'));
         end
     catch err
         fprintf(2, 'Error fixing LineWidths in EPS file: %s\n at %s:%d\n', err.message, err.stack(1).file, err.stack(1).line);
@@ -276,17 +294,16 @@ function print2eps(name, fig, bb_padding, varargin)
             fstrm = regexprep(fstrm, font_swap{2,a}, font_swap{3,a}(~isspace(font_swap{3,a})));
         end
     end
-    if using_hg2(fig)
-        % Convert miter joins to line joins
-        fstrm = regexprep(fstrm, '10.0 ML\n', '1 LJ\n');
 
-        % Move the bounding box to the top of the file
+    % Move the bounding box to the top of the file (HG2 only), or fix the line styles (HG1 only)
+    if using_hg2(fig)
+        % Move the bounding box to the top of the file (HG2 only)
         [s, e] = regexp(fstrm, '%%BoundingBox: [^%]*%%');
         if numel(s) == 2
             fstrm = fstrm([1:s(1)-1 s(2):e(2)-2 e(1)-1:s(2)-1 e(2)-1:end]);
         end
     else
-        % Fix the line styles
+        % Fix the line styles (HG1 only)
         fstrm = fix_lines(fstrm);
     end
 
@@ -331,9 +348,9 @@ function print2eps(name, fig, bb_padding, varargin)
     % Fix issue #44: white artifact lines appearing in patch exports
     % Note: the problem is due to the fact that Matlab's print() function exports patches
     %       as a combination of filled triangles, and a white line appears where the triangles touch
-    % In the workaround below, we will modify such dual-triangles into a filled rectangled.
+    % In the workaround below, we will modify such dual-triangles into a filled rectangle.
     % We are careful to only modify regexps that exactly match specific patterns - it's better to not
-    % correct some white-line artifacts than to change the geometry of a patch, or to corrupt the EPS
+    % correct some white-line artifacts than to change the geometry of a patch, or to corrupt the EPS.
     %   e.g.: '0 -450 937 0 0 450 3 MP PP 937 0 0 -450 0 450 3 MP PP' => '0 -450 937 0 0 450 0 0 4 MP'
     fstrm = regexprep(fstrm, '\n([-\d.]+ [-\d.]+) ([-\d.]+ [-\d.]+) ([-\d.]+ [-\d.]+) 3 MP\nPP\n\2 \1 \3 3 MP\nPP\n','\n$1 $2 $3 0 0 4 MP\nPP\n');
     fstrm = regexprep(fstrm, '\n([-\d.]+ [-\d.]+) ([-\d.]+ [-\d.]+) ([-\d.]+ [-\d.]+) 3 MP\nPP\n\2 \3 \1 3 MP\nPP\n','\n$1 $2 $3 0 0 4 MP\nPP\n');
