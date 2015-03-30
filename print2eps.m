@@ -260,7 +260,7 @@ function print2eps(name, fig, bb_padding, varargin)
             %       However, in practice these edge-cases are very rare indeed, and the difference in LineWidth should not be noticeable
             %fstrm = regexprep(fstrm, '([CR]C\n2 setlinecap\n1 LJ)\nN', '$1\n1 LW\nN');
             % This is faster (the original regexprep could take many seconds when the axes contains many lines):
-            fstrm = strrep(fstrm, sprintf('C\n2 setlinecap\n1 LJ\nN'), sprintf('C\n2 setlinecap\n1 LJ\n1 LW\nN'));
+            fstrm = strrep(fstrm, sprintf('\n2 setlinecap\n1 LJ\nN'), sprintf('\n2 setlinecap\n1 LJ\n1 LW\nN'));
         end
     catch err
         fprintf(2, 'Error fixing LineWidths in EPS file: %s\n at %s:%d\n', err.message, err.stack(1).file, err.stack(1).line);
