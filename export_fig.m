@@ -199,6 +199,7 @@
 % 28/03/15: Fixed issue #50: error on some Matlab versions with the fix for issue #42
 % 29/03/15: Fixed issue #33: bugs in Matlab's print() function with -cmyk
 % 29/03/15: Improved processing of input args (accept space between param name & value, related to issue #51)
+% 30/03/15: When exporting *.fig files, remove .fig from the generated filename (abc.fig => abc.pdf)
 
 function [imageData, alpha] = export_fig(varargin)
     hadError = false;
@@ -759,6 +760,8 @@ function options = parse_args(nout, fig, varargin)
                         options.eps = true;
                     case '.pdf'
                         options.pdf = true;
+                    case '.fig'
+                        % do nothing (keep options.name without the .fig extension)
                     otherwise
                         options.name = varargin{a};
                 end
