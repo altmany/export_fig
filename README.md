@@ -24,7 +24,7 @@ generates the following:
 |:-------:|:---------:|:----------:|
 |![](https://farm6.staticflickr.com/5616/15589249291_16e485c29a_o_d.png)|![](https://farm4.staticflickr.com/3944/15406302850_4d2e1c7afa_o_d.png)|![](https://farm6.staticflickr.com/5607/15568225476_8ce9bd5f6b_o_d.png)|
 
-Note that the size and background colour of test2.png (the output of export_fig) are the same as those of the on screen figure, in contrast to test.png. Of course, if you want want the figure background to be white (or any other colour) in the exported file then you can set this prior to exporting using:
+Note that the size and background colour of test2.png (the output of export_fig) are the same as those of the on screen figure, in contrast to test.png. Of course, if you want the figure background to be white (or any other colour) in the exported file then you can set this prior to exporting using:
 ```Matlab
 set(gcf, 'Color', 'w');
 ```
