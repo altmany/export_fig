@@ -1,3 +1,4 @@
+function [imageData, alpha] = export_fig(varargin)
 %EXPORT_FIG  Exports figures in a publication-quality format
 %
 % Examples:
@@ -146,6 +147,7 @@
 %
 %   See also PRINT, SAVEAS, ScreenCapture (on the Matlab File Exchange)
 
+%{
 % Copyright (C) Oliver Woodford 2008-2014, Yair Altman 2015-
 
 % The idea of using ghostscript is inspired by Peder Axensten's SAVEFIG
@@ -167,26 +169,19 @@
 % fix anyway.
 % Thanks to Tammy Threadgill for reporting a bug where an axes is not
 % isolated from gui objects.
-
+%}
+%{
 % 23/02/12: Ensure that axes limits don't change during printing
-% 14/03/12: Fix bug in fixing the axes limits (thanks to Tobias Lamour for
-%           reporting it).
-% 02/05/12: Incorporate patch of Petr Nechaev (many thanks), enabling
-%           bookmarking of figures in pdf files.
-% 09/05/12: Incorporate patch of Arcelia Arrieta (many thanks), to keep
-%           tick marks fixed.
-% 12/12/12: Add support for isolating uipanels. Thanks to michael for
-%           suggesting it.
-% 25/09/13: Add support for changing resolution in vector formats. Thanks
-%           to Jan Jaap Meijer for suggesting it.
-% 07/05/14: Add support for '~' at start of path. Thanks to Sally Warner
-%           for suggesting it.
-% 24/02/15: Fix Matlab R2014b bug (issue #34): plot markers are not
-%           displayed when ZLimMode='manual'
+% 14/03/12: Fix bug in fixing the axes limits (thanks to Tobias Lamour for reporting it).
+% 02/05/12: Incorporate patch of Petr Nechaev (many thanks), enabling bookmarking of figures in pdf files.
+% 09/05/12: Incorporate patch of Arcelia Arrieta (many thanks), to keep tick marks fixed.
+% 12/12/12: Add support for isolating uipanels. Thanks to michael for suggesting it.
+% 25/09/13: Add support for changing resolution in vector formats. Thanks to Jan Jaap Meijer for suggesting it.
+% 07/05/14: Add support for '~' at start of path. Thanks to Sally Warner for suggesting it.
+% 24/02/15: Fix Matlab R2014b bug (issue #34): plot markers are not displayed when ZLimMode='manual'
 % 25/02/15: Fix issue #4 (using HG2 on R2014a and earlier)
 % 25/02/15: Fix issue #21 (bold TeX axes labels/titles in R2014b)
-% 26/02/15: If temp dir is not writable, use the user-specified folder
-%           for temporary EPS/PDF files (Javier Paredes)
+% 26/02/15: If temp dir is not writable, use the user-specified folder for temporary EPS/PDF files (Javier Paredes)
 % 27/02/15: Modified repository URL from github.com/ojwoodford to /altmany
 %           Indented main function
 %           Added top-level try-catch block to display useful workarounds
@@ -201,8 +196,8 @@
 % 29/03/15: Improved processing of input args (accept space between param name & value, related to issue #51)
 % 30/03/15: When exporting *.fig files, then saveas *.fig if figure is open, otherwise export the specified fig file
 % 30/03/15: Fixed edge case bug introduced yesterday (commit #ae1755bd2e11dc4e99b95a7681f6e211b3fa9358)
+%}
 
-function [imageData, alpha] = export_fig(varargin)
     [imageData, alpha] = deal([]);
     hadError = false;
     displaySuggestedWorkarounds = true;
