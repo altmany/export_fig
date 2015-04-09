@@ -196,6 +196,7 @@ function [imageData, alpha] = export_fig(varargin)
 % 29/03/15: Improved processing of input args (accept space between param name & value, related to issue #51)
 % 30/03/15: When exporting *.fig files, then saveas *.fig if figure is open, otherwise export the specified fig file
 % 30/03/15: Fixed edge case bug introduced yesterday (commit #ae1755bd2e11dc4e99b95a7681f6e211b3fa9358)
+% 09/04/15: Consolidated header comment sections; initialize output vars only if requested (nargout>0)
 %}
 
     if nargout

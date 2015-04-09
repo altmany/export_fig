@@ -1,3 +1,4 @@
+function print2eps(name, fig, bb_padding, varargin)
 %PRINT2EPS  Prints figures to eps with improved line styles
 %
 % Examples:
@@ -25,13 +26,15 @@
 %                May be a 2-element vector of padding and crop amount. 
 %   options - Additional parameter strings to be passed to print.
 
-% Copyright (C) Oliver Woodford 2008-2014
+%{
+% Copyright (C) Oliver Woodford 2008-2014, Yair Altman 2015-
 
 % The idea of editing the EPS file to change line styles comes from Jiro
 % Doke's FIXPSLINESTYLE (fex id: 17928)
 % The idea of changing dash length with line width came from comments on
 % fex id: 5743, but the implementation is mine :)
-
+%}
+%{
 % 14/11/11: Fix a MATLAB bug rendering black or white text incorrectly.
 %           Thanks to Mathieu Morlighem for reporting the issue and
 %           obtaining a fix from TMW.
@@ -67,8 +70,9 @@
 % 26/03/15: Attempt to fix issue #45: white lines in subplots do not print correctly
 % 27/03/15: Attempt to fix issue #44: white artifact lines appearing in patch exports
 % 30/03/15: Fixed issue #52: improved performance on HG2 (R2014b+)
+% 09/04/15: Comment blocks consolidation and minor code cleanup (no real code change)
+%}
 
-function print2eps(name, fig, bb_padding, varargin)
     options = {'-depsc2'};
     if nargin > 3
         options = [options varargin];
@@ -135,7 +139,7 @@ function print2eps(name, fig, bb_padding, varargin)
         font_swap{1,a} = find(strcmp(fontslu{require_swap(a)}, fontsl));
         font_swap{2,a} = matlab_fonts{unused_fonts(a)};
         font_swap{3,a} = fonts{font_swap{1,a}(1)};
-        fonts_new(font_swap{1,a}) = {font_swap{2,a}};
+        fonts_new(font_swap{1,a}) = font_swap(2,a);
     end
 
     % Swap the fonts
@@ -329,8 +333,9 @@ function print2eps(name, fig, bb_padding, varargin)
         % 3. Calculate the new Bounding Box
         pagew = pagebb_matlab(3)-pagebb_matlab(1);
         pageh = pagebb_matlab(4)-pagebb_matlab(2);
-        bb_new = [pagebb_matlab(1)+pagew*bb_rel(1) pagebb_matlab(2)+pageh*bb_rel(2) ...
-            pagebb_matlab(1)+pagew*bb_rel(3) pagebb_matlab(2)+pageh*bb_rel(4)];
+        %bb_new = [pagebb_matlab(1)+pagew*bb_rel(1) pagebb_matlab(2)+pageh*bb_rel(2) ...
+        %          pagebb_matlab(1)+pagew*bb_rel(3) pagebb_matlab(2)+pageh*bb_rel(4)];
+        bb_new = pagebb_matlab([1,2,1,2]) + [pagew,pageh,pagew,pageh].*bb_rel;  % clearer
         bb_offset = (bb_new-bb_matlab);
 
         % Apply the bounding box padding
