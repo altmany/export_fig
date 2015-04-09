@@ -198,7 +198,9 @@ function [imageData, alpha] = export_fig(varargin)
 % 30/03/15: Fixed edge case bug introduced yesterday (commit #ae1755bd2e11dc4e99b95a7681f6e211b3fa9358)
 %}
 
-    [imageData, alpha] = deal([]);
+    if nargout
+        [imageData, alpha] = deal([]);
+    end
     hadError = false;
     displaySuggestedWorkarounds = true;
 
