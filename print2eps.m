@@ -71,9 +71,10 @@ function print2eps(name, fig, bb_padding, varargin)
 % 27/03/15: Attempt to fix issue #44: white artifact lines appearing in patch exports
 % 30/03/15: Fixed issue #52: improved performance on HG2 (R2014b+)
 % 09/04/15: Comment blocks consolidation and minor code cleanup (no real code change)
+% 12/04/15: Fixed issue #56: bad cropping
 %}
 
-    options = {'-depsc2'};
+    options = {'-depsc2', '-loose'};
     if nargin > 3
         options = [options varargin];
     elseif nargin < 3
@@ -336,7 +337,7 @@ function print2eps(name, fig, bb_padding, varargin)
         %bb_new = [pagebb_matlab(1)+pagew*bb_rel(1) pagebb_matlab(2)+pageh*bb_rel(2) ...
         %          pagebb_matlab(1)+pagew*bb_rel(3) pagebb_matlab(2)+pageh*bb_rel(4)];
         bb_new = pagebb_matlab([1,2,1,2]) + [pagew,pageh,pagew,pageh].*bb_rel;  % clearer
-        bb_offset = (bb_new-bb_matlab);
+        bb_offset = (bb_new-bb_matlab) + [-1,-1,1,1];  % 1px margin so that cropping is not TOO tight
 
         % Apply the bounding box padding
         if bb_padding
