@@ -72,9 +72,10 @@ function print2eps(name, fig, bb_padding, varargin)
 % 30/03/15: Fixed issue #52: improved performance on HG2 (R2014b+)
 % 09/04/15: Comment blocks consolidation and minor code cleanup (no real code change)
 % 12/04/15: Fixed issue #56: bad cropping
+% 14/04/15: Workaround for issue #45: lines in image subplots are exported in invalid color
 %}
 
-    options = {'-depsc2', '-loose'};
+    options = {'-loose'};
     if nargin > 3
         options = [options varargin];
     elseif nargin < 3
@@ -187,6 +188,23 @@ function print2eps(name, fig, bb_padding, varargin)
     white_line_handles = findall(fig, 'Type', 'line', 'Color', [1 1 1]);
     % Set the line color slightly off white
     set(white_line_handles, 'Color', [1 1 1] - 0.00001);
+
+    % Workaround for issue #45: lines in image subplots are exported in invalid color
+    % In this case the -depsc driver solves the problem, but then all the other workarounds
+    % below (for all the other issues) will fail, so it's better to let the user decide by
+    % just issuing a warning and accepting the '-depsc' input parameter
+    epsLevel2 = ~any(strcmpi(options,'-depsc'));
+    if epsLevel2
+        % Use -depsc2 (EPS color level-2) if -depsc (EPS color level-3) was not specifically requested
+        options{end+1} = '-depsc2';
+        % Issue a warning if multiple images & lines were found in the figure
+        if ~using_hg2 && numel(findall(fig,'Type','image'))>1 && ~isempty(findall(fig,'Type','line'))
+            warning('YMA:export_fig:issue45', ...
+                    ['Multiple images & lines detected. In such cases, the lines might \n' ...
+                     'appear with an invalid color due to an internal MATLAB bug (fixed in R2014b). \n' ...
+                     'A possible workaround is to add the ''-depsc'' parameter to the export_fig command.']);
+        end
+    end
 
     % Print to eps file
     print(fig, options{:}, name);

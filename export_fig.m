@@ -197,6 +197,7 @@ function [imageData, alpha] = export_fig(varargin)
 % 30/03/15: When exporting *.fig files, then saveas *.fig if figure is open, otherwise export the specified fig file
 % 30/03/15: Fixed edge case bug introduced yesterday (commit #ae1755bd2e11dc4e99b95a7681f6e211b3fa9358)
 % 09/04/15: Consolidated header comment sections; initialize output vars only if requested (nargout>0)
+% 14/04/15: Workaround for issue #45: lines in image subplots are exported in invalid color
 %}
 
     if nargout
@@ -540,10 +541,17 @@ function [imageData, alpha] = export_fig(varargin)
             p2eArgs = {renderer, sprintf('-r%d', options.resolution)};
             if options.colourspace == 1  % CMYK
                 % Issue #33: due to internal bugs in Matlab's print() function, we can't use its -cmyk option
-                %p2eArgs = [p2eArgs {'-cmyk'}];
+                %p2eArgs{end+1} = '-cmyk';
             end
             if ~options.crop
-                p2eArgs = [p2eArgs {'-loose'}];
+                % Issue #56: due to internal bugs in Matlab's print() function, we can't use its internal cropping mechanism,
+                % therefore we always use '-loose' (in print2eps.m) and do our own cropping (in crop_borders)
+                %p2eArgs{end+1} = '-loose';
+            end
+            if any(strcmpi(varargin,'-depsc'))
+                % Issue #45: lines in image subplots are exported in invalid color.
+                % The workaround is to use the -depsc parameter instead of the default -depsc2
+                p2eArgs{end+1} = '-depsc';
             end
             try
                 % Generate an eps
