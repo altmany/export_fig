@@ -197,8 +197,9 @@ function print2eps(name, fig, bb_padding, varargin)
     if epsLevel2
         % Use -depsc2 (EPS color level-2) if -depsc (EPS color level-3) was not specifically requested
         options{end+1} = '-depsc2';
-        % Issue a warning if multiple images & lines were found in the figure
-        if ~using_hg2 && numel(findall(fig,'Type','image'))>1 && ~isempty(findall(fig,'Type','line'))
+        % Issue a warning if multiple images & lines were found in the figure, and HG1 with painters renderer is used
+        isPainters = any(strcmpi(options,'-painters'));
+        if isPainters && ~using_hg2 && numel(findall(fig,'Type','image'))>1 && ~isempty(findall(fig,'Type','line'))
             warning('YMA:export_fig:issue45', ...
                     ['Multiple images & lines detected. In such cases, the lines might \n' ...
                      'appear with an invalid color due to an internal MATLAB bug (fixed in R2014b). \n' ...
