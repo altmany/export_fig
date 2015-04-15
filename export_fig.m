@@ -20,6 +20,7 @@ function [imageData, alpha] = export_fig(varargin)
 %   export_fig ... -<colorspace>
 %   export_fig ... -append
 %   export_fig ... -bookmark
+%   export_fig ... -clipboard
 %   export_fig(..., handle)
 %
 % This function saves a figure or single axes to one or more vector and/or
@@ -133,6 +134,8 @@ function [imageData, alpha] = export_fig(varargin)
 %             of being overwritten (default).
 %   -bookmark - option to indicate that a bookmark with the name of the
 %               figure is to be created in the output file (pdf only).
+%   -clipboard - option to save output as an image on the system clipboard.
+%                Note: background transparency is not preserved in clipboard
 %   -d<gs_option> - option to indicate a ghostscript setting. For example,
 %                   -dMaxBitmap=0 or -dNoOutputFonts (Ghostscript 9.15+).
 %   -depsc - option to use EPS level-3 rather than the default level-2 print
@@ -509,6 +512,7 @@ function [imageData, alpha] = export_fig(varargin)
                 imwrite(A, [options.name '.tif'], 'Resolution', options.magnify*get(0, 'ScreenPixelsPerInch'), 'WriteMode', append_mode{options.append+1});
             end
         end
+
         % Now do the vector formats
         if isvector(options)
             % Set the default renderer to painters
@@ -606,6 +610,8 @@ function [imageData, alpha] = export_fig(varargin)
                 end
             end
         end
+
+        % Revert the figure or close it (if requested)
         if cls || options.closeFig
             % Close the created figure
             close(fig);
@@ -633,6 +639,84 @@ function [imageData, alpha] = export_fig(varargin)
             end
             % Revert figure units
             set(fig,'Units',oldFigUnits);
+        end
+
+        % Output to clipboard (if requested)
+        if options.clipboard
+            % Delete the output file if unchanged from the default name ('export_fig_out.png')
+            if strcmpi(options.name,'export_fig_out')
+                try
+                    fileInfo = dir('export_fig_out.png');
+                    if ~isempty(fileInfo)
+                        timediff = now - fileInfo.datenum;
+                        ONE_SEC = 1/24/60/60;
+                        if timediff < ONE_SEC
+                            delete('export_fig_out.png');
+                        end
+                    end
+                catch
+                    % never mind...
+                end
+            end
+
+            % Save the image in the system clipboard
+            % credit: Joro Doke's IMCLIPBOARD: http://www.mathworks.com/matlabcentral/fileexchange/28708-imclipboard
+            try
+                error(javachk('awt', 'export_fig -clipboard output'));
+            catch
+                warning('export_fig -clipboard output failed: requires Java to work');
+                return;
+            end
+            try
+                % Import necessary Java classes
+                import java.awt.Toolkit.*
+                import java.awt.image.BufferedImage
+                import java.awt.datatransfer.DataFlavor
+
+                % Get System Clipboard object (java.awt.Toolkit)
+                cb = getDefaultToolkit.getSystemClipboard();
+
+                % Add java class (ImageSelection) to the path
+                if ~exist('ImageSelection', 'class')
+                    javaaddpath(fileparts(which(mfilename)), '-end');
+                end
+
+                % Get image size
+                ht = size(imageData, 1);
+                wd = size(imageData, 2);
+
+                % Convert to Blue-Green-Red format
+                try
+                    imageData2 = imageData(:, :, [3 2 1]);
+                catch
+                    % Probably gray-scaled image (2D, without the 3rd [RGB] dimension)
+                    imageData2 = imageData(:, :, [1 1 1]);
+                end
+
+                % Convert to 3xWxH format
+                imageData2 = permute(imageData2, [3, 2, 1]);
+
+                % Append Alpha data (unused - transparency is not supported in clipboard copy)
+                alphaData2 = uint8(permute(255*alpha,[3,2,1])); %=255*ones(1,wd,ht,'uint8')
+                imageData2 = cat(1, imageData2, alphaData2);
+
+                % Create image buffer
+                imBuffer = BufferedImage(wd, ht, BufferedImage.TYPE_INT_RGB);
+                imBuffer.setRGB(0, 0, wd, ht, typecast(imageData2(:), 'int32'), 0, wd);
+
+                % Create ImageSelection object from the image buffer
+                imSelection = ImageSelection(imBuffer);
+
+                % Set clipboard content to the image
+                cb.setContents(imSelection, []);
+            catch
+                warning('export_fig -clipboard output failed: %s', lasterr); %#ok<LERR>
+            end
+        end
+
+        % Don't output the data to console unless requested
+        if ~nargout
+            clear imageData alpha
         end
     catch err
         % Display possible workarounds before the error message
@@ -670,9 +754,10 @@ function [fig, options] = parse_args(nout, fig, varargin)
         'tif', false, ...
         'jpg', false, ...
         'bmp', false, ...
+        'clipboard', false, ...
         'colourspace', 0, ... % 0: RGB/gray, 1: CMYK, 2: gray
         'append', false, ...
-        'im', nout == 1, ...
+        'im',    nout == 1, ...
         'alpha', nout == 2, ...
         'aa_factor', 0, ...
         'bb_padding', 0, ...
@@ -732,6 +817,10 @@ function [fig, options] = parse_args(nout, fig, varargin)
                         options.bookmark = true;
                     case 'native'
                         native = true;
+                    case 'clipboard'
+                        options.clipboard = true;
+                        options.im = true;
+                        options.alpha = true;
                     otherwise
                         if strcmpi(varargin{a}(1:2),'-d')
                             varargin{a}(2) = 'd';  % ensure lowercase 'd'
