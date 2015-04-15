@@ -215,6 +215,7 @@ function [imageData, alpha] = export_fig(varargin)
     % Make sure the figure is rendered correctly _now_ so that properties like
     % axes limits are up-to-date.
     drawnow;
+    pause(0.05);  % this solves timing issues with Java Swing's EDT (http://undocumentedmatlab.com/blog/solving-a-matlab-hang-problem)
 
     % Parse the input arguments
     fig = get(0, 'CurrentFigure');
