@@ -14,6 +14,9 @@ function [imageData, alpha] = export_fig(varargin)
 %   export_fig ... -a<val>
 %   export_fig ... -q<val>
 %   export_fig ... -p<val>
+%   export_fig ... -dpi<val> or -<val>dpi
+%   export_fig ... -d<gs_option>
+%   export_fig ... -depsc
 %   export_fig ... -<renderer>
 %   export_fig ... -<colorspace>
 %   export_fig ... -append
@@ -86,7 +89,7 @@ function [imageData, alpha] = export_fig(varargin)
 %                  made transparent (png, pdf and eps output only).
 %   -m<val> - option where val indicates the factor to magnify the
 %             on-screen figure pixel dimensions by when generating bitmap
-%             outputs. Default: '-m1'.
+%             outputs (does not affect vector formats). Default: '-m1'.
 %   -r<val> - option val indicates the resolution (in pixels per inch) to
 %             export bitmap and vector outputs at, keeping the dimensions
 %             of the on-screen figure. Default: '-r864' (for vector output
@@ -126,6 +129,9 @@ function [imageData, alpha] = export_fig(varargin)
 %             val can be positive (padding) or negative (extra cropping).
 %             If used, the -nocrop flag will be ignored, i.e. the image will
 %             always be cropped and then padded. Default: 0 (i.e. no padding).
+%   -dpi<val> or -<val>dpi - option to set the output DPI. This is the same as
+%             specifying -m with a value of <val>/get(0,'ScreenPixelsPerInch').
+%             For example: -300dpi or -dpi300  (only affects bitmap formats)
 %   -append - option indicating that if the file (pdfs only) already
 %             exists, the figure is to be appended as a new page, instead
 %             of being overwritten (default).
@@ -133,6 +139,9 @@ function [imageData, alpha] = export_fig(varargin)
 %               figure is to be created in the output file (pdf only).
 %   -d<gs_option> - option to indicate a ghostscript setting. For example,
 %                   -dMaxBitmap=0 or -dNoOutputFonts (Ghostscript 9.15+).
+%   -depsc - option to use EPS level-3 rather than the default level-2 print
+%            device. This solves some bugs with Matlab's default -depsc2 device
+%            such as discolored subplot lines on images (vector formats only).
 %   handle - The handle of the figure, axes or uipanels (can be an array of
 %            handles, but the objects must be in the same figure) to be
 %            saved. Default: gcf.
@@ -726,20 +735,34 @@ function [fig, options] = parse_args(nout, fig, varargin)
                     case 'native'
                         native = true;
                     otherwise
-                        if strcmpi(varargin{a}(1:2),'-d')
+                        if strfind(lower(varargin{a}),'dpi')
+                            % Enable specifying the DPI value (affects magnification, same as -m)
+                            val = str2double(regexp(varargin{a}, '\d+', 'match','once'));
+                            if isempty(val) || isnan(val)
+                                val = str2double(varargin{a+1});
+                                if isscalar(val) && ~isnan(val)
+                                    skipNext = true;
+                                end
+                            end
+                            if ~isscalar(val) || isnan(val)
+                                error('option %s is not recognised or cannot be parsed as a DPI value', varargin{a});
+                            end
+                            sppi = get(0,'ScreenPixelsPerInch');
+                            options.magnify = val / sppi;
+                        elseif strcmpi(varargin{a}(1:2),'-d')
                             varargin{a}(2) = 'd';  % ensure lowercase 'd'
                             options.gs_options{end+1} = varargin{a};
                         else
                             val = str2double(regexp(varargin{a}, '(?<=-(m|M|r|R|q|Q|p|P))-?\d*.?\d+', 'match'));
-                            if isempty(val)
+                            if isempty(val) || isnan(val)
                                 % Issue #51: improved processing of input args (accept space between param name & value)
                                 val = str2double(varargin{a+1});
                                 if isscalar(val) && ~isnan(val)
                                     skipNext = true;
                                 end
                             end
-                            if ~isscalar(val) && ~isnan(val)
-                                error('option %s not recognised or cannot be parsed', varargin{a});
+                            if ~isscalar(val) || isnan(val)
+                                error('option %s is not recognised or cannot be parsed', varargin{a});
                             end
                             switch lower(varargin{a}(2))
                                 case 'm'
