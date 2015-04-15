@@ -14,7 +14,6 @@ function [imageData, alpha] = export_fig(varargin)
 %   export_fig ... -a<val>
 %   export_fig ... -q<val>
 %   export_fig ... -p<val>
-%   export_fig ... -dpi<val> or -<val>dpi
 %   export_fig ... -d<gs_option>
 %   export_fig ... -depsc
 %   export_fig ... -<renderer>
@@ -129,9 +128,6 @@ function [imageData, alpha] = export_fig(varargin)
 %             val can be positive (padding) or negative (extra cropping).
 %             If used, the -nocrop flag will be ignored, i.e. the image will
 %             always be cropped and then padded. Default: 0 (i.e. no padding).
-%   -dpi<val> or -<val>dpi - option to set the output DPI. This is the same as
-%             specifying -m with a value of <val>/get(0,'ScreenPixelsPerInch').
-%             For example: -300dpi or -dpi300  (only affects bitmap formats)
 %   -append - option indicating that if the file (pdfs only) already
 %             exists, the figure is to be appended as a new page, instead
 %             of being overwritten (default).
@@ -207,6 +203,7 @@ function [imageData, alpha] = export_fig(varargin)
 % 30/03/15: Fixed edge case bug introduced yesterday (commit #ae1755bd2e11dc4e99b95a7681f6e211b3fa9358)
 % 09/04/15: Consolidated header comment sections; initialize output vars only if requested (nargout>0)
 % 14/04/15: Workaround for issue #45: lines in image subplots are exported in invalid color
+% 15/04/15: Fixed edge-case in parsing input parameters; fixed help section to show the -depsc option (issue #45)
 %}
 
     if nargout
@@ -735,21 +732,7 @@ function [fig, options] = parse_args(nout, fig, varargin)
                     case 'native'
                         native = true;
                     otherwise
-                        if strfind(lower(varargin{a}),'dpi')
-                            % Enable specifying the DPI value (affects magnification, same as -m)
-                            val = str2double(regexp(varargin{a}, '\d+', 'match','once'));
-                            if isempty(val) || isnan(val)
-                                val = str2double(varargin{a+1});
-                                if isscalar(val) && ~isnan(val)
-                                    skipNext = true;
-                                end
-                            end
-                            if ~isscalar(val) || isnan(val)
-                                error('option %s is not recognised or cannot be parsed as a DPI value', varargin{a});
-                            end
-                            sppi = get(0,'ScreenPixelsPerInch');
-                            options.magnify = val / sppi;
-                        elseif strcmpi(varargin{a}(1:2),'-d')
+                        if strcmpi(varargin{a}(1:2),'-d')
                             varargin{a}(2) = 'd';  % ensure lowercase 'd'
                             options.gs_options{end+1} = varargin{a};
                         else
