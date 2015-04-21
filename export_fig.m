@@ -591,7 +591,7 @@ function [imageData, alpha] = export_fig(varargin)
                 % Generate a pdf
                 eps2pdf(tmp_nam, pdf_nam_tmp, 1, options.append, options.colourspace==2, options.quality, options.gs_options);
                 % Ghostscript croaks on % chars in the output PDF file, so use tempname and then rename the file
-                movefile(pdf_nam_tmp, pdf_nam);
+                try movefile(pdf_nam_tmp, pdf_nam); catch, end
             catch ex
                 % Delete the eps
                 delete(tmp_nam);
