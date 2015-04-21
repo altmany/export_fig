@@ -208,6 +208,7 @@ function [imageData, alpha] = export_fig(varargin)
 % 14/04/15: Workaround for issue #45: lines in image subplots are exported in invalid color
 % 15/04/15: Fixed edge-case in parsing input parameters; fixed help section to show the -depsc option (issue #45)
 % 21/04/15: Bug fix: Ghostscript croaks on % chars in output PDF file (reported by Sven on FEX page, 15-Jul-2014)
+% 22/04/15: Bug fix: Pdftops croaks on relative paths (reported by Tintin Milou on FEX page, 19-Jan-2015)
 %}
 
     if nargout
@@ -591,7 +592,7 @@ function [imageData, alpha] = export_fig(varargin)
                 % Generate a pdf
                 eps2pdf(tmp_nam, pdf_nam_tmp, 1, options.append, options.colourspace==2, options.quality, options.gs_options);
                 % Ghostscript croaks on % chars in the output PDF file, so use tempname and then rename the file
-                try movefile(pdf_nam_tmp, pdf_nam); catch, end
+                try movefile(pdf_nam_tmp, pdf_nam, 'f'); catch, end
             catch ex
                 % Delete the eps
                 delete(tmp_nam);
@@ -602,12 +603,16 @@ function [imageData, alpha] = export_fig(varargin)
             if options.eps
                 try
                     % Generate an eps from the pdf
-                    pdf2eps(pdf_nam, [options.name '.eps']);
+                    % since pdftops can't handle relative paths (e.g., '..\'), use a temp file
+                    eps_nam_tmp = strrep(pdf_nam_tmp,'.pdf','.eps');
+                    pdf2eps(pdf_nam, eps_nam_tmp);
+                    movefile(eps_nam_tmp,  [options.name '.eps'], 'f');
                 catch ex
                     if ~options.pdf
                         % Delete the pdf
                         delete(pdf_nam);
                     end
+                    try delete(eps_nam_tmp); catch, end
                     rethrow(ex);
                 end
                 if ~options.pdf
