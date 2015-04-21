@@ -29,6 +29,7 @@ function fh = isolate_axes(ah, vis)
 % 05/12/13: Bug fix to axes having different units. Thanks to Remington Reid for reporting
 % 21/04/15: Bug fix for exporting uipanels with legend/colorbar on HG1 (reported by Alvaro
 %           on FEX page as a comment on 24-Apr-2014); standardized indentation & help section
+% 22/04/15: Bug fix: legends and colorbars were not exported when exporting axes handle in HG2
 
     % Make sure we have an array of handles
     if ~all(ishandle(ah))
@@ -71,7 +72,9 @@ function fh = isolate_axes(ah, vis)
         set(ah(a), 'Tag', old_tag{a});
     end
     % Keep any legends and colorbars which overlap the subplots
-    lh = findall(fh, 'Type', 'axes', '-and', {'Tag', 'legend', '-or', 'Tag', 'Colorbar'});
+    % Note: in HG1 these are axes objects; in HG2 they are separate objects, therefore we
+    %       don't test for the type, only the tag (hopefully nobody but Matlab uses them!)
+    lh = findall(fh, 'Tag', 'legend', '-or', 'Tag', 'Colorbar');
     nLeg = numel(lh);
     if nLeg > 0
         set([ah(:); lh(:)], 'Units', 'normalized');
@@ -84,7 +87,11 @@ function fh = isolate_axes(ah, vis)
             ax_pos = cell2mat(ax_pos(:));
         end
         ax_pos(:,3:4) = ax_pos(:,3:4) + ax_pos(:,1:2);
-        leg_pos = get(lh, 'OuterPosition');
+        try
+            leg_pos = get(lh, 'OuterPosition');
+        catch
+            leg_pos = get(lh, 'Position');  % No OuterPosition in HG2, only in HG1
+        end
         if nLeg > 1;
             leg_pos = cell2mat(leg_pos);
         end
