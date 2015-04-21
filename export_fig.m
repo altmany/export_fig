@@ -207,6 +207,7 @@ function [imageData, alpha] = export_fig(varargin)
 % 09/04/15: Consolidated header comment sections; initialize output vars only if requested (nargout>0)
 % 14/04/15: Workaround for issue #45: lines in image subplots are exported in invalid color
 % 15/04/15: Fixed edge-case in parsing input parameters; fixed help section to show the -depsc option (issue #45)
+% 21/04/15: Bug fix: Ghostscript croaks on % chars in output PDF file (reported by Sven on FEX page, 15-Jul-2014)
 %}
 
     if nargout
@@ -541,12 +542,15 @@ function [imageData, alpha] = export_fig(varargin)
                 tmp_nam = fullfile(fpath,[fname fext]);
                 isTempDirOk = false;
             end
+            if isTempDirOk
+                pdf_nam_tmp = [tempname '.pdf'];
+            else
+                pdf_nam_tmp = fullfile(fpath,[fname '.pdf']);
+            end
             if options.pdf
                 pdf_nam = [options.name '.pdf'];
-            elseif isTempDirOk
-                pdf_nam = [tempname '.pdf'];
             else
-                pdf_nam = fullfile(fpath,[fname '.pdf']);
+                pdf_nam = pdf_nam_tmp;
             end
             % Generate the options for print
             p2eArgs = {renderer, sprintf('-r%d', options.resolution)};
@@ -585,7 +589,9 @@ function [imageData, alpha] = export_fig(varargin)
                     add_bookmark(tmp_nam, fig_nam);
                 end
                 % Generate a pdf
-                eps2pdf(tmp_nam, pdf_nam, 1, options.append, options.colourspace==2, options.quality, options.gs_options);
+                eps2pdf(tmp_nam, pdf_nam_tmp, 1, options.append, options.colourspace==2, options.quality, options.gs_options);
+                % Ghostscript croaks on % chars in the output PDF file, so use tempname and then rename the file
+                movefile(pdf_nam_tmp, pdf_nam);
             catch ex
                 % Delete the eps
                 delete(tmp_nam);
