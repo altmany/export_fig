@@ -276,11 +276,14 @@ function [imageData, alpha] = export_fig(varargin)
             Xtick = make_cell(get(Hlims, 'XTickMode'));
             Ytick = make_cell(get(Hlims, 'YTickMode'));
             Ztick = make_cell(get(Hlims, 'ZTickMode'));
+            Xlabel = make_cell(get(Hlims, 'XTickLabelMode')); 
+            Ylabel = make_cell(get(Hlims, 'YTickLabelMode')); 
+            Zlabel = make_cell(get(Hlims, 'ZTickLabelMode')); 
         end
 
         % Set all axes limit and tick modes to manual, so the limits and ticks can't change
         % Fix Matlab R2014b bug (issue #34): plot markers are not displayed when ZLimMode='manual'
-        set(Hlims, 'XLimMode', 'manual', 'YLimMode', 'manual');
+        set(Hlims, 'XLimMode', 'manual', 'YLimMode', 'manual'); 
         set_tick_mode(Hlims, 'X');
         set_tick_mode(Hlims, 'Y');
         if ~using_hg2(fig)
@@ -632,7 +635,9 @@ function [imageData, alpha] = export_fig(varargin)
             % Reset the axes limit and tick modes
             for a = 1:numel(Hlims)
                 try
-                    set(Hlims(a), 'XLimMode', Xlims{a}, 'YLimMode', Ylims{a}, 'ZLimMode', Zlims{a}, 'XTickMode', Xtick{a}, 'YTickMode', Ytick{a}, 'ZTickMode', Ztick{a});
+                    set(Hlims(a), 'XLimMode', Xlims{a}, 'YLimMode', Ylims{a}, 'ZLimMode', Zlims{a},... 
+                                  'XTickMode', Xtick{a}, 'YTickMode', Ytick{a}, 'ZTickMode', Ztick{a},...
+                                  'XTickLabelMode', Xlabel{a}, 'YTickLabelMode', Ylabel{a}, 'ZTickLabelMode', Zlabel{a}); 
                 catch
                     % ignore - fix issue #4 (using HG2 on R2014a and earlier)
                 end
@@ -1109,6 +1114,7 @@ function set_tick_mode(Hlims, ax)
     end
     M = cellfun(@(c) strcmp(c, 'linear'), M);
     set(Hlims(M), [ax 'TickMode'], 'manual');
+    set(Hlims(M), [ax 'TickLabelMode'], 'manual'); 
 end
 
 function change_rgb_to_cmyk(fname)  % convert RGB => CMYK within an EPS file
