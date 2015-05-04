@@ -209,6 +209,7 @@ function [imageData, alpha] = export_fig(varargin)
 % 15/04/15: Fixed edge-case in parsing input parameters; fixed help section to show the -depsc option (issue #45)
 % 21/04/15: Bug fix: Ghostscript croaks on % chars in output PDF file (reported by Sven on FEX page, 15-Jul-2014)
 % 22/04/15: Bug fix: Pdftops croaks on relative paths (reported by Tintin Milou on FEX page, 19-Jan-2015)
+% 04/05/15: Merged fix #63 (Kevin Mattheus Moerman): prevent tick-label changes during export
 %}
 
     if nargout
@@ -283,7 +284,7 @@ function [imageData, alpha] = export_fig(varargin)
 
         % Set all axes limit and tick modes to manual, so the limits and ticks can't change
         % Fix Matlab R2014b bug (issue #34): plot markers are not displayed when ZLimMode='manual'
-        set(Hlims, 'XLimMode', 'manual', 'YLimMode', 'manual'); 
+        set(Hlims, 'XLimMode', 'manual', 'YLimMode', 'manual');
         set_tick_mode(Hlims, 'X');
         set_tick_mode(Hlims, 'Y');
         if ~using_hg2(fig)
