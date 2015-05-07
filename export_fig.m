@@ -210,6 +210,7 @@ function [imageData, alpha] = export_fig(varargin)
 % 21/04/15: Bug fix: Ghostscript croaks on % chars in output PDF file (reported by Sven on FEX page, 15-Jul-2014)
 % 22/04/15: Bug fix: Pdftops croaks on relative paths (reported by Tintin Milou on FEX page, 19-Jan-2015)
 % 04/05/15: Merged fix #63 (Kevin Mattheus Moerman): prevent tick-label changes during export
+% 07/05/15: Partial fix for issue #65: PDF export used painters rather than opengl renderer (thanks Nguyenr)
 %}
 
     if nargout
@@ -523,7 +524,7 @@ function [imageData, alpha] = export_fig(varargin)
         if isvector(options)
             % Set the default renderer to painters
             if ~options.renderer
-                if isempty(findall(fig,'-property','FaceAlpha','-and','-not','FaceAlpha','1')) && ...
+                if isempty(findall(fig,'-property','FaceAlpha','-and','-not','FaceAlpha',1)) && ...
                         isempty(findall(fig,'type','patch'))
                     renderer = '-painters';
                 else
