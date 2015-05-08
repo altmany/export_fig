@@ -211,6 +211,7 @@ function [imageData, alpha] = export_fig(varargin)
 % 22/04/15: Bug fix: Pdftops croaks on relative paths (reported by Tintin Milou on FEX page, 19-Jan-2015)
 % 04/05/15: Merged fix #63 (Kevin Mattheus Moerman): prevent tick-label changes during export
 % 07/05/15: Partial fix for issue #65: PDF export used painters rather than opengl renderer (thanks Nguyenr)
+% 08/05/15: Fixed issue #65: bad PDF append since commit #e9f3cdf 21/04/15 (thanks Robert Nguyen)
 %}
 
     if nargout
@@ -555,6 +556,7 @@ function [imageData, alpha] = export_fig(varargin)
             end
             if options.pdf
                 pdf_nam = [options.name '.pdf'];
+                try copyfile(pdf_nam, pdf_nam_tmp, 'f'); catch, end  % fix for issue #65
             else
                 pdf_nam = pdf_nam_tmp;
             end
