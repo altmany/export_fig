@@ -680,7 +680,7 @@ function [imageData, alpha] = export_fig(varargin)
             end
 
             % Save the image in the system clipboard
-            % credit: Joro Doke's IMCLIPBOARD: http://www.mathworks.com/matlabcentral/fileexchange/28708-imclipboard
+            % credit: Jiro Doke's IMCLIPBOARD: http://www.mathworks.com/matlabcentral/fileexchange/28708-imclipboard
             try
                 error(javachk('awt', 'export_fig -clipboard output'));
             catch
