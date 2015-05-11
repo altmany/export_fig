@@ -212,6 +212,7 @@ function [imageData, alpha] = export_fig(varargin)
 % 04/05/15: Merged fix #63 (Kevin Mattheus Moerman): prevent tick-label changes during export
 % 07/05/15: Partial fix for issue #65: PDF export used painters rather than opengl renderer (thanks Nguyenr)
 % 08/05/15: Fixed issue #65: bad PDF append since commit #e9f3cdf 21/04/15 (thanks Robert Nguyen)
+% 12/05/15: Fixed issue #67: exponent labels cropped in export, since fix #63 (04/05/15)
 %}
 
     if nargout
@@ -1118,7 +1119,7 @@ function set_tick_mode(Hlims, ax)
     end
     M = cellfun(@(c) strcmp(c, 'linear'), M);
     set(Hlims(M), [ax 'TickMode'], 'manual');
-    set(Hlims(M), [ax 'TickLabelMode'], 'manual'); 
+    %set(Hlims(M), [ax 'TickLabelMode'], 'manual');  % this hides exponent label in HG2!
 end
 
 function change_rgb_to_cmyk(fname)  % convert RGB => CMYK within an EPS file
