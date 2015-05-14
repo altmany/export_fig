@@ -19,12 +19,10 @@
 %   status - 0 iff command ran without problem.
 %   result - Output from ghostscript.
 
-% Copyright: Oliver Woodford, 2009-2015
+% Copyright: Oliver Woodford, 2009-2015, Yair Altman 2015-
 
-% Thanks to Jonas Dorn for the fix for the title of the uigetdir window on
-% Mac OS.
-% Thanks to Nathan Childress for the fix to the default location on 64-bit
-% Windows systems.
+% Thanks to Jonas Dorn for the fix for the title of the uigetdir window on Mac OS.
+% Thanks to Nathan Childress for the fix to default location on 64-bit Windows systems.
 % 27/04/11 - Find 64-bit Ghostscript on Windows. Thanks to Paul Durack and
 %            Shaun Kline for pointing out the issue
 % 04/05/11 - Thanks to David Chorlian for pointing out an alternative
@@ -33,12 +31,13 @@
 %            Punnoose for highlighting the issue.
 % 28/06/13 - Fix error using GS 9.07 in Linux. Many thanks to Jannick
 %            Steinbring for proposing the fix.
-% 24/10/13 - Fix error using GS 9.07 in Linux. Many thanks to Johannes
+% 24/10/13 - Fix error using GS 9.07 in Linux. Many thanks to Johannes 
 %            for the fix.
 % 23/01/14 - Add full path to ghostscript.txt in warning. Thanks to Koen
 %            Vermeer for raising the issue.
 % 27/02/15 - If Ghostscript croaks, display suggested workarounds
 % 30/03/15 - Improved performance by caching status of GS path check, if ok
+% 14/05/15 - Clarified warning message in case GS path could not be saved
 
 function varargout = ghostscript(cmd)
     try
@@ -157,7 +156,8 @@ function good = check_store_gs_path(path_)
     end
     % Update the current default path to the path found
     if ~user_string('ghostscript', path_)
-        warning('Path to ghostscript installation could not be saved. Enter it manually in %s.', fullfile(fileparts(which('user_string.m')), '.ignore', 'ghostscript.txt'));
+        filename = fullfile(fileparts(which('user_string.m')), '.ignore', 'ghostscript.txt');
+        warning('Path to ghostscript installation could not be saved in %s (perhaps a permissions issue). You can manually create this file and set its contents to %s, to improve performance in future invocations (this warning is safe to ignore).', filename, path_);
         return
     end
 end
@@ -174,6 +174,7 @@ end
 
 function cmd = gs_command(path_)
     % Initialize any required system calls before calling ghostscript
+    % TODO: in Unix/Mac, find a way to determine whether to use "export" (bash) or "setenv" (csh/tcsh)
     shell_cmd = '';
     if isunix
         shell_cmd = 'export LD_LIBRARY_PATH=""; '; % Avoids an error on Linux with GS 9.07
