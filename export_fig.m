@@ -299,9 +299,9 @@ function [imageData, alpha] = export_fig(varargin)
         % ignore - fix issue #4 (using HG2 on R2014a and earlier)
     end
 
-    % Fix issue #21 (bold TeX axes labels/titles in R2014b)
+    % Fix issue #21 (bold TeX axes labels/titles in R2014b when exporting to EPS/PDF)
     try
-        if using_hg2(fig)
+        if using_hg2(fig) && isvector(options)
             % Set the FontWeight of axes labels/titles to 'normal'
             % Fix issue #69: set non-bold font only if the string contains symbols (\beta etc.)
             texLabels = findall(fig, 'type','text', 'FontWeight','bold');
