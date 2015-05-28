@@ -1,3 +1,4 @@
+function [A, bcol] = print2array(fig, res, renderer, gs_options)
 %PRINT2ARRAY  Exports a figure to an image array
 %
 % Examples:
@@ -27,22 +28,18 @@
 %   A - MxNx3 uint8 image of the figure.
 %   bcol - 1x3 uint8 vector of the background color
 
-% Copyright (C) Oliver Woodford 2008-2012
-
+% Copyright (C) Oliver Woodford 2008-2014, Yair Altman 2015-
+%{
 % 05/09/11: Set EraseModes to normal when using opengl or zbuffer
-%           renderers. Thanks to Pawel Kocieniewski for reporting the
-%           issue.
-% 21/09/11: Bug fix: unit8 -> uint8! Thanks to Tobias Lamour for reporting
-%           the issue.
-% 14/11/11: Bug fix: stop using hardcopy(), as it interfered with figure
-%           size and erasemode settings. Makes it a bit slower, but more
-%           reliable. Thanks to Phil Trinh and Meelis Lootus for reporting
-%           the issues.
+%           renderers. Thanks to Pawel Kocieniewski for reporting the issue.
+% 21/09/11: Bug fix: unit8 -> uint8! Thanks to Tobias Lamour for reporting it.
+% 14/11/11: Bug fix: stop using hardcopy(), as it interfered with figure size
+%           and erasemode settings. Makes it a bit slower, but more reliable.
+%           Thanks to Phil Trinh and Meelis Lootus for reporting the issues.
 % 09/12/11: Pass font path to ghostscript.
 % 27/01/12: Bug fix affecting painters rendering tall figures. Thanks to
 %           Ken Campbell for reporting it.
-% 03/04/12: Bug fix to median input. Thanks to Andy Matthews for reporting
-%           it.
+% 03/04/12: Bug fix to median input. Thanks to Andy Matthews for reporting it.
 % 26/10/12: Set PaperOrientation to portrait. Thanks to Michael Watts for
 %           reporting the issue.
 % 26/02/15: If temp dir is not writable, use the current folder for temp
@@ -50,8 +47,9 @@
 % 27/02/15: Display suggested workarounds to internal print() error (issue #16)
 % 28/02/15: Enable users to specify optional ghostscript options (issue #36)
 % 10/03/15: Fixed minor warning reported by Paul Soderlind; fixed code indentation
+% 28/05/15: Fixed issue #69: patches with LineWidth==0.75 appear wide (internal bug in Matlab's print() func)
+%}
 
-function [A, bcol] = print2array(fig, res, renderer, gs_options)
     % Generate default input arguments, if needed
     if nargin < 2
         res = 1;
@@ -174,6 +172,10 @@ function [A, bcol] = print2array(fig, res, renderer, gs_options)
         old_orientation = get(fig, 'PaperOrientation');
         set(fig, 'PaperPositionMode', 'auto', 'PaperOrientation', 'portrait');
         try
+            % Workaround for issue #69: patches with LineWidth==0.75 appear wide (internal bug in Matlab's print() function)
+            fp = [];  % in case we get an error below
+            fp = findall(fig, 'Type','patch', 'LineWidth',0.75);
+            set(fp, 'LineWidth',0.5);
             % Print to tiff file
             print(fig, renderer, res_str, '-dtiff', tmp_nam);
             % Read in the printed file
@@ -183,6 +185,7 @@ function [A, bcol] = print2array(fig, res, renderer, gs_options)
         catch ex
             err = true;
         end
+        set(fp, 'LineWidth',0.75);  % restore original figure appearance
         % Reset paper size
         set(fig, 'PaperPositionMode', old_pos_mode, 'PaperOrientation', old_orientation);
         % Throw any error that occurred
