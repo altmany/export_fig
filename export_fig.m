@@ -213,6 +213,7 @@ function [imageData, alpha] = export_fig(varargin)
 % 07/05/15: Partial fix for issue #65: PDF export used painters rather than opengl renderer (thanks Nguyenr)
 % 08/05/15: Fixed issue #65: bad PDF append since commit #e9f3cdf 21/04/15 (thanks Robert Nguyen)
 % 12/05/15: Fixed issue #67: exponent labels cropped in export, since fix #63 (04/05/15)
+% 28/05/15: Fixed issue #69: set non-bold label font only if the string contains symbols (\beta etc.), followup to issue #21
 %}
 
     if nargout
@@ -302,8 +303,10 @@ function [imageData, alpha] = export_fig(varargin)
     try
         if using_hg2(fig)
             % Set the FontWeight of axes labels/titles to 'normal'
+            % Fix issue #69: set non-bold font only if the string contains symbols (\beta etc.)
             texLabels = findall(fig, 'type','text', 'FontWeight','bold');
-            set(texLabels, 'FontWeight','normal');
+            symbolIdx = ~cellfun('isempty',strfind({texLabels.String},'\'));
+            set(texLabels(symbolIdx), 'FontWeight','normal');
         end
     catch
         % ignore
