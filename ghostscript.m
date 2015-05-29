@@ -1,3 +1,4 @@
+function varargout = ghostscript(cmd)
 %GHOSTSCRIPT  Calls a local GhostScript executable with the input command
 %
 % Example:
@@ -20,7 +21,7 @@
 %   result - Output from ghostscript.
 
 % Copyright: Oliver Woodford, 2009-2015, Yair Altman 2015-
-
+%{
 % Thanks to Jonas Dorn for the fix for the title of the uigetdir window on Mac OS.
 % Thanks to Nathan Childress for the fix to default location on 64-bit Windows systems.
 % 27/04/11 - Find 64-bit Ghostscript on Windows. Thanks to Paul Durack and
@@ -38,8 +39,9 @@
 % 27/02/15 - If Ghostscript croaks, display suggested workarounds
 % 30/03/15 - Improved performance by caching status of GS path check, if ok
 % 14/05/15 - Clarified warning message in case GS path could not be saved
+% 29/05/15 - Avoid cryptic error in case the ghostscipt path cannot be saved (issue #74)
+%}
 
-function varargout = ghostscript(cmd)
     try
         % Call ghostscript
         [varargout{1:nargout}] = system([gs_command(gs_path()) cmd]);
@@ -132,7 +134,7 @@ function path_ = gs_path
             % User hit cancel or closed window
             break;
         end
-        base = [base filesep];
+        base = [base filesep]; %#ok<AGROW>
         bin_dir = {'', ['bin' filesep], ['lib' filesep]};
         for a = 1:numel(bin_dir)
             for b = 1:numel(bin)
@@ -164,9 +166,11 @@ end
 
 function good = check_gs_path(path_)
     persistent isOk
-    if ~isequal(isOk,true)
+    if isempty(path_)
+        isOk = false;
+    elseif ~isequal(isOk,true)
         % Check whether the path is valid
-        [status, message] = system([gs_command(path_) '-h']);
+        [status, message] = system([gs_command(path_) '-h']); %#ok<ASGLU>
         isOk = status == 0;
     end
     good = isOk;
