@@ -214,6 +214,7 @@ function [imageData, alpha] = export_fig(varargin)
 % 08/05/15: Fixed issue #65: bad PDF append since commit #e9f3cdf 21/04/15 (thanks Robert Nguyen)
 % 12/05/15: Fixed issue #67: exponent labels cropped in export, since fix #63 (04/05/15)
 % 28/05/15: Fixed issue #69: set non-bold label font only if the string contains symbols (\beta etc.), followup to issue #21
+% 29/05/15: Added informative error message in case user requested SVG output (issue #72)
 %}
 
     if nargout
@@ -845,6 +846,12 @@ function [fig, options] = parse_args(nout, fig, varargin)
                         options.clipboard = true;
                         options.im = true;
                         options.alpha = true;
+                    case 'svg'
+                        msg = ['SVG output is not supported by export_fig. Use one of the following alternatives:\n' ...
+                               '  1. saveas(gcf,''filename.svg'')\n' ...
+                               '  2. plot2svg utility: http://github.com/jschwizer99/plot2svg\n' ...
+                               '  3. export_fig to EPS/PDF, then convert to SVG using generic (non-Matlab) tools\n'];
+                        error(sprintf(msg)); %#ok<SPERR>
                     otherwise
                         if strcmpi(varargin{a}(1:2),'-d')
                             varargin{a}(2) = 'd';  % ensure lowercase 'd'
@@ -903,6 +910,12 @@ function [fig, options] = parse_args(nout, fig, varargin)
                             fig = -1;
                             return
                         end
+                    case '.svg'
+                        msg = ['SVG output is not supported by export_fig. Use one of the following alternatives:\n' ...
+                               '  1. saveas(gcf,''filename.svg'')\n' ...
+                               '  2. plot2svg utility: http://github.com/jschwizer99/plot2svg\n' ...
+                               '  3. export_fig to EPS/PDF, then convert to SVG using generic (non-Matlab) tools\n'];
+                        error(sprintf(msg)); %#ok<SPERR>
                     otherwise
                         options.name = varargin{a};
                 end
