@@ -16,14 +16,20 @@ function [A, vA, vB, bb_rel] = crop_borders(A, bcol, padding)
 %   bb_rel - relative bounding box (used for eps-cropping)
 
 % 06/03/15: Improved image cropping thanks to Oscar Hartogensis
+% 08/06/15: Fixed issue #76: case of transparent figure bgcolor
 
     if nargin < 3
         padding = 0;
     end
     [h, w, c, n] = size(A);
+    if isempty(bcol)  % case of transparent bgcolor
+        bcol = A(ceil(end/2),1,:,1);
+    end
     if isscalar(bcol)
         bcol = bcol(ones(c, 1));
     end
+
+    % Crop margin from left
     bail = false;
     for l = 1:w
         for a = 1:c
@@ -36,6 +42,8 @@ function [A, vA, vB, bb_rel] = crop_borders(A, bcol, padding)
             break;
         end
     end
+
+    % Crop margin from right
     bcol = A(ceil(end/2),w,:,1);
     bail = false;
     for r = w:-1:l
@@ -49,6 +57,8 @@ function [A, vA, vB, bb_rel] = crop_borders(A, bcol, padding)
             break;
         end
     end
+
+    % Crop margin from top
     bcol = A(1,ceil(end/2),:,1);
     bail = false;
     for t = 1:h
@@ -62,6 +72,8 @@ function [A, vA, vB, bb_rel] = crop_borders(A, bcol, padding)
             break;
         end
     end
+
+    % Crop margin from bottom
     bcol = A(h,ceil(end/2),:,1);
     bail = false;
     for b = h:-1:t
