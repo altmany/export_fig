@@ -215,6 +215,7 @@ function [imageData, alpha] = export_fig(varargin)
 % 12/05/15: Fixed issue #67: exponent labels cropped in export, since fix #63 (04/05/15)
 % 28/05/15: Fixed issue #69: set non-bold label font only if the string contains symbols (\beta etc.), followup to issue #21
 % 29/05/15: Added informative error message in case user requested SVG output (issue #72)
+% 09/06/15: Fixed issue #58: -transparent removed anti-aliasing when exporting to PNG
 %}
 
     if nargout
@@ -223,8 +224,7 @@ function [imageData, alpha] = export_fig(varargin)
     hadError = false;
     displaySuggestedWorkarounds = true;
 
-    % Make sure the figure is rendered correctly _now_ so that properties like
-    % axes limits are up-to-date.
+    % Ensure the figure is rendered correctly _now_ so that properties like axes limits are up-to-date
     drawnow;
     pause(0.05);  % this solves timing issues with Java Swing's EDT (http://undocumentedmatlab.com/blog/solving-a-matlab-hang-problem)
 
@@ -379,12 +379,16 @@ function [imageData, alpha] = export_fig(varargin)
                 set(hCB(yCol==0), 'YColor', [0 0 0]);
                 set(hCB(xCol==0), 'XColor', [0 0 0]);
 
-                % The following code might cause out-of-memory errors, so it was chanegd
-                % Print large version to array
-                %B = print2array(fig, magnify, renderer);
-                % Downscale the image
-                %B = downsize(single(B), options.aa_factor);
-                B = single(print2array(fig, magnify/options.aa_factor, renderer));
+                % The following code might cause out-of-memory errors
+                try
+                    % Print large version to array
+                    B = print2array(fig, magnify, renderer);
+                    % Downscale the image
+                    B = downsize(single(B), options.aa_factor);
+                catch
+                    % This is more conservative in memory, but kills transparency (issue #58)
+                    B = single(print2array(fig, magnify/options.aa_factor, renderer));
+                end
 
                 % Set background to white (and set size)
                 set(fig, 'Color', 'w', 'Position', pos);
@@ -392,12 +396,16 @@ function [imageData, alpha] = export_fig(varargin)
                 set(hCB(yCol==3), 'YColor', [1 1 1]);
                 set(hCB(xCol==3), 'XColor', [1 1 1]);
 
-                % The following code might cause out-of-memory errors, so it was chanegd
-                % Print large version to array
-                %A = print2array(fig, magnify, renderer);
-                % Downscale the image
-                %A = downsize(single(A), options.aa_factor);
-                A = single(print2array(fig, magnify/options.aa_factor, renderer));
+                % The following code might cause out-of-memory errors
+                try
+                    % Print large version to array
+                    A = print2array(fig, magnify, renderer);
+                    % Downscale the image
+                    A = downsize(single(A), options.aa_factor);
+                catch
+                    % This is more conservative in memory, but kills transparency (issue #58)
+                    A = single(print2array(fig, magnify/options.aa_factor, renderer));
+                end
 
                 % Set the background colour (and size) back to normal
                 set(fig, 'Color', tcol, 'Position', pos);
