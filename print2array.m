@@ -48,6 +48,7 @@ function [A, bcol] = print2array(fig, res, renderer, gs_options)
 % 28/02/15: Enable users to specify optional ghostscript options (issue #36)
 % 10/03/15: Fixed minor warning reported by Paul Soderlind; fixed code indentation
 % 28/05/15: Fixed issue #69: patches with LineWidth==0.75 appear wide (internal bug in Matlab's print() func)
+% 07/07/15: Fixed issue #83: use numeric handles in HG1
 %}
 
     % Generate default input arguments, if needed
@@ -176,6 +177,8 @@ function [A, bcol] = print2array(fig, res, renderer, gs_options)
             fp = [];  % in case we get an error below
             fp = findall(fig, 'Type','patch', 'LineWidth',0.75);
             set(fp, 'LineWidth',0.5);
+            % Fix issue #83: use numeric handles in HG1
+            if ~using_hg2(fig),  fig = double(fig);  end
             % Print to tiff file
             print(fig, renderer, res_str, '-dtiff', tmp_nam);
             % Read in the printed file

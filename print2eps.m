@@ -75,6 +75,7 @@ function print2eps(name, fig, export_options, varargin)
 % 12/04/15: Fixed issue #56: bad cropping
 % 14/04/15: Workaround for issue #45: lines in image subplots are exported in invalid color
 % 07/07/15: Added option to avoid font-swapping in EPS/PDF
+% 07/07/15: Fixed issue #83: use numeric handles in HG1
 %}
 
     options = {'-loose'};
@@ -221,6 +222,9 @@ function print2eps(name, fig, export_options, varargin)
                      'Possible workaround: add a ''-depsc'' or ''-opengl'' parameter to the export_fig command.']);
         end
     end
+
+    % Fix issue #83: use numeric handles in HG1
+    if ~using_hg2(fig),  fig = double(fig);  end
 
     % Print to eps file
     print(fig, options{:}, name);
