@@ -1,18 +1,17 @@
-function print2eps(name, fig, bb_padding, varargin)
+function print2eps(name, fig, export_options, varargin)
 %PRINT2EPS  Prints figures to eps with improved line styles
 %
 % Examples:
 %   print2eps filename
 %   print2eps(filename, fig_handle)
-%   print2eps(filename, fig_handle, bb_padding)
-%   print2eps(filename, fig_handle, bb_padding, options)
+%   print2eps(filename, fig_handle, export_options)
+%   print2eps(filename, fig_handle, export_options, print_options)
 %
 % This function saves a figure as an eps file, with two improvements over
 % MATLAB's print command. First, it improves the line style, making dashed
-% lines more like those on screen and giving grid lines their own dotted
-% style. Secondly, it substitutes original font names back into the eps
-% file, where these have been changed by MATLAB, for up to 11 different
-% fonts.
+% lines more like those on screen and giving grid lines a dotted line style.
+% Secondly, it substitutes original font names back into the eps file,
+% where these have been changed by MATLAB, for up to 11 different fonts.
 %
 %IN:
 %   filename - string containing the name (optionally including full or
@@ -20,11 +19,13 @@ function print2eps(name, fig, bb_padding, varargin)
 %              ".eps" extension is added if not there already. If a path is
 %              not specified, the figure is saved in the current directory.
 %   fig_handle - The handle of the figure to be saved. Default: gcf().
-%   bb_padding - Scalar value of amount of padding to add to border around
-%                the cropped image, in points (if >1) or percent (if <1).
-%                Can be negative as well as positive; Default: 0.
-%                May be a 2-element vector of padding and crop amount. 
-%   options - Additional parameter strings to be passed to print.
+%   export_options - array of optional scalar values:
+%       bb_padding - Scalar value of amount of padding to add to border around
+%                    the cropped image, in points (if >1) or percent (if <1).
+%                    Can be negative as well as positive; Default: 0
+%       crop       - Crop amount. Deafult: 0
+%       fontswap   - Whether to swap non-default fonts in figure. Default: true
+%   print_options - Additional parameter strings to be passed to the print command
 
 %{
 % Copyright (C) Oliver Woodford 2008-2014, Yair Altman 2015-
@@ -73,6 +74,7 @@ function print2eps(name, fig, bb_padding, varargin)
 % 09/04/15: Comment blocks consolidation and minor code cleanup (no real code change)
 % 12/04/15: Fixed issue #56: bad cropping
 % 14/04/15: Workaround for issue #45: lines in image subplots are exported in invalid color
+% 07/07/15: Added option to avoid font-swapping in EPS/PDF
 %}
 
     options = {'-loose'};
@@ -85,12 +87,21 @@ function print2eps(name, fig, bb_padding, varargin)
         end
     end
 
-    % Retrieve crop value (2nd element of bb_padding vector, or default=0)
-    try
-        bb_crop = bb_padding(2);
-        bb_padding = bb_padding(1);  % reached this point, so it's a vector
-    catch
+    % Retrieve padding, crop & font-swap values
+    if numel(export_options) > 2  % font-swapping
+        fontswap = export_options(3);
+    else
+        fontswap = true;
+    end
+    if numel(export_options) > 1  % cropping
+        bb_crop = export_options(2);
+    else
         bb_crop = 0;  % scalar value, so use default bb_crop value of 0
+    end
+    if numel(export_options) > 0  % padding
+        bb_padding = export_options(1);
+    else
+        bb_padding = 0;
     end
 
     % Construct the filename
@@ -130,18 +141,22 @@ function print2eps(name, fig, bb_padding, varargin)
     fontslu = unique(fontsl);
 
     % Determine the font swap table
-    matlab_fonts = {'Helvetica', 'Times-Roman', 'Palatino', 'Bookman', 'Helvetica-Narrow', 'Symbol', ...
-        'AvantGarde', 'NewCenturySchlbk', 'Courier', 'ZapfChancery', 'ZapfDingbats'};
-    matlab_fontsl = lower(matlab_fonts);
-    require_swap = find(~ismember(fontslu, matlab_fontsl));
-    unused_fonts = find(~ismember(matlab_fontsl, fontslu));
-    font_swap = cell(3, min(numel(require_swap), numel(unused_fonts)));
-    fonts_new = fonts;
-    for a = 1:size(font_swap, 2)
-        font_swap{1,a} = find(strcmp(fontslu{require_swap(a)}, fontsl));
-        font_swap{2,a} = matlab_fonts{unused_fonts(a)};
-        font_swap{3,a} = fonts{font_swap{1,a}(1)};
-        fonts_new(font_swap{1,a}) = font_swap(2,a);
+    if fontswap
+        matlab_fonts = {'Helvetica', 'Times-Roman', 'Palatino', 'Bookman', 'Helvetica-Narrow', 'Symbol', ...
+                        'AvantGarde', 'NewCenturySchlbk', 'Courier', 'ZapfChancery', 'ZapfDingbats'};
+        matlab_fontsl = lower(matlab_fonts);
+        require_swap = find(~ismember(fontslu, matlab_fontsl));
+        unused_fonts = find(~ismember(matlab_fontsl, fontslu));
+        font_swap = cell(3, min(numel(require_swap), numel(unused_fonts)));
+        fonts_new = fonts;
+        for a = 1:size(font_swap, 2)
+            font_swap{1,a} = find(strcmp(fontslu{require_swap(a)}, fontsl));
+            font_swap{2,a} = matlab_fonts{unused_fonts(a)};
+            font_swap{3,a} = fonts{font_swap{1,a}(1)};
+            fonts_new(font_swap{1,a}) = font_swap(2,a);
+        end
+    else
+        font_swap = [];
     end
 
     % Swap the fonts

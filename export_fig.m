@@ -22,6 +22,7 @@ function [imageData, alpha] = export_fig(varargin)
 %   export_fig ... -bookmark
 %   export_fig ... -clipboard
 %   export_fig ... -update
+%   export_fig ... -nofontswap
 %   export_fig(..., handle)
 %
 % This function saves a figure or single axes to one or more vector and/or
@@ -143,6 +144,9 @@ function [imageData, alpha] = export_fig(varargin)
 %             device. This solves some bugs with Matlab's default -depsc2 device
 %             such as discolored subplot lines on images (vector formats only).
 %   -update - option to download and install the latest version of export_fig
+%   -nofontswap - option to avoid font swapping. Font swapping is automatically
+%             done in vector formats (only): 11 standard Matlab fonts are
+%             replaced by the original figure fonts. This option prevents this.
 %   handle -  The handle of the figure, axes or uipanels (can be an array of
 %             handles, but the objects must be in the same figure) to be
 %             saved. Default: gcf.
@@ -219,6 +223,7 @@ function [imageData, alpha] = export_fig(varargin)
 % 29/05/15: Added informative error message in case user requested SVG output (issue #72)
 % 09/06/15: Fixed issue #58: -transparent removed anti-aliasing when exporting to PNG
 % 19/06/15: Added -update option to download and install the latest version of export_fig
+% 07/07/15: Added -nofontswap option to avoid font-swapping in EPS/PDF
 %}
 
     if nargout
@@ -594,7 +599,7 @@ function [imageData, alpha] = export_fig(varargin)
             end
             try
                 % Generate an eps
-                print2eps(tmp_nam, fig, [options.bb_padding, options.crop], p2eArgs{:});
+                print2eps(tmp_nam, fig, [options.bb_padding, options.crop, options.fontswap], p2eArgs{:});
                 % Remove the background, if desired
                 if options.transparent && ~isequal(get(fig, 'Color'), 'none')
                     eps_remove_background(tmp_nam, 1 + using_hg2(fig));
@@ -803,6 +808,7 @@ function [fig, options] = parse_args(nout, fig, varargin)
         'closeFig', false, ...
         'quality', [], ...
         'update', false, ...
+        'fontswap', true, ...
         'gs_options', {{}});
     native = false; % Set resolution to native of an image
 
@@ -881,6 +887,8 @@ function [fig, options] = parse_args(nout, fig, varargin)
                         catch
                             error('Could not unzip %s\n',targetFileName);
                         end
+                    case 'nofontswap'
+                        options.fontswap = false;
                     otherwise
                         try
                             if strcmpi(varargin{a}(1:2),'-d')
