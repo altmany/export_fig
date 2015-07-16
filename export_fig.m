@@ -224,6 +224,7 @@ function [imageData, alpha] = export_fig(varargin)
 % 09/06/15: Fixed issue #58: -transparent removed anti-aliasing when exporting to PNG
 % 19/06/15: Added -update option to download and install the latest version of export_fig
 % 07/07/15: Added -nofontswap option to avoid font-swapping in EPS/PDF
+% 16/07/15: Fixed problem with anti-aliasing on old Matlab releases
 %}
 
     if nargout
@@ -974,7 +975,8 @@ function [fig, options] = parse_args(nout, fig, varargin)
 
     % Set default anti-aliasing now we know the renderer
     if options.aa_factor == 0
-        options.aa_factor = 1 + 2 * (~(using_hg2(fig) && strcmp(get(ancestor(fig, 'figure'), 'GraphicsSmoothing'), 'on')) | (options.renderer == 3));
+        try isAA = strcmp(get(ancestor(fig, 'figure'), 'GraphicsSmoothing'), 'on'); catch, isAA = false; end
+        options.aa_factor = 1 + 2 * (~(using_hg2(fig) && isAA) | (options.renderer == 3));
     end
 
     % Convert user dir '~' to full path
