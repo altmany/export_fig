@@ -82,7 +82,7 @@ function print2eps(name, fig, export_options, varargin)
     if nargin > 3
         options = [options varargin];
     elseif nargin < 3
-        bb_padding = 0;
+        export_options = 0;
         if nargin < 2
             fig = gcf();
         end
