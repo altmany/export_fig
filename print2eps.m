@@ -76,13 +76,14 @@ function print2eps(name, fig, export_options, varargin)
 % 14/04/15: Workaround for issue #45: lines in image subplots are exported in invalid color
 % 07/07/15: Added option to avoid font-swapping in EPS/PDF
 % 07/07/15: Fixed issue #83: use numeric handles in HG1
+% 22/07/15: Fixed issue #91 (thanks to Carlos Moffat)
 %}
 
     options = {'-loose'};
     if nargin > 3
         options = [options varargin];
     elseif nargin < 3
-        bb_padding = 0;
+        export_options = 0;
         if nargin < 2
             fig = gcf();
         end
