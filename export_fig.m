@@ -225,6 +225,7 @@ function [imageData, alpha] = export_fig(varargin)
 % 19/06/15: Added -update option to download and install the latest version of export_fig
 % 07/07/15: Added -nofontswap option to avoid font-swapping in EPS/PDF
 % 16/07/15: Fixed problem with anti-aliasing on old Matlab releases
+% 11/09/15: Fixed issue #103: magnification must never become negative; also fixed reported error msg in parsing input params
 %}
 
     if nargout
@@ -892,6 +893,7 @@ function [fig, options] = parse_args(nout, fig, varargin)
                         options.fontswap = false;
                     otherwise
                         try
+                            wasError = false;
                             if strcmpi(varargin{a}(1:2),'-d')
                                 varargin{a}(2) = 'd';  % ensure lowercase 'd'
                                 options.gs_options{end+1} = varargin{a};
@@ -905,10 +907,16 @@ function [fig, options] = parse_args(nout, fig, varargin)
                                     end
                                 end
                                 if ~isscalar(val) || isnan(val)
+                                    wasError = true;
                                     error('option %s is not recognised or cannot be parsed', varargin{a});
                                 end
                                 switch lower(varargin{a}(2))
                                     case 'm'
+                                        % Magnification may never be negative
+                                        if val <= 0
+                                            wasError = true;
+                                            error('Bad magnification value: %g (must be positive)', val);
+                                        end
                                         options.magnify = val;
                                     case 'r'
                                         options.resolution = val;
@@ -918,8 +926,13 @@ function [fig, options] = parse_args(nout, fig, varargin)
                                         options.bb_padding = val;
                                 end
                             end
-                        catch
-                            error(['Unrecognized export_fig input option: ''' varargin{a} '''']);
+                        catch err
+                            % We might have reached here by raising an intentional error
+                            if wasError  % intentional raise
+                                rethrow(err)
+                            else  % unintentional
+                                error(['Unrecognized export_fig input option: ''' varargin{a} '''']);
+                            end
                         end
                 end
             else
@@ -1046,7 +1059,7 @@ function [fig, options] = parse_args(nout, fig, varargin)
             pbar = get(hAx, 'PlotBoxAspectRatio');
             pos = min(pos(4), pbar(2)*pos(3)/pbar(1));
             % Set the magnification to give native resolution
-            options.magnify = (height * diff(yl2)) / (pos * diff(yl));
+            options.magnify = abs((height * diff(yl2)) / (pos * diff(yl)));  % magnification must never be negative: issue #103
             break
         end
     end
