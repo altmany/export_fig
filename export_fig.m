@@ -226,6 +226,7 @@ function [imageData, alpha] = export_fig(varargin)
 % 07/07/15: Added -nofontswap option to avoid font-swapping in EPS/PDF
 % 16/07/15: Fixed problem with anti-aliasing on old Matlab releases
 % 11/09/15: Fixed issue #103: magnification must never become negative; also fixed reported error msg in parsing input params
+% 26/09/15: Alert if trying to export transparent patches/areas to non-PNG outputs (issue #108)
 %}
 
     if nargout
@@ -351,6 +352,19 @@ function [imageData, alpha] = export_fig(varargin)
             renderer = '-painters';
         otherwise
             renderer = '-opengl'; % Default for bitmaps
+    end
+
+    % Handle transprarent patches
+    hasTransparency = ~isempty(findall(fig,'-property','FaceAlpha','-and','-not','FaceAlpha',1));
+    hasPatches      = ~isempty(findall(fig,'type','patch'));
+    if hasTransparency
+        % Alert if trying to export transparent patches/areas to non-PNG outputs (issue #108)
+        msg = 'export_fig currently supports transparent patches/areas only in PNG output. ';
+        if options.pdf
+            warning('export_fig:transparency', '%s\nTo export transparent patches/areas to PDF, use the print command:\n print(gcf, ''-dpdf'', ''%s.pdf'');', msg, options.name);
+        elseif ~options.png
+            warning('export_fig:transparency', '%s\nTo export the transparency correctly, try using the ScreenCapture utility on the Matlab File Exchange: http://bit.ly/1QFrBip', msg);
+        end
     end
 
     try
@@ -548,12 +562,11 @@ function [imageData, alpha] = export_fig(varargin)
         if isvector(options)
             % Set the default renderer to painters
             if ~options.renderer
-                if isempty(findall(fig,'-property','FaceAlpha','-and','-not','FaceAlpha',1)) && ...
-                        isempty(findall(fig,'type','patch'))
-                    renderer = '-painters';
-                else
+                if hasTransparency || hasPatches
                     % This is *MUCH* slower, but more accurate for patches and transparent annotations (issue #39)
                     renderer = '-opengl';
+                else
+                    renderer = '-painters';
                 end
             end
             % Generate some filenames
