@@ -354,7 +354,7 @@ function [imageData, alpha] = export_fig(varargin)
             renderer = '-opengl'; % Default for bitmaps
     end
 
-    % Handle transprarent patches
+    % Handle transparent patches
     hasTransparency = ~isempty(findall(fig,'-property','FaceAlpha','-and','-not','FaceAlpha',1));
     hasPatches      = ~isempty(findall(fig,'type','patch'));
     if hasTransparency
@@ -613,7 +613,6 @@ function [imageData, alpha] = export_fig(varargin)
                 p2eArgs{end+1} = '-depsc';
             end
             try
-                
                 % Generate an eps
                 print2eps(tmp_nam, fig, [options.bb_padding, options.crop, options.fontswap], p2eArgs{:});
                 % Remove the background, if desired
