@@ -226,6 +226,12 @@ function print2eps(name, fig, export_options, varargin)
 
     % Fix issue #83: use numeric handles in HG1
     if ~using_hg2(fig),  fig = double(fig);  end
+    
+    % Workaround for when transparency is lost through conversion fig>EPS>PDF (issue #108)
+    % Replace transparent patch RGB values with an ID value (rare chance that ID color is being used already)
+    if using_hg2
+        origAlphaColors = eps_maintainAlpha(fig);
+    end
 
     % Print to eps file
     print(fig, options{:}, name);
@@ -237,7 +243,13 @@ function print2eps(name, fig, export_options, varargin)
     catch
         fstrm = '';
     end
-
+    
+    % Restore colors for transparent patches and apply the
+    % setopacityalpha setting in the EPS file (issue #108)
+    if using_hg2
+        [~,fstrm] = eps_maintainAlpha(fig, fstrm, origAlphaColors);
+    end
+    
     % Fix for Matlab R2014b bug (issue #31): LineWidths<0.75 are not set in the EPS (default line width is used)
     try
         if ~isempty(fstrm) && using_hg2(fig)
@@ -404,4 +416,44 @@ function print2eps(name, fig, export_options, varargin)
 
     % Write out the fixed eps file
     read_write_entire_textfile(name, fstrm);
+end
+
+function [StoredColors, fstrm] = eps_maintainAlpha( fig_, fstrm, StoredColors)
+if nargin == 1
+    ars = findobj(fig_,'Type','Area');
+    StoredColors={};
+    for ar = 1:length(ars)
+        if strcmp(ars(ar).Face.ColorType, 'truecoloralpha')
+            StoredColors{end+1}=ars(ar).Face.ColorData;
+            ars(ar).Face.ColorData = uint8([101; 102; length(StoredColors); 255]);
+        end
+    end
+else
+    
+    %Find the transparent patches
+    ars = findobj(fig_,'Type','Area');
+    ar_stored = 0;
+    try
+        for ar = 1:length(ars)
+            if strcmp(ars(ar).Face.ColorType, 'truecoloralpha')
+                ar_stored = ar_stored + 1;
+                stored = StoredColors{ar_stored}';
+                %Restore the EPS files patch color
+                colorID = num2str(round([101 102 ar_stored]/255,3),'%.3g %.3g %.3g'); %ID for searching
+                originalColor = num2str(round(double(stored(1:end-1))/255,3),'%.3g %.3g %.3g'); %Replace with original color
+                alpha_ = num2str(round(double(stored(end))/255,3),'%.3g'); %Convert alpha value for EPS
+                %Find and replace
+                fstrm = strrep(fstrm, ...
+                    sprintf(['CT\n' colorID ' RC\nN\n']), ...
+                    sprintf(['CT\n' originalColor ' RC\n' alpha_ ' .setopacityalpha true\nN\n']));
+                
+                %Restore the figures patch color
+                ars(ar).Face.ColorData = StoredColors{ar_stored};
+            end
+        end
+    catch err
+        fprintf(2, 'Error maintaining transparency in EPS file: %s\n at %s:%d\n', err.message, err.stack(1).file, err.stack(1).line);
+    end
+    
+end
 end

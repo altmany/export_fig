@@ -613,6 +613,7 @@ function [imageData, alpha] = export_fig(varargin)
                 p2eArgs{end+1} = '-depsc';
             end
             try
+                
                 % Generate an eps
                 print2eps(tmp_nam, fig, [options.bb_padding, options.crop, options.fontswap], p2eArgs{:});
                 % Remove the background, if desired
