@@ -227,6 +227,7 @@ function [imageData, alpha] = export_fig(varargin)
 % 16/07/15: Fixed problem with anti-aliasing on old Matlab releases
 % 11/09/15: Fixed issue #103: magnification must never become negative; also fixed reported error msg in parsing input params
 % 26/09/15: Alert if trying to export transparent patches/areas to non-PNG outputs (issue #108)
+% 04/10/15: Do not suggest workarounds for certain errors that have already been handled previously
 %}
 
     if nargout
@@ -776,7 +777,7 @@ function [imageData, alpha] = export_fig(varargin)
         end
     catch err
         % Display possible workarounds before the error message
-        if displaySuggestedWorkarounds
+        if displaySuggestedWorkarounds && ~strcmpi(err.message,'export_fig error')
             if ~hadError,  fprintf(2, 'export_fig error. ');  end
             fprintf(2, 'Please ensure:\n');
             fprintf(2, '  that you are using the <a href="https://github.com/altmany/export_fig/archive/master.zip">latest version</a> of export_fig\n');
