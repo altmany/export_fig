@@ -53,6 +53,7 @@ function eps2pdf(source, dest, crop, append, gray, quality, gs_options)
 % 01/03/15: Upon GS error, retry without the -sFONTPATH= option (this might solve
 %           some /findfont errors according to James Rankin, FEX Comment 23/01/15)
 % 23/06/15: Added extra debug info in case of ghostscript error; code indentation
+% 04/10/15: Suggest a workaround for issue #41 (missing font path; thanks Mariia Fedotenkova)
 
     % Intialise the options string for ghostscript
     options = ['-q -dNOPAUSE -dBATCH -sDEVICE=pdfwrite -dPDFSETTINGS=/prepress -sOutputFile="' dest '"'];
@@ -143,8 +144,16 @@ function eps2pdf(source, dest, crop, append, gray, quality, gs_options)
         % Report error
         if isempty(message)
             error('Unable to generate pdf. Check destination directory is writable.');
+        elseif ~isempty(strfind(message,'/typecheck in /findfont'))
+            % Suggest a workaround for issue #41 (missing font path)
+            font_name = strtrim(regexprep(message,'.*Operand stack:\s*(.*)\s*Execution.*','$1'));
+            fprintf(2, 'Ghostscript error: could not find the following font(s): %s\n', font_name);
+            fpath = fileparts(mfilename(-fullpath'));
+            gs_fonts_file = fullfile(fpath, '.ignore', 'gs_font_path.txt');
+            fprintf(2, '  try to add the font''s folder to your %s file\n\n', gs_fonts_file);
+            error('export_fig error');
         else
-            fprintf(2, 'Ghostscript error: perhaps %s is open by another application\n', dest);
+            fprintf(2, '\nGhostscript error: perhaps %s is open by another application\n', dest);
             if ~isempty(gs_options)
                 fprintf(2, '  or maybe the%s option(s) are not accepted by your GS version\n', gs_options);
             end
