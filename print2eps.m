@@ -19,12 +19,13 @@ function print2eps(name, fig, export_options, varargin)
 %              ".eps" extension is added if not there already. If a path is
 %              not specified, the figure is saved in the current directory.
 %   fig_handle - The handle of the figure to be saved. Default: gcf().
-%   export_options - array of optional scalar values:
+%   export_options - array or struct of optional scalar values:
 %       bb_padding - Scalar value of amount of padding to add to border around
 %                    the cropped image, in points (if >1) or percent (if <1).
 %                    Can be negative as well as positive; Default: 0
 %       crop       - Crop amount. Deafult: 0
 %       fontswap   - Whether to swap non-default fonts in figure. Default: true
+%       renderer   - Renderer used to generate bounding-box. Default: 'opengl'
 %   print_options - Additional parameter strings to be passed to the print command
 
 %{
@@ -78,6 +79,7 @@ function print2eps(name, fig, export_options, varargin)
 % 07/07/15: Fixed issue #83: use numeric handles in HG1
 % 22/07/15: Fixed issue #91 (thanks to Carlos Moffat)
 % 28/09/15: Fixed issue #108 (thanks to JacobD10)
+% 01/11/15: Fixed issue #110: optional renderer for bounding-box computation (thanks to Jesús Pestana Puerta)
 %}
 
     options = {'-loose'};
@@ -91,20 +93,28 @@ function print2eps(name, fig, export_options, varargin)
     end
 
     % Retrieve padding, crop & font-swap values
-    if numel(export_options) > 2  % font-swapping
-        fontswap = export_options(3);
+    if isstruct(export_options)
+        try fontswap   = export_options.fontswap;    catch, fontswap = true;     end
+        try bb_crop    = export_options.crop;        catch, bb_crop = 0;         end
+        try bb_padding = export_options.bb_padding;  catch, bb_padding = 0;      end
+        try renderer   = export_options.rendererStr; catch, renderer = 'opengl'; end  % fix for issue #110
+        if renderer(1)~='-',  renderer = ['-' renderer];  end
     else
-        fontswap = true;
-    end
-    if numel(export_options) > 1  % cropping
-        bb_crop = export_options(2);
-    else
-        bb_crop = 0;  % scalar value, so use default bb_crop value of 0
-    end
-    if numel(export_options) > 0  % padding
-        bb_padding = export_options(1);
-    else
-        bb_padding = 0;
+        if numel(export_options) > 2  % font-swapping
+            fontswap = export_options(3);
+        else
+            fontswap = true;
+        end
+        if numel(export_options) > 1  % cropping
+            bb_crop = export_options(2);
+        else
+            bb_crop = 0;  % scalar value, so use default bb_crop value of 0
+        end
+        if numel(export_options) > 0  % padding
+            bb_padding = export_options(1);
+        else
+            bb_padding = 0;
+        end
     end
 
     % Construct the filename
@@ -380,7 +390,7 @@ function print2eps(name, fig, export_options, varargin)
 
         % 2. Create a bitmap image and use crop_borders to create the relative
         %    bb with respect to the PageBoundingBox
-        [A, bcol] = print2array(fig, 1, '-opengl');
+        [A, bcol] = print2array(fig, 1, renderer);
         [aa, aa, aa, bb_rel] = crop_borders(A, bcol, bb_padding);
 
         % 3. Calculate the new Bounding Box
