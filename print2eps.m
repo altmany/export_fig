@@ -79,7 +79,7 @@ function print2eps(name, fig, export_options, varargin)
 % 07/07/15: Fixed issue #83: use numeric handles in HG1
 % 22/07/15: Fixed issue #91 (thanks to Carlos Moffat)
 % 28/09/15: Fixed issue #108 (thanks to JacobD10)
-% 01/11/15: Fixed issue #110: optional renderer for bounding-box computation (thanks to Jesús Pestana Puerta)
+% 01/11/15: Fixed issue #112: optional renderer for bounding-box computation (thanks to Jesús Pestana Puerta)
 %}
 
     options = {'-loose'};

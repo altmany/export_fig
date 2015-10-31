@@ -228,7 +228,7 @@ function [imageData, alpha] = export_fig(varargin)
 % 11/09/15: Fixed issue #103: magnification must never become negative; also fixed reported error msg in parsing input params
 % 26/09/15: Alert if trying to export transparent patches/areas to non-PNG outputs (issue #108)
 % 04/10/15: Do not suggest workarounds for certain errors that have already been handled previously
-% 01/11/15: Fixed issue #110: use same renderer in print2eps as export_fig (thanks to Jesús Pestana Puerta)
+% 01/11/15: Fixed issue #112: use same renderer in print2eps as export_fig (thanks to Jesús Pestana Puerta)
 %}
 
     if nargout
@@ -574,7 +574,7 @@ function [imageData, alpha] = export_fig(varargin)
                     renderer = '-painters';
                 end
             end
-            options.rendererStr = renderer;  % fix for issue #110
+            options.rendererStr = renderer;  % fix for issue #112
             % Generate some filenames
             tmp_nam = [tempname '.eps'];
             try
