@@ -115,6 +115,7 @@ function print2eps(name, fig, export_options, varargin)
         else
             bb_padding = 0;
         end
+        renderer = '-opengl';
     end
 
     % Construct the filename
