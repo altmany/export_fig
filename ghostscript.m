@@ -40,6 +40,7 @@ function varargout = ghostscript(cmd)
 % 30/03/15 - Improved performance by caching status of GS path check, if ok
 % 14/05/15 - Clarified warning message in case GS path could not be saved
 % 29/05/15 - Avoid cryptic error in case the ghostscipt path cannot be saved (issue #74)
+% 10/11/15 - Custom GS installation webpage for MacOS. Thanks to Andy Hueni via FEX
 %}
 
     try
@@ -147,7 +148,11 @@ function path_ = gs_path
             end
         end
     end
-    error('Ghostscript not found. Have you installed it from www.ghostscript.com?');
+    if ismac
+        error('Ghostscript not found. Have you installed it (http://pages.uoregon.edu/koch)?');
+    else
+        error('Ghostscript not found. Have you installed it from www.ghostscript.com?');
+    end
 end
 
 function good = check_store_gs_path(path_)
