@@ -230,6 +230,7 @@ function [imageData, alpha] = export_fig(varargin)
 % 04/10/15: Do not suggest workarounds for certain errors that have already been handled previously
 % 01/11/15: Fixed issue #112: use same renderer in print2eps as export_fig (thanks to Jesús Pestana Puerta)
 % 10/11/15: Custom GS installation webpage for MacOS. Thanks to Andy Hueni via FEX
+% 19/11/15: Fixed clipboard export in R2015b (thanks to Dan K via FEX)
 %}
 
     if nargout
@@ -732,12 +733,12 @@ function [imageData, alpha] = export_fig(varargin)
             end
             try
                 % Import necessary Java classes
-                import java.awt.Toolkit.*
+                import java.awt.Toolkit
                 import java.awt.image.BufferedImage
                 import java.awt.datatransfer.DataFlavor
 
                 % Get System Clipboard object (java.awt.Toolkit)
-                cb = getDefaultToolkit.getSystemClipboard();
+                cb = Toolkit.getDefaultToolkit.getSystemClipboard();
 
                 % Add java class (ImageSelection) to the path
                 if ~exist('ImageSelection', 'class')
