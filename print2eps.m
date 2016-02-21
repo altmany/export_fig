@@ -23,9 +23,11 @@ function print2eps(name, fig, export_options, varargin)
 %       bb_padding - Scalar value of amount of padding to add to border around
 %                    the cropped image, in points (if >1) or percent (if <1).
 %                    Can be negative as well as positive; Default: 0
-%       crop       - Crop amount. Deafult: 0
+%       crop       - Cropping flag. Deafult: 0
 %       fontswap   - Whether to swap non-default fonts in figure. Default: true
 %       renderer   - Renderer used to generate bounding-box. Default: 'opengl'
+%       crop_amounts - 4-element vector of crop amounts: [top,right,bottom,left]
+%                    (available only via the struct alternative)
 %   print_options - Additional parameter strings to be passed to the print command
 
 %{
@@ -80,6 +82,7 @@ function print2eps(name, fig, export_options, varargin)
 % 22/07/15: Fixed issue #91 (thanks to Carlos Moffat)
 % 28/09/15: Fixed issue #108 (thanks to JacobD10)
 % 01/11/15: Fixed issue #112: optional renderer for bounding-box computation (thanks to Jesús Pestana Puerta)
+% 21/02/16: Enabled specifying non-automated crop amounts
 %}
 
     options = {'-loose'};
@@ -93,11 +96,13 @@ function print2eps(name, fig, export_options, varargin)
     end
 
     % Retrieve padding, crop & font-swap values
+    crop_amounts = nan(1,4);  % auto-crop all 4 sides by default
     if isstruct(export_options)
-        try fontswap   = export_options.fontswap;    catch, fontswap = true;     end
-        try bb_crop    = export_options.crop;        catch, bb_crop = 0;         end
-        try bb_padding = export_options.bb_padding;  catch, bb_padding = 0;      end
-        try renderer   = export_options.rendererStr; catch, renderer = 'opengl'; end  % fix for issue #110
+        try fontswap     = export_options.fontswap;     catch, fontswap = true;     end
+        try bb_crop      = export_options.crop;         catch, bb_crop = 0;         end
+        try crop_amounts = export_options.crop_amounts; catch,                      end
+        try bb_padding   = export_options.bb_padding;   catch, bb_padding = 0;      end
+        try renderer     = export_options.rendererStr;  catch, renderer = 'opengl'; end  % fix for issue #110
         if renderer(1)~='-',  renderer = ['-' renderer];  end
     else
         if numel(export_options) > 2  % font-swapping
@@ -392,7 +397,7 @@ function print2eps(name, fig, export_options, varargin)
         % 2. Create a bitmap image and use crop_borders to create the relative
         %    bb with respect to the PageBoundingBox
         [A, bcol] = print2array(fig, 1, renderer);
-        [aa, aa, aa, bb_rel] = crop_borders(A, bcol, bb_padding);
+        [aa, aa, aa, bb_rel] = crop_borders(A, bcol, bb_padding, crop_amounts);
 
         % 3. Calculate the new Bounding Box
         pagew = pagebb_matlab(3)-pagebb_matlab(1);

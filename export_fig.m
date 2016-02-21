@@ -7,6 +7,7 @@ function [imageData, alpha] = export_fig(varargin)
 %   export_fig filename
 %   export_fig filename -format1 -format2
 %   export_fig ... -nocrop
+%   export_fig ... -c[<val>,<val>,<val>,<val>]
 %   export_fig ... -transparent
 %   export_fig ... -native
 %   export_fig ... -m<val>
@@ -87,6 +88,10 @@ function [imageData, alpha] = export_fig(varargin)
 %                              of formats are valid.
 %   -nocrop - option indicating that the borders of the output are not to
 %             be cropped.
+%   -c[<val>,<val>,<val>,<val>] - option indicating crop amounts. Must be
+%             a 4-element vector of numeric values: [top,right,bottom,left]
+%             where NaN/Inf indicate auto-cropping, 0 means no cropping,
+%             and any other value mean cropping in pixel amounts.
 %   -transparent - option indicating that the figure background is to be
 %                  made transparent (png, pdf and eps output only).
 %   -m<val> - option where val indicates the factor to magnify the
@@ -231,6 +236,7 @@ function [imageData, alpha] = export_fig(varargin)
 % 01/11/15: Fixed issue #112: use same renderer in print2eps as export_fig (thanks to Jesús Pestana Puerta)
 % 10/11/15: Custom GS installation webpage for MacOS. Thanks to Andy Hueni via FEX
 % 19/11/15: Fixed clipboard export in R2015b (thanks to Dan K via FEX)
+% 21/02/16: Added -c option for indicating specific crop amounts (idea by Cedric Noordam on FEX)
 %}
 
     if nargout
@@ -453,9 +459,9 @@ function [imageData, alpha] = export_fig(varargin)
                 A = uint8(A);
                 % Crop the background
                 if options.crop
-                    %[alpha, v] = crop_borders(alpha, 0, 1);
+                    %[alpha, v] = crop_borders(alpha, 0, 1, options.crop_amounts);
                     %A = A(v(1):v(2),v(3):v(4),:);
-                    [alpha, vA, vB] = crop_borders(alpha, 0, options.bb_padding);
+                    [alpha, vA, vB] = crop_borders(alpha, 0, options.bb_padding, options.crop_amounts);
                     if ~any(isnan(vB)) % positive padding
                         B = repmat(uint8(zeros(1,1,size(A,3))),size(alpha));
                         B(vB(1):vB(2), vB(3):vB(4), :) = A(vA(1):vA(2), vA(3):vA(4), :); % ADDED BY OH
@@ -508,7 +514,7 @@ function [imageData, alpha] = export_fig(varargin)
                 end
                 % Crop the background
                 if options.crop
-                    A = crop_borders(A, tcol, options.bb_padding);
+                    A = crop_borders(A, tcol, options.bb_padding, options.crop_amounts);
                 end
                 % Downscale the image
                 A = downsize(A, options.aa_factor);
@@ -814,6 +820,7 @@ function [fig, options] = parse_args(nout, fig, varargin)
     options = struct(...
         'name', 'export_fig_out', ...
         'crop', true, ...
+        'crop_amounts', nan(1,4), ...
         'transparent', false, ...
         'renderer', 0, ... % 0: default, 1: OpenGL, 2: ZBuffer, 3: Painters
         'pdf', false, ...
@@ -853,6 +860,7 @@ function [fig, options] = parse_args(nout, fig, varargin)
                 switch lower(varargin{a}(2:end))
                     case 'nocrop'
                         options.crop = false;
+                        options.crop_amounts = [0,0,0,0];
                     case {'trans', 'transparent'}
                         options.transparent = true;
                     case 'opengl'
@@ -922,7 +930,20 @@ function [fig, options] = parse_args(nout, fig, varargin)
                             if strcmpi(varargin{a}(1:2),'-d')
                                 varargin{a}(2) = 'd';  % ensure lowercase 'd'
                                 options.gs_options{end+1} = varargin{a};
-                            else
+                            elseif strcmpi(varargin{a}(1:2),'-c')
+                                if numel(varargin{a})==2
+                                    skipNext = true;
+                                    vals = str2num(varargin{a+1}); %#ok<ST2NM>
+                                else
+                                    vals = str2num(varargin{a}(3:end)); %#ok<ST2NM>
+                                end
+                                if numel(vals)~=4
+                                    wasError = true;
+                                    error('option -c cannot be parsed: must be a 4-element numeric vector');
+                                end
+                                options.crop_amounts = vals;
+                                options.crop = true;
+                            else  % scalar parameter value
                                 val = str2double(regexp(varargin{a}, '(?<=-(m|M|r|R|q|Q|p|P))-?\d*.?\d+', 'match'));
                                 if isempty(val) || isnan(val)
                                     % Issue #51: improved processing of input args (accept space between param name & value)
