@@ -115,11 +115,10 @@ function [A, vA, vB, bb_rel] = crop_borders(A, bcol, padding, crop_amounts)
         b = h - abs(crop_amounts(3));
     end
 
-    % Crop the background, leaving one boundary pixel to avoid bleeding on resize
-    %v = [max(t-padding, 1) min(b+padding, h) max(l-padding, 1) min(r+padding, w)];
-    %A = A(v(1):v(2),v(3):v(4),:,:);
     if padding == 0  % no padding
-        padding = 1;
+        if ~isequal([t b l r], [1 h 1 w]) % Check if we're actually croppping
+            padding = 1; % Leave one boundary pixel to avoid bleeding on resize
+        end
     elseif abs(padding) < 1  % pad value is a relative fraction of image size
         padding = sign(padding)*round(mean([b-t r-l])*abs(padding)); % ADJUST PADDING
     else  % pad value is in units of 1/72" points
@@ -129,17 +128,17 @@ function [A, vA, vB, bb_rel] = crop_borders(A, bcol, padding, crop_amounts)
     if padding > 0  % extra padding
         % Create an empty image, containing the background color, that has the
         % cropped image size plus the padded border
-        B = repmat(bcol,(b-t)+1+padding*2,(r-l)+1+padding*2);
+        B = repmat(bcol,(b-t)+1+padding*2,(r-l)+1+padding*2,1,n);
         % vA - coordinates in A that contain the cropped image
         vA = [t b l r];
         % vB - coordinates in B where the cropped version of A will be placed
         vB = [padding+1, (b-t)+1+padding, padding+1, (r-l)+1+padding];
         % Place the original image in the empty image
-        B(vB(1):vB(2), vB(3):vB(4), :) = A(vA(1):vA(2), vA(3):vA(4), :);
+        B(vB(1):vB(2), vB(3):vB(4), :, :) = A(vA(1):vA(2), vA(3):vA(4), :, :);
         A = B;
     else  % extra cropping
         vA = [t-padding b+padding l-padding r+padding];
-        A = A(vA(1):vA(2), vA(3):vA(4), :);
+        A = A(vA(1):vA(2), vA(3):vA(4), :, :);
         vB = [NaN NaN NaN NaN];
     end
 
