@@ -115,11 +115,10 @@ function [A, vA, vB, bb_rel] = crop_borders(A, bcol, padding, crop_amounts)
         b = h - abs(crop_amounts(3));
     end
 
-    % Crop the background, leaving one boundary pixel to avoid bleeding on resize
-    %v = [max(t-padding, 1) min(b+padding, h) max(l-padding, 1) min(r+padding, w)];
-    %A = A(v(1):v(2),v(3):v(4),:,:);
     if padding == 0  % no padding
-        padding = 1;
+        if ~isequal([t b l r], [1 h 1 w]) % Check if we're actually croppping
+            padding = 1; % Leave one boundary pixel to avoid bleeding on resize
+        end
     elseif abs(padding) < 1  % pad value is a relative fraction of image size
         padding = sign(padding)*round(mean([b-t r-l])*abs(padding)); % ADJUST PADDING
     else  % pad value is in units of 1/72" points
