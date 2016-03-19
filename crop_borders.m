@@ -129,17 +129,17 @@ function [A, vA, vB, bb_rel] = crop_borders(A, bcol, padding, crop_amounts)
     if padding > 0  % extra padding
         % Create an empty image, containing the background color, that has the
         % cropped image size plus the padded border
-        B = repmat(bcol,(b-t)+1+padding*2,(r-l)+1+padding*2);
+        B = repmat(bcol,(b-t)+1+padding*2,(r-l)+1+padding*2,1,n);
         % vA - coordinates in A that contain the cropped image
         vA = [t b l r];
         % vB - coordinates in B where the cropped version of A will be placed
         vB = [padding+1, (b-t)+1+padding, padding+1, (r-l)+1+padding];
         % Place the original image in the empty image
-        B(vB(1):vB(2), vB(3):vB(4), :) = A(vA(1):vA(2), vA(3):vA(4), :);
+        B(vB(1):vB(2), vB(3):vB(4), :, :) = A(vA(1):vA(2), vA(3):vA(4), :, :);
         A = B;
     else  % extra cropping
         vA = [t-padding b+padding l-padding r+padding];
-        A = A(vA(1):vA(2), vA(3):vA(4), :);
+        A = A(vA(1):vA(2), vA(3):vA(4), :, :);
         vB = [NaN NaN NaN NaN];
     end
 
