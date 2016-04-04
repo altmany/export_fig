@@ -22,6 +22,7 @@ function [A, vA, vB, bb_rel] = crop_borders(A, bcol, padding, crop_amounts)
 % 06/03/15: Improved image cropping thanks to Oscar Hartogensis
 % 08/06/15: Fixed issue #76: case of transparent figure bgcolor
 % 21/02/16: Enabled specifying non-automated crop amounts
+% 04/04/16: Fix per Luiz Carvalho for old Matlab releases
 %}
 
     if nargin < 3
@@ -128,7 +129,7 @@ function [A, vA, vB, bb_rel] = crop_borders(A, bcol, padding, crop_amounts)
     if padding > 0  % extra padding
         % Create an empty image, containing the background color, that has the
         % cropped image size plus the padded border
-        B = repmat(bcol,(b-t)+1+padding*2,(r-l)+1+padding*2,1,n);
+        B = repmat(bcol,[(b-t)+1+padding*2,(r-l)+1+padding*2,1,n]);  % Fix per Luiz Carvalho
         % vA - coordinates in A that contain the cropped image
         vA = [t b l r];
         % vB - coordinates in B where the cropped version of A will be placed
