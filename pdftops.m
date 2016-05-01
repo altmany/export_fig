@@ -15,7 +15,7 @@ function varargout = pdftops(cmd)
 % http://www.foolabs.com/xpdf
 %
 % IN:
-%   cmd - Command string to be passed into pdftops.
+%   cmd - Command string to be passed into pdftops (e.g. '-help').
 %
 % OUT:
 %   status - 0 iff command ran without problem.
@@ -23,12 +23,11 @@ function varargout = pdftops(cmd)
 
 % Copyright: Oliver Woodford, 2009-2010
 
-% Thanks to Jonas Dorn for the fix for the title of the uigetdir window on
-% Mac OS.
-% Thanks to Christoph Hertel for pointing out a bug in check_xpdf_path
-% under linux.
+% Thanks to Jonas Dorn for the fix for the title of the uigetdir window on Mac OS.
+% Thanks to Christoph Hertel for pointing out a bug in check_xpdf_path under linux.
 % 23/01/2014 - Add full path to pdftops.txt in warning.
 % 27/05/2015 - Fixed alert in case of missing pdftops; fixed code indentation
+% 02/05/2016 - Added possible error explanation suggested by Michael Pacer (issue #137)
 
     % Call pdftops
     [varargout{1:nargout}] = system(sprintf('"%s" %s', xpdf_path, cmd));
@@ -61,31 +60,58 @@ function path_ = xpdf_path
     if check_store_xpdf_path(path_)
         return
     end
+
     % Ask the user to enter the path
+    errMsg1 = 'Pdftops not found. Please locate the program, or install xpdf-tools from ';
+    url1 = 'http://foolabs.com/xpdf';
+    fprintf(2, '%s\n', [errMsg1 '<a href="matlab:web(''-browser'',''' url1 ''');">' url1 '</a>']);
+    errMsg1 = [errMsg1 url1];
+    %if strncmp(computer,'MAC',3) % Is a Mac
+    %    % Give separate warning as the MacOS uigetdir dialogue box doesn't have a title
+    %    uiwait(warndlg(errMsg1))
+    %end
+
+    % Provide an alternative possible explanation as per issue #137
+    errMsg2 = 'If you have pdftops installed, perhaps Matlab is shaddowing it as described in ';
+    url2 = 'https://github.com/altmany/export_fig/issues/137';
+    fprintf(2, '%s\n', [errMsg2 '<a href="matlab:web(''-browser'',''' url2 ''');">issue #137</a>']);
+    errMsg2 = [errMsg2 url1];
+
+    state = 0;
     while 1
-        errMsg = 'Pdftops not found. Please locate the program, or install xpdf-tools from ';
-        url = 'http://foolabs.com/xpdf';
-        fprintf(2, '%s\n', [errMsg '<a href="matlab:web(''-browser'',''' url ''');">' url '</a>']);
-        errMsg = [errMsg url]; %#ok<AGROW>
-        if strncmp(computer,'MAC',3) % Is a Mac
-            % Give separate warning as the MacOS uigetdir dialogue box doesn't have a title
-            uiwait(warndlg(errMsg))
+        if state
+            option1 = 'Install pdftops';
+        else
+            option1 = 'Issue #137';
         end
-        base = uigetdir('/', errMsg);
-        if isequal(base, 0)
-            % User hit cancel or closed window
-            break;
-        end
-        base = [base filesep]; %#ok<AGROW>
-        bin_dir = {'', ['bin' filesep], ['lib' filesep]};
-        for a = 1:numel(bin_dir)
-            path_ = [base bin_dir{a} bin];
-            if exist(path_, 'file') == 2
-                break;
-            end
-        end
-        if check_store_xpdf_path(path_)
-            return
+        answer = questdlg({errMsg1,'',errMsg2},'Pdftops error',option1,'Locate pdftops','Cancel','Cancel');
+        drawnow;  % prevent a Matlab hang: http://undocumentedmatlab.com/blog/solving-a-matlab-hang-problem
+        switch answer
+            case 'Install pdftops'
+                web('-browser',url1);
+            case 'Issue #137'
+                web('-browser',url2);
+                state = 1;
+            case 'Locate pdftops'
+                base = uigetdir('/', errMsg1);
+                if isequal(base, 0)
+                    % User hit cancel or closed window
+                    break
+                end
+                base = [base filesep]; %#ok<AGROW>
+                bin_dir = {'', ['bin' filesep], ['lib' filesep]};
+                for a = 1:numel(bin_dir)
+                    path_ = [base bin_dir{a} bin];
+                    if exist(path_, 'file') == 2
+                        break
+                    end
+                end
+                if check_store_xpdf_path(path_)
+                    return
+                end
+
+            otherwise  % User hit Cancel or closed window
+                break
         end
     end
     error('pdftops executable not found.');
