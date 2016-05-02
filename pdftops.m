@@ -28,6 +28,7 @@ function varargout = pdftops(cmd)
 % 23/01/2014 - Add full path to pdftops.txt in warning.
 % 27/05/2015 - Fixed alert in case of missing pdftops; fixed code indentation
 % 02/05/2016 - Added possible error explanation suggested by Michael Pacer (issue #137)
+% 02/05/2016 - Search additional possible paths suggested by Jonas Stein (issue #147)
 
     % Call pdftops
     [varargout{1:nargout}] = system(sprintf('"%s" %s', xpdf_path, cmd));
@@ -53,12 +54,15 @@ function path_ = xpdf_path
     end
     % Search the obvious places
     if ispc
-        path_ = 'C:\Program Files\xpdf\pdftops.exe';
+        paths = {'C:\Program Files\xpdf\pdftops.exe', 'C:\Program Files (x86)\xpdf\pdftops.exe'};
     else
-        path_ = '/usr/local/bin/pdftops';
+        paths = {'/usr/bin/pdftops', '/usr/local/bin/pdftops'};
     end
-    if check_store_xpdf_path(path_)
-        return
+    for a = 1:numel(paths)
+        path_ = paths{a};
+        if check_store_xpdf_path(path_)
+            return
+        end
     end
 
     % Ask the user to enter the path
