@@ -29,6 +29,7 @@ function varargout = pdftops(cmd)
 % 27/05/2015 - Fixed alert in case of missing pdftops; fixed code indentation
 % 02/05/2016 - Added possible error explanation suggested by Michael Pacer (issue #137)
 % 02/05/2016 - Search additional possible paths suggested by Jonas Stein (issue #147)
+% 03/05/2016 - Display the specific error message if pdftops fails for some reason (issue #148)
 
     % Call pdftops
     [varargout{1:nargout}] = system(sprintf('"%s" %s', xpdf_path, cmd));
@@ -140,4 +141,10 @@ function good = check_xpdf_path(path_)
     % system returns good = 1 even when the command runs
     % Look for something distinct in the help text
     good = ~isempty(strfind(message, 'PostScript'));
+
+    % Display the error message if the pdftops executable exists but fails for some reason
+    if ~good && exist(path_,'file')  % file exists but generates an error
+        fprintf('Error running %s:\n', path_);
+        fprintf(2,'%s\n\n',message);
+    end
 end
