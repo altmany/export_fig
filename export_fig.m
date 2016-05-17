@@ -238,6 +238,7 @@ function [imageData, alpha] = export_fig(varargin)
 % 19/11/15: Fixed clipboard export in R2015b (thanks to Dan K via FEX)
 % 21/02/16: Added -c option for indicating specific crop amounts (idea by Cedric Noordam on FEX)
 % 08/05/16: Added message about possible error reason when groot.Units~=pixels (issue #149)
+% 17/05/16: Fixed case of image YData containing more than 2 elements (issue #151)
 %}
 
     if nargout
@@ -1098,12 +1099,12 @@ function [fig, options] = parse_args(nout, fig, varargin)
             if height < 2
                 continue
             end
-            % Account for the image filling only part of the axes, or vice
-            % versa
+            % Account for the image filling only part of the axes, or vice versa
             yl = get(hIm, 'YData');
             if isscalar(yl)
                 yl = [yl(1)-0.5 yl(1)+height+0.5];
             else
+                yl = [min(yl), max(yl)];  % fix issue #151 (case of yl containing more than 2 elements)
                 if ~diff(yl)
                     continue
                 end
