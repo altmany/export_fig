@@ -10,6 +10,7 @@
 %        (true) or not (false).
 
 % 19/06/2015 - Suppress warning in R2015b; cache result for improved performance
+% 06/06/2016 - Fixed issue #156 (bad return value in R2016b)
 
 function tf = using_hg2(fig)
     persistent tf_cached
@@ -21,7 +22,7 @@ function tf = using_hg2(fig)
                 % This generates a [supressed] warning in R2015b:
                 tf = ~graphicsversion(fig, 'handlegraphics');
             catch
-                tf = verLessThan('matlab','8.4');  % =R2014b
+                tf = ~verLessThan('matlab','8.4');  % =R2014b
             end
             warning(oldWarn);
         catch
