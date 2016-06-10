@@ -84,6 +84,7 @@ function print2eps(name, fig, export_options, varargin)
 % 01/11/15: Fixed issue #112: optional renderer for bounding-box computation (thanks to Jesús Pestana Puerta)
 % 21/02/16: Enabled specifying non-automated crop amounts
 % 22/02/16: Better support + backward compatibility for transparency (issue #108)
+% 10/06/16: Fixed issue #159: text handles get cleared by Matlab in the print() command
 %}
 
     options = {'-loose'};
@@ -253,6 +254,15 @@ function print2eps(name, fig, export_options, varargin)
 
     % Print to eps file
     print(fig, options{:}, name);
+
+    % Fix issue #159: redo findall() '*text_handles'
+    % Find the white and black text
+    black_text_handles = findall(fig, 'Type', 'text', 'Color', [0 0 0]);
+    white_text_handles = findall(fig, 'Type', 'text', 'Color', [1 1 1]);
+    % Set the font colors slightly off their correct values
+    set(black_text_handles, 'Color', [0 0 0] + eps);
+    set(white_text_handles, 'Color', [1 1 1] - eps);
+    % End fix #159
 
     % Do post-processing on the eps file
     try
