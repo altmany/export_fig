@@ -64,7 +64,7 @@ function print2eps(name, fig, export_options, varargin)
 % 23/07/13: Bug fix to font swapping. Thanks to George for reporting the
 %           issue.
 % 13/08/13: Fix MATLAB feature of not exporting white lines correctly.
-%           Thanks to Sebastian Heﬂlinger for reporting it.
+%           Thanks to Sebastian Hesslinger for reporting it.
 % 24/02/15: Fix for Matlab R2014b bug (issue #31): LineWidths<0.75 are not
 %           set in the EPS (default line width is used)
 % 25/02/15: Fixed issue #32: BoundingBox problem caused uncropped EPS/PDF files
@@ -85,6 +85,7 @@ function print2eps(name, fig, export_options, varargin)
 % 21/02/16: Enabled specifying non-automated crop amounts
 % 22/02/16: Better support + backward compatibility for transparency (issue #108)
 % 10/06/16: Fixed issue #159: text handles get cleared by Matlab in the print() command
+% 12/06/16: Improved the fix for issue #159 (in the previous commit)
 %}
 
     options = {'-loose'};
@@ -255,15 +256,6 @@ function print2eps(name, fig, export_options, varargin)
     % Print to eps file
     print(fig, options{:}, name);
 
-    % Fix issue #159: redo findall() '*text_handles'
-    % Find the white and black text
-    black_text_handles = findall(fig, 'Type', 'text', 'Color', [0 0 0]);
-    white_text_handles = findall(fig, 'Type', 'text', 'Color', [1 1 1]);
-    % Set the font colors slightly off their correct values
-    set(black_text_handles, 'Color', [0 0 0] + eps);
-    set(white_text_handles, 'Color', [1 1 1] - eps);
-    % End fix #159
-
     % Do post-processing on the eps file
     try
         % Read the EPS file into memory
@@ -369,8 +361,16 @@ function print2eps(name, fig, export_options, varargin)
     end
 
     % Reset the font and line colors
-    set(black_text_handles, 'Color', [0 0 0]);
-    set(white_text_handles, 'Color', [1 1 1]);
+    try
+        set(black_text_handles, 'Color', [0 0 0]);
+        set(white_text_handles, 'Color', [1 1 1]);
+    catch
+        % Fix issue #159: redo findall() '*text_handles'
+        black_text_handles = findall(fig, 'Type', 'text', 'Color', [0 0 0]+eps);
+        white_text_handles = findall(fig, 'Type', 'text', 'Color', [1 1 1]-eps);
+        set(black_text_handles, 'Color', [0 0 0]);
+        set(white_text_handles, 'Color', [1 1 1]);
+    end
     set(white_line_handles, 'Color', [1 1 1]);
 
     % Reset paper size
