@@ -86,6 +86,7 @@ function print2eps(name, fig, export_options, varargin)
 % 22/02/16: Better support + backward compatibility for transparency (issue #108)
 % 10/06/16: Fixed issue #159: text handles get cleared by Matlab in the print() command
 % 12/06/16: Improved the fix for issue #159 (in the previous commit)
+% 12/06/16: Fixed issue #158: transparent patch color in PDF/EPS
 %}
 
     options = {'-loose'};
@@ -505,11 +506,11 @@ function [StoredColors, fstrm, foundFlags] = eps_maintainAlpha(fig, fstrm, Store
 
                 %Find and replace the RGBA values within the EPS text fstrm
                 if strcmpi(propName,'Face')
-                    oldStr = sprintf(['CT\n' colorID ' RC\nN\n']);
-                    newStr = sprintf(['CT\n' origRGB ' RC\n' origAlpha ' .setopacityalpha true\nN\n']);
+                    oldStr = sprintf(['\n' colorID ' RC\nN\n']);
+                    newStr = sprintf(['\n' origRGB ' RC\n' origAlpha ' .setopacityalpha true\nN\n']);
                 else  %'Edge'
-                    oldStr = sprintf(['CT\n' colorID ' RC\n1 LJ\n']);
-                    newStr = sprintf(['CT\n' origRGB ' RC\n' origAlpha ' .setopacityalpha true\n']);
+                    oldStr = sprintf(['\n' colorID ' RC\n1 LJ\n']);
+                    newStr = sprintf(['\n' origRGB ' RC\n' origAlpha ' .setopacityalpha true\n']);
                 end
                 foundFlags(objIdx) = ~isempty(strfind(fstrm, oldStr));
                 fstrm = strrep(fstrm, oldStr, newStr);
