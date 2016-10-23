@@ -23,6 +23,7 @@ function [A, vA, vB, bb_rel] = crop_borders(A, bcol, padding, crop_amounts)
 % 08/06/15: Fixed issue #76: case of transparent figure bgcolor
 % 21/02/16: Enabled specifying non-automated crop amounts
 % 04/04/16: Fix per Luiz Carvalho for old Matlab releases
+% 23/10/16: Fixed issue #175: there used to be a 1px minimal padding in case of crop, now removed
 %}
 
     if nargin < 3
@@ -117,9 +118,13 @@ function [A, vA, vB, bb_rel] = crop_borders(A, bcol, padding, crop_amounts)
     end
 
     if padding == 0  % no padding
+        % Issue #175: there used to be a 1px minimal padding in case of crop, now removed
+        %{
         if ~isequal([t b l r], [1 h 1 w]) % Check if we're actually croppping
             padding = 1; % Leave one boundary pixel to avoid bleeding on resize
+            bcol(:) = nan;  % make the 1px padding transparent
         end
+        %}
     elseif abs(padding) < 1  % pad value is a relative fraction of image size
         padding = sign(padding)*round(mean([b-t r-l])*abs(padding)); % ADJUST PADDING
     else  % pad value is in units of 1/72" points
