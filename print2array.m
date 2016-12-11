@@ -49,6 +49,7 @@ function [A, bcol] = print2array(fig, res, renderer, gs_options)
 % 10/03/15: Fixed minor warning reported by Paul Soderlind; fixed code indentation
 % 28/05/15: Fixed issue #69: patches with LineWidth==0.75 appear wide (internal bug in Matlab's print() func)
 % 07/07/15: Fixed issue #83: use numeric handles in HG1
+% 11/12/16: Fixed cropping issue reported by Harry D.
 %}
 
     % Generate default input arguments, if needed
@@ -101,36 +102,43 @@ function [A, bcol] = print2array(fig, res, renderer, gs_options)
         gs_options = '';
     end
     if nargin > 2 && strcmp(renderer, '-painters')
-        % Print to eps file
-        if isTempDirOk
-            tmp_eps = [tempname '.eps'];
-        else
-            tmp_eps = fullfile(fpath,[fname '.eps']);
-        end
-        print2eps(tmp_eps, fig, 0, renderer, '-loose');
+        % First try to print directly to tif file
         try
-            % Initialize the command to export to tiff using ghostscript
-            cmd_str = ['-dEPSCrop -q -dNOPAUSE -dBATCH ' res_str ' -sDEVICE=tiff24nc'];
-            % Set the font path
-            fp = font_path();
-            if ~isempty(fp)
-                cmd_str = [cmd_str ' -sFONTPATH="' fp '"'];
+            % Print the file into a temporary TIF file and read it into array A
+            [A, err, ex] = read_tif_img(fig, res_str, renderer, tmp_nam);
+            if err, rethrow(ex); end
+        catch  % error - try to print to EPS and then using Ghostscript to TIF
+            % Print to eps file
+            if isTempDirOk
+                tmp_eps = [tempname '.eps'];
+            else
+                tmp_eps = fullfile(fpath,[fname '.eps']);
             end
-            % Add the filenames
-            cmd_str = [cmd_str ' -sOutputFile="' tmp_nam '" "' tmp_eps '"' gs_options];
-            % Execute the ghostscript command
-            ghostscript(cmd_str);
-        catch me
+            print2eps(tmp_eps, fig, 0, renderer, '-loose');
+            try
+                % Initialize the command to export to tiff using ghostscript
+                cmd_str = ['-dEPSCrop -q -dNOPAUSE -dBATCH ' res_str ' -sDEVICE=tiff24nc'];
+                % Set the font path
+                fp = font_path();
+                if ~isempty(fp)
+                    cmd_str = [cmd_str ' -sFONTPATH="' fp '"'];
+                end
+                % Add the filenames
+                cmd_str = [cmd_str ' -sOutputFile="' tmp_nam '" "' tmp_eps '"' gs_options];
+                % Execute the ghostscript command
+                ghostscript(cmd_str);
+            catch me
+                % Delete the intermediate file
+                delete(tmp_eps);
+                rethrow(me);
+            end
             % Delete the intermediate file
             delete(tmp_eps);
-            rethrow(me);
+            % Read in the generated bitmap
+            A = imread(tmp_nam);
+            % Delete the temporary bitmap file
+            delete(tmp_nam);
         end
-        % Delete the intermediate file
-        delete(tmp_eps);
-        % Read in the generated bitmap
-        A = imread(tmp_nam);
-        % Delete the temporary bitmap file
-        delete(tmp_nam);
         % Set border pixels to the correct colour
         if isequal(bcol, 'none')
             bcol = [];
@@ -167,30 +175,8 @@ function [A, bcol] = print2array(fig, res, renderer, gs_options)
         if nargin < 3
             renderer = '-opengl';
         end
-        err = false;
-        % Set paper size
-        old_pos_mode = get(fig, 'PaperPositionMode');
-        old_orientation = get(fig, 'PaperOrientation');
-        set(fig, 'PaperPositionMode', 'auto', 'PaperOrientation', 'portrait');
-        try
-            % Workaround for issue #69: patches with LineWidth==0.75 appear wide (internal bug in Matlab's print() function)
-            fp = [];  % in case we get an error below
-            fp = findall(fig, 'Type','patch', 'LineWidth',0.75);
-            set(fp, 'LineWidth',0.5);
-            % Fix issue #83: use numeric handles in HG1
-            if ~using_hg2(fig),  fig = double(fig);  end
-            % Print to tiff file
-            print(fig, renderer, res_str, '-dtiff', tmp_nam);
-            % Read in the printed file
-            A = imread(tmp_nam);
-            % Delete the temporary file
-            delete(tmp_nam);
-        catch ex
-            err = true;
-        end
-        set(fp, 'LineWidth',0.75);  % restore original figure appearance
-        % Reset paper size
-        set(fig, 'PaperPositionMode', old_pos_mode, 'PaperOrientation', old_orientation);
+        % Print the file into a temporary TIF file and read it into array A
+        [A, err, ex] = read_tif_img(fig, res_str, renderer, tmp_nam);
         % Throw any error that occurred
         if err
             % Display suggested workarounds to internal print() error (issue #16)
@@ -217,6 +203,35 @@ function [A, bcol] = print2array(fig, res, renderer, gs_options)
             A = A(1:min(end,px(1)),1:min(end,px(2)),:);
         end
     end
+end
+
+% Function to create a TIF image of the figure and read it into an array
+function [A, err, ex] = read_tif_img(fig, res_str, renderer, tmp_nam)
+    err = false;
+    ex = [];
+    % Temporarily set the paper size
+    old_pos_mode    = get(fig, 'PaperPositionMode');
+    old_orientation = get(fig, 'PaperOrientation');
+    set(fig, 'PaperPositionMode','auto', 'PaperOrientation','portrait');
+    try
+        % Workaround for issue #69: patches with LineWidth==0.75 appear wide (internal bug in Matlab's print() function)
+        fp = [];  % in case we get an error below
+        fp = findall(fig, 'Type','patch', 'LineWidth',0.75);
+        set(fp, 'LineWidth',0.5);
+        % Fix issue #83: use numeric handles in HG1
+        if ~using_hg2(fig),  fig = double(fig);  end
+        % Print to tiff file
+        print(fig, renderer, res_str, '-dtiff', tmp_nam);
+        % Read in the printed file
+        A = imread(tmp_nam);
+        % Delete the temporary file
+        delete(tmp_nam);
+    catch ex
+        err = true;
+    end
+    set(fp, 'LineWidth',0.75);  % restore original figure appearance
+    % Reset the paper size
+    set(fig, 'PaperPositionMode',old_pos_mode, 'PaperOrientation',old_orientation);
 end
 
 % Function to return (and create, where necessary) the font path
