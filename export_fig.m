@@ -240,6 +240,7 @@ function [imageData, alpha] = export_fig(varargin)
 % 08/05/16: Added message about possible error reason when groot.Units~=pixels (issue #149)
 % 17/05/16: Fixed case of image YData containing more than 2 elements (issue #151)
 % 08/08/16: Enabled exporting transparency to TIF, in addition to PNG/PDF (issue #168)
+% 11/12/16: Added alert in case of error creating output PDF/EPS file (issue #179)
 %}
 
     if nargout
@@ -270,7 +271,7 @@ function [imageData, alpha] = export_fig(varargin)
         fig = isolate_axes(fig);
     else
         % Check we have a figure
-        if ~isequal(get(fig, 'Type'), 'figure');
+        if ~isequal(get(fig, 'Type'), 'figure')
             error('Handle must be that of a figure, axes or uipanel');
         end
         % Get the old InvertHardcopy mode
@@ -654,7 +655,16 @@ function [imageData, alpha] = export_fig(varargin)
                 % Generate a pdf
                 eps2pdf(tmp_nam, pdf_nam_tmp, 1, options.append, options.colourspace==2, options.quality, options.gs_options);
                 % Ghostscript croaks on % chars in the output PDF file, so use tempname and then rename the file
-                try movefile(pdf_nam_tmp, pdf_nam, 'f'); catch, end
+                try
+                    movefile(pdf_nam_tmp, pdf_nam, 'f');
+                catch
+                    % Alert in case of error creating output PDF/EPS file (issue #179)
+                    if exist(pdf_nam_tmp, 'file')
+                        error(['Could not create ' pdf_nam ' - perhaps the folder does not exist, or you do not have write permissions']);
+                    else
+                        error('Could not generate the intermediary EPS file.');
+                    end
+                end
             catch ex
                 % Delete the eps
                 delete(tmp_nam);
@@ -1160,7 +1170,7 @@ function A = downsize(A, factor)
 end
 
 function A = rgb2grey(A)
-    A = cast(reshape(reshape(single(A), [], 3) * single([0.299; 0.587; 0.114]), size(A, 1), size(A, 2)), class(A)); %#ok<ZEROLIKE>
+    A = cast(reshape(reshape(single(A), [], 3) * single([0.299; 0.587; 0.114]), size(A, 1), size(A, 2)), class(A)); % #ok<ZEROLIKE>
 end
 
 function A = check_greyscale(A)
