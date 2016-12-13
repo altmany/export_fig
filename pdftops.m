@@ -32,7 +32,7 @@ function varargout = pdftops(cmd)
 % 03/05/2016 - Display the specific error message if pdftops fails for some reason (issue #148)
 
     % Call pdftops
-    [varargout{1:nargout}] = system(sprintf('"%s" %s', xpdf_path, cmd));
+    [varargout{1:nargout}] = system([xpdf_command(xpdf_path()) cmd]);
 end
 
 function path_ = xpdf_path
@@ -137,7 +137,7 @@ end
 
 function good = check_xpdf_path(path_)
     % Check the path is valid
-    [good, message] = system(sprintf('"%s" -h', path_)); %#ok<ASGLU>
+    [good, message] = system([xpdf_command(path_) '-h']); %#ok<ASGLU>
     % system returns good = 1 even when the command runs
     % Look for something distinct in the help text
     good = ~isempty(strfind(message, 'PostScript'));
@@ -147,4 +147,21 @@ function good = check_xpdf_path(path_)
         fprintf('Error running %s:\n', path_);
         fprintf(2,'%s\n\n',message);
     end
+end
+
+function cmd = xpdf_command(path_)
+    % Initialize any required system calls before calling ghostscript
+    % TODO: in Unix/Mac, find a way to determine whether to use "export" (bash) or "setenv" (csh/tcsh)
+    shell_cmd = '';
+    if isunix
+        % Avoids an error on Linux with outdated MATLAB lib files
+        % R20XXa/bin/glnxa64/libtiff.so.X
+        % R20XXa/sys/os/glnxa64/libstdc++.so.X
+        shell_cmd = 'export LD_LIBRARY_PATH=""; ';
+    end
+    if ismac
+        shell_cmd = 'export DYLD_LIBRARY_PATH=""; ';
+    end
+    % Construct the command string
+    cmd = sprintf('%s"%s" ', shell_cmd, path_);
 end
