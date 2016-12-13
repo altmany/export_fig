@@ -241,6 +241,7 @@ function [imageData, alpha] = export_fig(varargin)
 % 17/05/16: Fixed case of image YData containing more than 2 elements (issue #151)
 % 08/08/16: Enabled exporting transparency to TIF, in addition to PNG/PDF (issue #168)
 % 11/12/16: Added alert in case of error creating output PDF/EPS file (issue #179)
+% 13/12/16: Minor fix to the commit for issue #179 from 2 days ago
 %}
 
     if nargout
@@ -656,7 +657,11 @@ function [imageData, alpha] = export_fig(varargin)
                 eps2pdf(tmp_nam, pdf_nam_tmp, 1, options.append, options.colourspace==2, options.quality, options.gs_options);
                 % Ghostscript croaks on % chars in the output PDF file, so use tempname and then rename the file
                 try
-                    movefile(pdf_nam_tmp, pdf_nam, 'f');
+                    % Rename the file (except if it is already the same)
+                    % Abbie K's comment on the commit for issue #179 (#commitcomment-20173476)
+                    if ~isequal(pdf_nam_tmp, pdf_nam)
+                        movefile(pdf_nam_tmp, pdf_nam, 'f');
+                    end
                 catch
                     % Alert in case of error creating output PDF/EPS file (issue #179)
                     if exist(pdf_nam_tmp, 'file')
