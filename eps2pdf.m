@@ -55,6 +55,7 @@ function eps2pdf(source, dest, crop, append, gray, quality, gs_options)
 % 23/06/15: Added extra debug info in case of ghostscript error; code indentation
 % 04/10/15: Suggest a workaround for issue #41 (missing font path; thanks Mariia Fedotenkova)
 % 22/02/16: Bug fix from latest release of this file (workaround for issue #41)
+% 20/03/17: Added informational message in case of GS croak (issue #186)
 
     % Intialise the options string for ghostscript
     options = ['-q -dNOPAUSE -dBATCH -sDEVICE=pdfwrite -dPDFSETTINGS=/prepress -sOutputFile="' dest '"'];
@@ -158,6 +159,7 @@ function eps2pdf(source, dest, crop, append, gray, quality, gs_options)
             if ~isempty(gs_options)
                 fprintf(2, '  or maybe the%s option(s) are not accepted by your GS version\n', gs_options);
             end
+            fprintf(2, '  or maybe you have another gs executable in your system''s path\n');
             fprintf(2, 'Ghostscript options: %s\n\n', orig_options);
             error(message);
         end
