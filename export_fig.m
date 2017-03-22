@@ -242,6 +242,7 @@ function [imageData, alpha] = export_fig(varargin)
 % 08/08/16: Enabled exporting transparency to TIF, in addition to PNG/PDF (issue #168)
 % 11/12/16: Added alert in case of error creating output PDF/EPS file (issue #179)
 % 13/12/16: Minor fix to the commit for issue #179 from 2 days ago
+% 22/03/17: Fixed issue #187: only set manual ticks when no exponent is present
 %}
 
     if nargout
@@ -1271,9 +1272,22 @@ function set_tick_mode(Hlims, ax)
     if ~iscell(M)
         M = {M};
     end
-    M = cellfun(@(c) strcmp(c, 'linear'), M);
-    set(Hlims(M), [ax 'TickMode'], 'manual');
-    %set(Hlims(M), [ax 'TickLabelMode'], 'manual');  % this hides exponent label in HG2!
+    %idx = cellfun(@(c) strcmp(c, 'linear'), M);
+    idx = find(strcmp(M,'linear'));
+    %set(Hlims(idx), [ax 'TickMode'], 'manual');  % issue #187
+    %set(Hlims(idx), [ax 'TickLabelMode'], 'manual');  % this hides exponent label in HG2!
+    for idx2 = 1 : numel(idx)
+        try
+            % Fix for issue #187 - only set manual ticks when no exponent is present
+            hAxes = Hlims(idx(idx2));
+            props = {[ax 'TickMode'],'manual', [ax 'TickLabelMode'],'manual'};
+            if isempty(strtrim(hAxes.([ax 'Ruler']).SecondaryLabel.String))
+                set(hAxes, props{:});  % no exponent, so update moth ticks and tick labels to manual
+            end
+        catch  % probably HG1
+            set(hAxes, props{:});  % revert back to old behavior
+        end
+    end
 end
 
 function change_rgb_to_cmyk(fname)  % convert RGB => CMYK within an EPS file
