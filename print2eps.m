@@ -26,6 +26,7 @@ function print2eps(name, fig, export_options, varargin)
 %       crop       - Cropping flag. Deafult: 0
 %       fontswap   - Whether to swap non-default fonts in figure. Default: true
 %       renderer   - Renderer used to generate bounding-box. Default: 'opengl'
+%                    (available only via the struct alternative)
 %       crop_amounts - 4-element vector of crop amounts: [top,right,bottom,left]
 %                    (available only via the struct alternative)
 %   print_options - Additional parameter strings to be passed to the print command
