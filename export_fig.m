@@ -24,6 +24,7 @@ function [imageData, alpha] = export_fig(varargin)
 %   export_fig ... -clipboard
 %   export_fig ... -update
 %   export_fig ... -nofontswap
+%   export_fig ... -linecaps
 %   export_fig(..., handle)
 %
 % This function saves a figure or single axes to one or more vector and/or
@@ -42,6 +43,7 @@ function [imageData, alpha] = export_fig(varargin)
 %   - Optionally append to file (pdf, tiff)
 %   - Vector formats: pdf, eps
 %   - Bitmap formats: png, tiff, jpg, bmp, export to workspace
+%   - Rounded line-caps (optional; pdf & eps only)
 %
 % This function is especially suited to exporting figures for use in
 % publications and presentations, because of the high quality and
@@ -152,6 +154,7 @@ function [imageData, alpha] = export_fig(varargin)
 %   -nofontswap - option to avoid font swapping. Font swapping is automatically
 %             done in vector formats (only): 11 standard Matlab fonts are
 %             replaced by the original figure fonts. This option prevents this.
+%   -linecaps - option to create rounded line-caps (vector formats only).
 %   handle -  The handle of the figure, axes or uipanels (can be an array of
 %             handles, but the objects must be in the same figure) to be
 %             saved. Default: gcf.
@@ -243,6 +246,7 @@ function [imageData, alpha] = export_fig(varargin)
 % 11/12/16: Added alert in case of error creating output PDF/EPS file (issue #179)
 % 13/12/16: Minor fix to the commit for issue #179 from 2 days ago
 % 22/03/17: Fixed issue #187: only set manual ticks when no exponent is present
+% 09/04/17: Added -linecaps option (idea by Baron Finer, issue #192)
 %}
 
     if nargout
@@ -678,13 +682,28 @@ function [imageData, alpha] = export_fig(varargin)
             end
             % Delete the eps
             delete(tmp_nam);
-            if options.eps
+            if options.eps || options.linecaps
                 try
                     % Generate an eps from the pdf
                     % since pdftops can't handle relative paths (e.g., '..\'), use a temp file
                     eps_nam_tmp = strrep(pdf_nam_tmp,'.pdf','.eps');
                     pdf2eps(pdf_nam, eps_nam_tmp);
-                    movefile(eps_nam_tmp,  [options.name '.eps'], 'f');
+
+                    % Issue #192: enable rounded line-caps
+                    if options.linecaps
+                        fstrm = read_write_entire_textfile(eps_nam_tmp);
+                        fstrm = regexprep(fstrm, '[02] J', '1 J');
+                        read_write_entire_textfile(eps_nam_tmp, fstrm);
+                        if options.pdf
+                            eps2pdf(eps_nam_tmp, pdf_nam, 1, options.append, options.colourspace==2, options.quality, options.gs_options);
+                        end
+                    end
+
+                    if options.eps
+                        movefile(eps_nam_tmp, [options.name '.eps'], 'f');
+                    else  % if options.pdf
+                        try delete(eps_nam_tmp); catch, end
+                    end
                 catch ex
                     if ~options.pdf
                         % Delete the pdf
@@ -871,6 +890,7 @@ function options = default_options()
         'quality',      [], ...
         'update',       false, ...
         'fontswap',     true, ...
+        'linecaps',     false, ...
         'gs_options',   {{}});
 end
 
@@ -961,6 +981,8 @@ function [fig, options] = parse_args(nout, fig, varargin)
                         end
                     case 'nofontswap'
                         options.fontswap = false;
+                    case 'linecaps'
+                        options.linecaps = true;
                     otherwise
                         try
                             wasError = false;
