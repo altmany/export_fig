@@ -211,9 +211,9 @@ After matching the two renderers, if the artifact appears in the on screen figur
 
 **Smoothed/interpolated images in output PDF** - if you produce a PDF using export_fig and images in the PDF look overly smoothed or interpolated, this is because the software you are using to view the PDF is smoothing or interpolating the image data. The image is not smoothed in the PDF file itself. If the software has an option to disable this feature, you should select it. Alternatively, use another PDF viewer that doesn't exhibit this problem.  
   
-**Locating Ghostscript/pdftops** - You may find a dialogue box appears when using export_fig, asking you to locate either [Ghostscript](http://www.ghostscript.com) or [pdftops](http://www.foolabs.com/xpdf). These are separate applications which export_fig requires to perform certain functions. If such a dialogue appears it is because export_fig can't find the application automatically. This is because you either haven't installed it, or it isn't in the normal place. Make sure you install the applications correctly first. They can be downloaded from the following places:  
+**Locating Ghostscript/pdftops** - You may find a dialogue box appears when using export_fig, asking you to locate either [Ghostscript](http://www.ghostscript.com) or [pdftops (part of the Xpdf package)](http://www.xpdfreader.com). These are separate applications which export_fig requires to perform certain functions. If such a dialogue appears it is because export_fig can't find the application automatically. This is because you either haven't installed it, or it isn't in the normal place. Make sure you install the applications correctly first. They can be downloaded from the following places:  
  1. Ghostscript:     [www.ghostscript.com](http://www.ghostscript.com)
- 2. pdftops (install the Xpdf package): [www.foolabs.com/xpdf](http://www.foolabs.com/xpdf)
+ 2. pdftops (install the Xpdf package): [www.xpdfreader.com](http://www.xpdfreader.com)
 
 If you choose to install them in a non-default location then point export_fig
 to this location using the dialogue box.
