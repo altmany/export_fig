@@ -36,14 +36,14 @@ function [imageData, alpha] = export_fig(varargin)
 %   - Improved line and grid line styles
 %   - Anti-aliased graphics (bitmap formats)
 %   - Render images at native resolution (optional for bitmap formats)
-%   - Transparent background supported (pdf, eps, png, tif)
-%   - Semi-transparent patch objects supported (png & tif only)
+%   - Transparent background supported (pdf, eps, png, tiff)
+%   - Semi-transparent patch objects supported (png, tiff)
 %   - RGB, CMYK or grayscale output (CMYK only with pdf, eps, tiff)
 %   - Variable image compression, including lossless (pdf, eps, jpg)
+%   - Optional rounded line-caps (pdf, eps)
 %   - Optionally append to file (pdf, tiff)
 %   - Vector formats: pdf, eps
 %   - Bitmap formats: png, tiff, jpg, bmp, export to workspace
-%   - Rounded line-caps (optional; pdf & eps only)
 %
 % This function is especially suited to exporting figures for use in
 % publications and presentations, because of the high quality and
