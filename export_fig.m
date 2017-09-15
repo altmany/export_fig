@@ -247,7 +247,7 @@ function [imageData, alpha] = export_fig(varargin)
 % 13/12/16: Minor fix to the commit for issue #179 from 2 days ago
 % 22/03/17: Fixed issue #187: only set manual ticks when no exponent is present
 % 09/04/17: Added -linecaps option (idea by Baron Finer, issue #192)
-% 15/09/17: Fixed issue #202: incorrect tick-labels when Ticks number don't match the TickLabels number
+% 15/09/17: Fixed issue #205: incorrect tick-labels when Ticks number don't match the TickLabels number
 %}
 
     if nargout
@@ -1305,7 +1305,7 @@ function set_tick_mode(Hlims, ax)
             hAxes = Hlims(idx(idx2));
             props = {[ax 'TickMode'],'manual', [ax 'TickLabelMode'],'manual'};
             if isempty(strtrim(hAxes.([ax 'Ruler']).SecondaryLabel.String))
-                % Fix for issue #202 - only set manual ticks when the Ticks number match the TickLabels number
+                % Fix for issue #205 - only set manual ticks when the Ticks number match the TickLabels number
                 if numel(hAxes.([ax 'Tick'])) == numel(hAxes.([ax 'TickLabel']))
                     set(hAxes, props{:});  % no exponent and matching ticks, so update both ticks and tick labels to manual
                 end
