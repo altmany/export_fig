@@ -26,6 +26,7 @@ function [imageData, alpha] = export_fig(varargin)
 %   export_fig ... -nofontswap
 %   export_fig ... -font_space <char>
 %   export_fig ... -linecaps
+%   export_fig ... -noinvert
 %   export_fig(..., handle)
 %
 % This function saves a figure or single axes to one or more vector and/or
@@ -155,7 +156,11 @@ function [imageData, alpha] = export_fig(varargin)
 %   -nofontswap - option to avoid font swapping. Font swapping is automatically
 %             done in vector formats (only): 11 standard Matlab fonts are
 %             replaced by the original figure fonts. This option prevents this.
+%   -font_space <char> - option to set a spacer character for font-names that
+%             contain spaces, used by EPS/PDF. Default: ''
 %   -linecaps - option to create rounded line-caps (vector formats only).
+%   -noinvert - option to avoid setting figure's InvertHardcopy property to
+%             'off' during output (this solves some problems of empty outputs).
 %   handle -  The handle of the figure, axes or uipanels (can be an array of
 %             handles, but the objects must be in the same figure) to be
 %             saved. Default: gcf.
@@ -251,6 +256,7 @@ function [imageData, alpha] = export_fig(varargin)
 % 15/09/17: Fixed issue #205: incorrect tick-labels when Ticks number don't match the TickLabels number
 % 15/09/17: Fixed issue #210: initialize alpha map to ones instead of zeros when -transparent is not used
 % 18/09/17: Added -font_space option to replace font-name spaces in EPS/PDF (workaround for issue #194)
+% 18/09/17: Added -noinvert option to solve some export problems with some graphic cards (workaround for issue #197)
 %}
 
     if nargout
@@ -368,7 +374,9 @@ function [imageData, alpha] = export_fig(varargin)
     set(fig,'Units','pixels');
 
     % Set to print exactly what is there
-    set(fig, 'InvertHardcopy', 'off');
+    if options.invert_hardcopy
+        set(fig, 'InvertHardcopy', 'off');
+    end
     % Set the renderer
     switch options.renderer
         case 1
@@ -896,6 +904,7 @@ function options = default_options()
         'fontswap',     true, ...
         'font_space',   '', ...
         'linecaps',     false, ...
+        'invert_hardcopy', true, ...
         'gs_options',   {{}});
 end
 
@@ -991,6 +1000,8 @@ function [fig, options] = parse_args(nout, fig, varargin)
                         skipNext = true;
                     case 'linecaps'
                         options.linecaps = true;
+                    case 'noinvert'
+                        options.invert_hardcopy = false;
                     otherwise
                         try
                             wasError = false;
