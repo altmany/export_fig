@@ -92,6 +92,7 @@ function print2eps(name, fig, export_options, varargin)
 % 12/06/16: Improved the fix for issue #159 (in the previous commit)
 % 12/06/16: Fixed issue #158: transparent patch color in PDF/EPS
 % 18/09/17: Fixed issue #194: incorrect fonts in EPS/PDF output
+% 18/09/17: Fixed issue #195: relaxed too-tight cropping in EPS/PDF
 %}
 
     options = {'-loose'};
@@ -453,16 +454,16 @@ function print2eps(name, fig, export_options, varargin)
         %bb_new = [pagebb_matlab(1)+pagew*bb_rel(1) pagebb_matlab(2)+pageh*bb_rel(2) ...
         %          pagebb_matlab(1)+pagew*bb_rel(3) pagebb_matlab(2)+pageh*bb_rel(4)];
         bb_new = pagebb_matlab([1,2,1,2]) + [pagew,pageh,pagew,pageh].*bb_rel;  % clearer
-        bb_offset = (bb_new-bb_matlab) + [-1,-1,1,1];  % 1px margin so that cropping is not TOO tight
+        bb_offset = (bb_new-bb_matlab) + [-2,-2,2,2];  % 2px margin so that cropping is not TOO tight (issue #195)
 
         % Apply the bounding box padding
         if bb_padding
             if abs(bb_padding)<1
                 bb_padding = round((mean([bb_new(3)-bb_new(1) bb_new(4)-bb_new(2)])*bb_padding)/0.5)*0.5; % ADJUST BB_PADDING
             end
-            add_padding = @(n1, n2, n3, n4) sprintf(' %d', str2double({n1, n2, n3, n4}) + [-bb_padding -bb_padding bb_padding bb_padding] + bb_offset);
+            add_padding = @(n1, n2, n3, n4) sprintf(' %.0f', str2double({n1, n2, n3, n4}) + bb_offset + bb_padding*[-1,-1,1,1]);
         else
-            add_padding = @(n1, n2, n3, n4) sprintf(' %d', str2double({n1, n2, n3, n4}) + bb_offset); % fix small but noticeable bounding box shift
+            add_padding = @(n1, n2, n3, n4) sprintf(' %.0f', str2double({n1, n2, n3, n4}) + bb_offset); % fix small but noticeable bounding box shift
         end
         fstrm = regexprep(fstrm, '%%BoundingBox:[ ]+([-]?\d+)[ ]+([-]?\d+)[ ]+([-]?\d+)[ ]+([-]?\d+)', '%%BoundingBox:${add_padding($1, $2, $3, $4)}');
     end
