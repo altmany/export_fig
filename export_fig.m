@@ -24,6 +24,7 @@ function [imageData, alpha] = export_fig(varargin)
 %   export_fig ... -clipboard
 %   export_fig ... -update
 %   export_fig ... -nofontswap
+%   export_fig ... -font_space <char>
 %   export_fig ... -linecaps
 %   export_fig(..., handle)
 %
@@ -249,6 +250,7 @@ function [imageData, alpha] = export_fig(varargin)
 % 09/04/17: Added -linecaps option (idea by Baron Finer, issue #192)
 % 15/09/17: Fixed issue #205: incorrect tick-labels when Ticks number don't match the TickLabels number
 % 15/09/17: Fixed issue #210: initialize alpha map to ones instead of zeros when -transparent is not used
+% 18/09/17: Added -font_space option to replace font-name spaces in EPS/PDF (workaround for issue #194)
 %}
 
     if nargout
@@ -892,6 +894,7 @@ function options = default_options()
         'quality',      [], ...
         'update',       false, ...
         'fontswap',     true, ...
+        'font_space',   '', ...
         'linecaps',     false, ...
         'gs_options',   {{}});
 end
@@ -983,6 +986,9 @@ function [fig, options] = parse_args(nout, fig, varargin)
                         end
                     case 'nofontswap'
                         options.fontswap = false;
+                    case 'font_space'
+                        options.font_space = varargin{a+1};
+                        skipNext = true;
                     case 'linecaps'
                         options.linecaps = true;
                     otherwise
