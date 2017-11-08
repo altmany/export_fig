@@ -258,6 +258,7 @@ function [imageData, alpha] = export_fig(varargin)
 % 18/09/17: Added -font_space option to replace font-name spaces in EPS/PDF (workaround for issue #194)
 % 18/09/17: Added -noinvert option to solve some export problems with some graphic cards (workaround for issue #197)
 % 08/11/17: Fixed issue #220: exponent is removed in HG1 when TickMode is 'manual' (internal Matlab bug)
+% 08/11/17: Fixed issue #221: alert if the requested folder does not exist
 %}
 
     if nargout
@@ -1063,6 +1064,8 @@ function [fig, options] = parse_args(nout, fig, varargin)
             else
                 [p, options.name, ext] = fileparts(varargin{a});
                 if ~isempty(p)
+                    % Issue #221: alert if the requested folder does not exist
+                    if ~exist(p,'dir'),  error(['Folder ' p ' does not exist!']);  end
                     options.name = [p filesep options.name];
                 end
                 switch lower(ext)
