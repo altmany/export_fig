@@ -257,6 +257,7 @@ function [imageData, alpha] = export_fig(varargin)
 % 15/09/17: Fixed issue #210: initialize alpha map to ones instead of zeros when -transparent is not used
 % 18/09/17: Added -font_space option to replace font-name spaces in EPS/PDF (workaround for issue #194)
 % 18/09/17: Added -noinvert option to solve some export problems with some graphic cards (workaround for issue #197)
+% 08/11/17: Fixed issue #220: exponent is removed in HG1 when TickMode is 'manual' (internal Matlab bug)
 %}
 
     if nargout
@@ -1322,14 +1323,19 @@ function set_tick_mode(Hlims, ax)
             % Fix for issue #187 - only set manual ticks when no exponent is present
             hAxes = Hlims(idx(idx2));
             props = {[ax 'TickMode'],'manual', [ax 'TickLabelMode'],'manual'};
+            tickVals = get(hAxes,[ax 'Tick']);
+            tickStrs = get(hAxes,[ax 'TickLabel']);
             if isempty(strtrim(hAxes.([ax 'Ruler']).SecondaryLabel.String))
                 % Fix for issue #205 - only set manual ticks when the Ticks number match the TickLabels number
-                if numel(hAxes.([ax 'Tick'])) == numel(hAxes.([ax 'TickLabel']))
+                if numel(tickVals) == numel(tickStrs)
                     set(hAxes, props{:});  % no exponent and matching ticks, so update both ticks and tick labels to manual
                 end
             end
         catch  % probably HG1
-            set(hAxes, props{:});  % revert back to old behavior
+            % Fix for issue #220 - exponent is removed in HG1 when TickMode is 'manual' (internal Matlab bug)
+            if isequal(tickVals, str2num(tickStrs)') %#ok<ST2NM>
+                set(hAxes, props{:});  % revert back to old behavior
+            end
         end
     end
 end
