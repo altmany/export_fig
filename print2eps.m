@@ -93,6 +93,7 @@ function print2eps(name, fig, export_options, varargin)
 % 12/06/16: Fixed issue #158: transparent patch color in PDF/EPS
 % 18/09/17: Fixed issue #194: incorrect fonts in EPS/PDF output
 % 18/09/17: Fixed issue #195: relaxed too-tight cropping in EPS/PDF
+% 14/11/17: Workaround for issue #211: dashed/dotted lines in 3D axes appear solid
 %}
 
     options = {'-loose'};
@@ -236,6 +237,12 @@ function print2eps(name, fig, export_options, varargin)
     % Set the line color slightly off white
     set(white_line_handles, 'Color', [1 1 1] - 0.00001);
 
+    % MATLAB bug fix (issue #211): dashed/dotted lines in 3D axes appear solid
+    % Note: this "may limit other functionality in plotting such as hidden line/surface removal"
+    % reference: Technical Support Case #02838114, https://mail.google.com/mail/u/0/#inbox/15fb7659f70e7bd8
+    hAxes = findall(fig, 'Type', 'axes');
+    try oldSortMethods = get(hAxes,'SortMethod'); set(hAxes,'SortMethod','ChildOrder'); catch, end
+
     % Workaround for issue #45: lines in image subplots are exported in invalid color
     % In this case the -depsc driver solves the problem, but then all the other workarounds
     % below (for all the other issues) will fail, so it's better to let the user decide by
@@ -273,6 +280,9 @@ function print2eps(name, fig, export_options, varargin)
     catch
         fstrm = '';
     end
+
+    % Restore the original axes SortMethods (if updated)
+    try set(hAxes,'SortMethod',oldSortMethods); catch, end
 
     % Restore colors for transparent patches/lines and apply the
     % setopacityalpha setting in the EPS file (issue #108)
