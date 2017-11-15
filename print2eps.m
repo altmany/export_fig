@@ -94,6 +94,7 @@ function print2eps(name, fig, export_options, varargin)
 % 18/09/17: Fixed issue #194: incorrect fonts in EPS/PDF output
 % 18/09/17: Fixed issue #195: relaxed too-tight cropping in EPS/PDF
 % 14/11/17: Workaround for issue #211: dashed/dotted lines in 3D axes appear solid
+% 15/11/17: Updated issue #211: only set SortMethod='ChildOrder' in HG2, and when it looks the same onscreen; support multiple figure axes
 %}
 
     options = {'-loose'};
@@ -241,7 +242,31 @@ function print2eps(name, fig, export_options, varargin)
     % Note: this "may limit other functionality in plotting such as hidden line/surface removal"
     % reference: Technical Support Case #02838114, https://mail.google.com/mail/u/0/#inbox/15fb7659f70e7bd8
     hAxes = findall(fig, 'Type', 'axes');
-    try oldSortMethods = get(hAxes,'SortMethod'); set(hAxes,'SortMethod','ChildOrder'); catch, end
+    if using_hg2 && ~isempty(hAxes)  % issue #211 presumably happens only in HG2, not HG1
+        try
+            % If there are any axes using SortMethod~='ChildOrder'
+            oldSortMethods = get(hAxes,{'SortMethod'});  % use {'SortMethod'} to ensure we get a cell array, even for single axes
+            if any(~strcmpi('ChildOrder',oldSortMethods))  % i.e., any oldSortMethods=='depth'
+                % Check if the axes look visually different onscreen when SortMethod='ChildOrder'
+                imgBefore = print2array(fig);
+                set(hAxes,'SortMethod','ChildOrder');
+                imgAfter  = print2array(fig);
+                if isequal(imgBefore, imgAfter)
+                    % They look the same, so use SortMethod='ChildOrder' when generating the EPS
+                else
+                    % They look different, so revert SortMethod and issue a warning message
+                    warning('YMA:export_fig:issue211', ...
+                            ['You seem to be using axes that have overlapping/hidden graphic elements. ' 10 ...
+                             'Setting axes.SortMethod=''ChildOrder'' may solve potential problems in EPS/PDF export. ' 10 ...
+                             'Additional info: https://github.com/altmany/export_fig/issues/211'])
+                    set(hAxes,{'SortMethod'},oldSortMethods);
+                end
+            end
+        catch err
+            % ignore
+            a=err;  %#ok<NASGU> % debug breakpoint
+        end
+    end
 
     % Workaround for issue #45: lines in image subplots are exported in invalid color
     % In this case the -depsc driver solves the problem, but then all the other workarounds
@@ -273,6 +298,9 @@ function print2eps(name, fig, export_options, varargin)
     % Print to eps file
     print(fig, options{:}, name);
 
+    % Restore the original axes SortMethods (if updated)
+    try set(hAxes,{'SortMethod'},oldSortMethods); catch, end
+
     % Do post-processing on the eps file
     try
         % Read the EPS file into memory
@@ -280,9 +308,6 @@ function print2eps(name, fig, export_options, varargin)
     catch
         fstrm = '';
     end
-
-    % Restore the original axes SortMethods (if updated)
-    try set(hAxes,'SortMethod',oldSortMethods); catch, end
 
     % Restore colors for transparent patches/lines and apply the
     % setopacityalpha setting in the EPS file (issue #108)
@@ -471,9 +496,9 @@ function print2eps(name, fig, export_options, varargin)
             if abs(bb_padding)<1
                 bb_padding = round((mean([bb_new(3)-bb_new(1) bb_new(4)-bb_new(2)])*bb_padding)/0.5)*0.5; % ADJUST BB_PADDING
             end
-            add_padding = @(n1, n2, n3, n4) sprintf(' %.0f', str2double({n1, n2, n3, n4}) + bb_offset + bb_padding*[-1,-1,1,1]);
+            add_padding = @(n1, n2, n3, n4) sprintf(' %.0f', str2double({n1, n2, n3, n4}) + bb_offset + bb_padding*[-1,-1,1,1]); %#ok<NASGU>
         else
-            add_padding = @(n1, n2, n3, n4) sprintf(' %.0f', str2double({n1, n2, n3, n4}) + bb_offset); % fix small but noticeable bounding box shift
+            add_padding = @(n1, n2, n3, n4) sprintf(' %.0f', str2double({n1, n2, n3, n4}) + bb_offset); %#ok<NASGU> % fix small but noticeable bounding box shift
         end
         fstrm = regexprep(fstrm, '%%BoundingBox:[ ]+([-]?\d+)[ ]+([-]?\d+)[ ]+([-]?\d+)[ ]+([-]?\d+)', '%%BoundingBox:${add_padding($1, $2, $3, $4)}');
     end
@@ -508,7 +533,7 @@ function [StoredColors, fstrm, foundFlags] = eps_maintainAlpha(fig, fstrm, Store
                         nColors = length(StoredColors);
                         oldColor = hObj.(propName).ColorData;
                         newColor = uint8([101; 102+floor(nColors/255); mod(nColors,255); 255]);
-                        StoredColors{end+1} = {hObj, propName, oldColor, newColor};
+                        StoredColors{end+1} = {hObj, propName, oldColor, newColor}; %#ok<AGROW>
                         hObj.(propName).ColorData = newColor;
                     end
                 catch
