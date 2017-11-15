@@ -168,7 +168,7 @@ When using the functional form like this, be sure to put string variables in quo
 export_fig(sprintf('plot%d', a), '-a1', '-pdf', '-png');
 ```
 
-**Specifying the figure/axes** - if you have mutiple figures open you can specify which figure to export using its handle:  
+**Specifying the figure/axes** - if you have multiple figures open you can specify which figure to export using its handle:  
 ```Matlab
 export_fig(figure_handle, filename);
 ```
