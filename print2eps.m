@@ -95,6 +95,7 @@ function print2eps(name, fig, export_options, varargin)
 % 18/09/17: Fixed issue #195: relaxed too-tight cropping in EPS/PDF
 % 14/11/17: Workaround for issue #211: dashed/dotted lines in 3D axes appear solid
 % 15/11/17: Updated issue #211: only set SortMethod='ChildOrder' in HG2, and when it looks the same onscreen; support multiple figure axes
+% 18/11/17: Fixed issue #225: transparent/translucent dashed/dotted lines appear solid in EPS/PDF
 %}
 
     options = {'-loose'};
@@ -560,10 +561,10 @@ function [StoredColors, fstrm, foundFlags] = eps_maintainAlpha(fig, fstrm, Store
 
                 %Find and replace the RGBA values within the EPS text fstrm
                 if strcmpi(propName,'Face')
-                    oldStr = sprintf(['\n' colorID ' RC\nN\n']);
-                    newStr = sprintf(['\n' origRGB ' RC\n' origAlpha ' .setopacityalpha true\nN\n']);
+                    oldStr = sprintf(['\n' colorID ' RC\n']);  % ...N\n (removed to fix issue #225)
+                    newStr = sprintf(['\n' origRGB ' RC\n' origAlpha ' .setopacityalpha true\n']);  % ...N\n
                 else  %'Edge'
-                    oldStr = sprintf(['\n' colorID ' RC\n1 LJ\n']);
+                    oldStr = sprintf(['\n' colorID ' RC\n']);  % ...1 LJ\n (removed to fix issue #225)
                     newStr = sprintf(['\n' origRGB ' RC\n' origAlpha ' .setopacityalpha true\n']);
                 end
                 foundFlags(objIdx) = ~isempty(strfind(fstrm, oldStr));
