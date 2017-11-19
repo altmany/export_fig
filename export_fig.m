@@ -259,6 +259,7 @@ function [imageData, alpha] = export_fig(varargin)
 % 18/09/17: Added -noinvert option to solve some export problems with some graphic cards (workaround for issue #197)
 % 08/11/17: Fixed issue #220: exponent is removed in HG1 when TickMode is 'manual' (internal Matlab bug)
 % 08/11/17: Fixed issue #221: alert if the requested folder does not exist
+% 19/11/17: Workaround for issue #207: alert when trying to use transparent bgcolor with -opengl
 %}
 
     if nargout
@@ -653,12 +654,25 @@ function [imageData, alpha] = export_fig(varargin)
                 p2eArgs{end+1} = '-depsc';
             end
             try
+                % Remove background if requested (issue #207)
+                if options.transparent %&& ~isequal(get(fig, 'Color'), 'none')
+                    if options.renderer == 1  % OpenGL
+                        warning('export_fig:openglTransparentBG', '-opengl sometimes fails to produce transparent backgrounds; try -painters instead');
+                    else
+                        originalBgColor = get(fig, 'Color');
+                        set(fig,'Color','none');
+                    end
+                end
                 % Generate an eps
                 print2eps(tmp_nam, fig, options, p2eArgs{:});
+                % {
                 % Remove the background, if desired
-                if options.transparent && ~isequal(get(fig, 'Color'), 'none')
+                if options.transparent %&& ~isequal(get(fig, 'Color'), 'none')
                     eps_remove_background(tmp_nam, 1 + using_hg2(fig));
                 end
+                %}
+                % Restore the figure's previous background color (if modified)
+                try set(fig,'Color',originalBgColor); drawnow; catch, end
                 % Fix colorspace to CMYK, if requested (workaround for issue #33)
                 if options.colourspace == 1  % CMYK
                     % Issue #33: due to internal bugs in Matlab's print() function, we can't use its -cmyk option
@@ -788,7 +802,7 @@ function [imageData, alpha] = export_fig(varargin)
             try
                 error(javachk('awt', 'export_fig -clipboard output'));
             catch
-                warning('export_fig -clipboard output failed: requires Java to work');
+                warning('export_fig:clipboardJava', 'export_fig -clipboard output failed: requires Java to work');
                 return;
             end
             try
@@ -834,7 +848,7 @@ function [imageData, alpha] = export_fig(varargin)
                 % Set clipboard content to the image
                 cb.setContents(imSelection, []);
             catch
-                warning('export_fig -clipboard output failed: %s', lasterr); %#ok<LERR>
+                warning('export_fig:clipboardFailed', 'export_fig -clipboard output failed: %s', lasterr); %#ok<LERR>
             end
         end
 
