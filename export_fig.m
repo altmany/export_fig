@@ -260,6 +260,7 @@ function [imageData, alpha] = export_fig(varargin)
 % 08/11/17: Fixed issue #220: exponent is removed in HG1 when TickMode is 'manual' (internal Matlab bug)
 % 08/11/17: Fixed issue #221: alert if the requested folder does not exist
 % 19/11/17: Workaround for issue #207: alert when trying to use transparent bgcolor with -opengl
+% 29/11/17: Workaround for issue #206: warn if exporting PDF/EPS for a figure that contains an image
 %}
 
     if nargout
@@ -744,6 +745,14 @@ function [imageData, alpha] = export_fig(varargin)
                     % Delete the pdf
                     delete(pdf_nam);
                 end
+            end
+            % Issue #206: warn if the figure contains an image
+            hImages = findall(fig,'type','image');
+            if ~isempty(hImages)
+                warnMsg = ['exporting images to PDF/EPS may result in blurry images on some viewers. ' ...
+                           'If so, try changing viewer, or increasing the image''s CData resolution, or exporting via the print function. ' ...
+                           'See <a href="matlab:web(''https://github.com/altmany/export_fig/issues/206'',''-browser'');">issue #206</a> for details.'];
+                warning('export_fig:pdf_eps:blurry_image', warnMsg);
             end
         end
 
