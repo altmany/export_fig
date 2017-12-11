@@ -1,4 +1,4 @@
-function [imageData, alpha] = export_fig(varargin)
+function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 %EXPORT_FIG  Exports figures in a publication-quality format
 %
 % Examples:
@@ -261,6 +261,7 @@ function [imageData, alpha] = export_fig(varargin)
 % 08/11/17: Fixed issue #221: alert if the requested folder does not exist
 % 19/11/17: Workaround for issue #207: alert when trying to use transparent bgcolor with -opengl
 % 29/11/17: Workaround for issue #206: warn if exporting PDF/EPS for a figure that contains an image
+% 11/12/17: Fixed issue #230: use OpenGL renderer when exported image contains transparency (also see issue #206)
 %}
 
     if nargout
@@ -393,6 +394,8 @@ function [imageData, alpha] = export_fig(varargin)
             renderer = '-opengl'; % Default for bitmaps
     end
 
+    hImages = findall(fig,'type','image');
+
     % Handle transparent patches
     hasTransparency = ~isempty(findall(fig,'-property','FaceAlpha','-and','-not','FaceAlpha',1));
     hasPatches      = ~isempty(findall(fig,'type','patch'));
@@ -405,6 +408,15 @@ function [imageData, alpha] = export_fig(varargin)
             warning('export_fig:transparency', '%s\nTo export transparent patches/areas to PDF, use the print command:\n print(gcf, ''-dpdf'', ''%s.pdf'');', msg, options.name);
         elseif ~options.png && ~options.tif  % issue #168
             warning('export_fig:transparency', '%s\nTo export the transparency correctly, try using the ScreenCapture utility on the Matlab File Exchange: http://bit.ly/1QFrBip', msg);
+        end
+    elseif ~isempty(hImages)
+        % Fix for issue #230: use OpenGL renderer when exported image contains transparency
+        for idx = 1 : numel(hImages)
+            cdata = get(hImages(idx),'CData');
+            if any(isnan(cdata(:)))
+                hasTransparency = true;
+                break
+            end
         end
     end
 
@@ -747,10 +759,9 @@ function [imageData, alpha] = export_fig(varargin)
                 end
             end
             % Issue #206: warn if the figure contains an image
-            hImages = findall(fig,'type','image');
-            if ~isempty(hImages)
+            if ~isempty(hImages) && strcmpi(renderer,'-opengl')  % see addendum to issue #206
                 warnMsg = ['exporting images to PDF/EPS may result in blurry images on some viewers. ' ...
-                           'If so, try changing viewer, or increasing the image''s CData resolution, or exporting via the print function. ' ...
+                           'If so, try to change viewer, or increase the image''s CData resolution, or use -opengl renderer, or export via the print function. ' ...
                            'See <a href="matlab:web(''https://github.com/altmany/export_fig/issues/206'',''-browser'');">issue #206</a> for details.'];
                 warning('export_fig:pdf_eps:blurry_image', warnMsg);
             end
