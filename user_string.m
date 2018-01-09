@@ -32,6 +32,7 @@ function string = user_string(string_name, string)
 % 10/01/2013 - Access files in text, not binary mode, as latter can cause
 %              errors. Thanks to Christian for pointing this out.
 % 29/05/2015 - Save file in prefdir if current folder is non-writable (issue #74)
+% 09/01/2018 - Fix issue #232: if the string looks like a file/folder path, ensure it actually exists
 
     if ~ischar(string_name)
         error('string_name must be a string.');
@@ -101,5 +102,10 @@ function string = user_string(string_name, string)
         end
         string = fgetl(fid);
         fclose(fid);
+
+        % Fix issue #232: if the string looks like a file/folder path, ensure it actually exists
+        if ~isempty(string) && any(string=='\' | string=='/') && ~exist(string) %#ok<EXIST>
+            string = '';
+        end
     end
 end
