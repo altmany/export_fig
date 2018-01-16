@@ -46,7 +46,7 @@ function eps2pdf(source, dest, crop, append, gray, quality, gs_options)
 % Thank you to Scott for pointing out the subsampling of very small images,
 % which was fixed for lossless compression settings.
 
-% 9/12/2011 Pass font path to ghostscript.
+% 09/12/11: Pass font path to ghostscript
 % 26/02/15: If temp dir is not writable, use the dest folder for temp
 %           destination files (Javier Paredes)
 % 28/02/15: Enable users to specify optional ghostscript options (issue #36)
@@ -56,6 +56,7 @@ function eps2pdf(source, dest, crop, append, gray, quality, gs_options)
 % 04/10/15: Suggest a workaround for issue #41 (missing font path; thanks Mariia Fedotenkova)
 % 22/02/16: Bug fix from latest release of this file (workaround for issue #41)
 % 20/03/17: Added informational message in case of GS croak (issue #186)
+% 16/01/18: Improved appending of multiple EPS files into single PDF (issue #233; thanks @shartjen)
 
     % Intialise the options string for ghostscript
     options = ['-q -dNOPAUSE -dBATCH -sDEVICE=pdfwrite -dPDFSETTINGS=/prepress -sOutputFile="' dest '"'];
@@ -99,7 +100,8 @@ function eps2pdf(source, dest, crop, append, gray, quality, gs_options)
     % Check if the output file exists
     if nargin > 3 && append && exist(dest, 'file') == 2
         % File exists - append current figure to the end
-        tmp_nam = tempname;
+        tmp_nam = [tempname '.pdf'];
+        [fpath,fname,fext] = fileparts(tmp_nam);
         try
             % Ensure that the temp dir is writable (Javier Paredes 26/2/15)
             fid = fopen(tmp_nam,'w');
@@ -108,27 +110,34 @@ function eps2pdf(source, dest, crop, append, gray, quality, gs_options)
             delete(tmp_nam);
         catch
             % Temp dir is not writable, so use the dest folder
-            [dummy,fname,fext] = fileparts(tmp_nam); %#ok<ASGLU>
             fpath = fileparts(dest);
             tmp_nam = fullfile(fpath,[fname fext]);
         end
-        % Copy the file
+        % Copy the existing (dest) pdf file to temporary folder
         copyfile(dest, tmp_nam);
-        % Add the output file names
-        options = [options ' -f "' tmp_nam '" "' source '"'];
+        % Produce an interim pdf of the source eps, rather than adding the eps directly (issue #233)
+        ghostscript([options ' -f "' source '"']);
+        [~,fname] = fileparts(tempname);
+        tmp_nam2 = fullfile(fpath,[fname fext]); % ensure using a writable folder (not necessarily tempdir)
+        copyfile(dest, tmp_nam2);
+        % Add the existing pdf and interim pdf as inputs to ghostscript
+        %options = [options ' -f "' tmp_nam '" "' source '"'];  % append the source eps to dest pdf
+        options = [options ' -f "' tmp_nam '" "' tmp_nam2 '"']; % append the interim pdf to dest pdf
         try
             % Convert to pdf using ghostscript
             [status, message] = ghostscript(options);
         catch me
-            % Delete the intermediate file
+            % Delete the intermediate files and rethrow the error
             delete(tmp_nam);
+            delete(tmp_nam2);
             rethrow(me);
         end
-        % Delete the intermediate file
+        % Delete the intermediate (temporary) files
         delete(tmp_nam);
+        delete(tmp_nam2);
     else
         % File doesn't exist or should be over-written
-        % Add the output file names
+        % Add the source eps file as input to ghostscript
         options = [options ' -f "' source '"'];
         % Convert to pdf using ghostscript
         [status, message] = ghostscript(options);
