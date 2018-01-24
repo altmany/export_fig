@@ -34,48 +34,89 @@
 
 % 26/02/15: If temp dir is not writable, use the output folder for temp
 %           files when appending (Javier Paredes); sanity check of inputs
+% 24/01/18: Fixed error in case of existing output file (append mode)
+% 24/01/18: Fixed issue #213: non-ASCII characters in folder names on Windows
 
 function append_pdfs(varargin)
 
-if nargin < 2,  return;  end  % sanity check
+    if nargin < 2,  return;  end  % sanity check
 
-% Are we appending or creating a new file
-append = exist(varargin{1}, 'file') == 2;
-output = [tempname '.pdf'];
-try
-    % Ensure that the temp dir is writable (Javier Paredes 26/2/15)
-    fid = fopen(output,'w');
-    fwrite(fid,1);
-    fclose(fid);
-    delete(output);
-    isTempDirOk = true;
-catch
-    % Temp dir is not writable, so use the output folder
-    [dummy,fname,fext] = fileparts(output); %#ok<ASGLU>
-    fpath = fileparts(varargin{1});
-    output = fullfile(fpath,[fname fext]);
-    isTempDirOk = false;
+    % Are we appending or creating a new file
+    append = exist(varargin{1}, 'file') == 2;
+    output = [tempname '.pdf'];
+    try
+        % Ensure that the temp dir is writable (Javier Paredes 26/2/15)
+        fid = fopen(output,'w');
+        fwrite(fid,1);
+        fclose(fid);
+        delete(output);
+        isTempDirOk = true;
+    catch
+        % Temp dir is not writable, so use the output folder
+        [dummy,fname,fext] = fileparts(output); %#ok<ASGLU>
+        fpath = fileparts(varargin{1});
+        output = fullfile(fpath,[fname fext]);
+        isTempDirOk = false;
+    end
+    if ~append
+        output = varargin{1};
+        varargin = varargin(2:end);
+    end
+
+    % Create the command file
+    if isTempDirOk
+        cmdfile = [tempname '.txt'];
+    else
+        cmdfile = fullfile(fpath,[fname '.txt']);
+    end
+    prepareCmdFile(cmdfile, output, varargin{:});
+
+    % Call ghostscript
+    [status, errMsg] = ghostscript(['@"' cmdfile '"']);
+
+    % Check for ghostscript execution errors
+    if status && ~isempty(strfind(errMsg,'undefinedfile')) && ispc
+        % Fix issue #213: non-ASCII characters in folder names on Windows
+        for fileIdx = 2 : numel(varargin)
+            [fpath,fname,fext] = fileparts(varargin{fileIdx});
+            varargin{fileIdx} = fullfile(normalizePath(fpath),[fname fext]);
+        end
+        % Rerun ghostscript with the normalized folder names
+        prepareCmdFile(cmdfile, output, varargin{:});
+        [status, errMsg] = ghostscript(['@"' cmdfile '"']);
+    end
+
+    % Delete the command file
+    delete(cmdfile);
+
+    % Check for ghostscript execution errors
+    if status
+        error('YMA:export_fig:append_pdf',errMsg);
+    end
+
+    % Rename the file if needed
+    if append
+        movefile(output, varargin{1}, 'f');
+    end
 end
-if ~append
-    output = varargin{1};
-    varargin = varargin(2:end);
+
+% Prepare a text file with ghostscript directives
+function prepareCmdFile(cmdfile, output, varargin)
+    fh = fopen(cmdfile, 'w');
+    fprintf(fh, '-q -dNOPAUSE -dBATCH -sDEVICE=pdfwrite -dPDFSETTINGS=/prepress -sOutputFile="%s" -f', output);
+    fprintf(fh, ' "%s"', varargin{:});
+    fclose(fh);
 end
-% Create the command file
-if isTempDirOk
-    cmdfile = [tempname '.txt'];
-else
-    cmdfile = fullfile(fpath,[fname '.txt']);
-end
-fh = fopen(cmdfile, 'w');
-fprintf(fh, '-q -dNOPAUSE -dBATCH -sDEVICE=pdfwrite -dPDFSETTINGS=/prepress -sOutputFile="%s" -f', output);
-fprintf(fh, ' "%s"', varargin{:});
-fclose(fh);
-% Call ghostscript
-ghostscript(['@"' cmdfile '"']);
-% Delete the command file
-delete(cmdfile);
-% Rename the file if needed
-if append
-    movefile(output, varargin{1});
-end
+
+% Convert long/non-ASCII folder names into their short ASCII equivalents
+function pathStr = normalizePath(pathStr)
+    [fpath,fname,fext] = fileparts(pathStr);
+    if isempty(fpath) || strcmpi(fpath,pathStr), return, end
+    dirOutput = evalc(['system(''dir /X /AD "' pathStr '*"'')']);
+    shortName = strtrim(regexprep(dirOutput,{'.*> *',[fname fext '.*']},''));
+    if isempty(shortName)
+        shortName = [fname fext];
+    end
+    fpath = normalizePath(fpath);  %recursive until entire fpath is processed
+    pathStr = fullfile(fpath, shortName);
 end
