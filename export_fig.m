@@ -262,6 +262,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 % 19/11/17: Workaround for issue #207: alert when trying to use transparent bgcolor with -opengl
 % 29/11/17: Workaround for issue #206: warn if exporting PDF/EPS for a figure that contains an image
 % 11/12/17: Fixed issue #230: use OpenGL renderer when exported image contains transparency (also see issue #206)
+% 30/01/18: Updated SVG message to point to https://github.com/kupiqu/plot2svg and display user-selected filename if available
 %}
 
     if nargout
@@ -1007,9 +1008,10 @@ function [fig, options] = parse_args(nout, fig, varargin)
                         options.im = true;
                         options.alpha = true;
                     case 'svg'
+                        filename = strrep(options.name,'export_fig_out','filename');
                         msg = ['SVG output is not supported by export_fig. Use one of the following alternatives:\n' ...
-                               '  1. saveas(gcf,''filename.svg'')\n' ...
-                               '  2. plot2svg utility: http://github.com/jschwizer99/plot2svg\n' ...
+                               '  1. saveas(gcf,''' filename '.svg'')\n' ...
+                               '  2. plot2svg utility: https://github.com/kupiqu/plot2svg\n' ...  % Note: replaced defunct https://github.com/jschwizer99/plot2svg with up-to-date fork on https://github.com/kupiqu/plot2svg
                                '  3. export_fig to EPS/PDF, then convert to SVG using generic (non-Matlab) tools\n'];
                         error(sprintf(msg)); %#ok<SPERR>
                     case 'update'
@@ -1128,9 +1130,10 @@ function [fig, options] = parse_args(nout, fig, varargin)
                             return
                         end
                     case '.svg'
+                        filename = strrep(options.name,'export_fig_out','filename');
                         msg = ['SVG output is not supported by export_fig. Use one of the following alternatives:\n' ...
-                               '  1. saveas(gcf,''filename.svg'')\n' ...
-                               '  2. plot2svg utility: http://github.com/jschwizer99/plot2svg\n' ...
+                               '  1. saveas(gcf,''' filename '.svg'')\n' ...
+                               '  2. plot2svg utility: https://github.com/kupiqu/plot2svg\n' ...  % Note: replaced defunct https://github.com/jschwizer99/plot2svg with up-to-date fork on https://github.com/kupiqu/plot2svg
                                '  3. export_fig to EPS/PDF, then convert to SVG using generic (non-Matlab) tools\n'];
                         error(sprintf(msg)); %#ok<SPERR>
                     otherwise
