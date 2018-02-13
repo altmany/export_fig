@@ -53,8 +53,15 @@ end
 
 % Convert to indexed image
 [h, w, c, n] = size(A);
+
+uns = cell(1,size(A,4));
+for nn=1:size(A,4)
+    uns{nn}=unique(reshape(A(:,:,:,nn), h*w, c),'rows');
+end
+map=unique(cell2mat(uns'),'rows');
+
 A = reshape(permute(A, [1 2 4 3]), h, w*n, c);
-map = unique(reshape(A, h*w*n, c), 'rows');
+
 if size(map, 1) > 256
     dither_str = {'dither', 'nodither'};
     dither_str = dither_str{1+(options.dither==0)};
