@@ -96,6 +96,7 @@ function print2eps(name, fig, export_options, varargin)
 % 14/11/17: Workaround for issue #211: dashed/dotted lines in 3D axes appear solid
 % 15/11/17: Updated issue #211: only set SortMethod='ChildOrder' in HG2, and when it looks the same onscreen; support multiple figure axes
 % 18/11/17: Fixed issue #225: transparent/translucent dashed/dotted lines appear solid in EPS/PDF
+% 24/03/18: Fixed issue #239: black title meshes with temporary black background figure bgcolor, causing bad cropping
 %}
 
     options = {'-loose'};
@@ -479,10 +480,30 @@ function print2eps(name, fig, export_options, varargin)
         aa = fstrm(s+19:e-3); % dimensions bb - STEP1
         pagebb_matlab = cell2mat(textscan(aa,'%f32%f32%f32%f32'));  % dimensions bb - STEP2
 
+        % 1b. Fix issue #239: black title meshes with temporary black background figure bgcolor, causing bad cropping
+        hTitles = [];
+        if isequal(get(fig,'Color'),'none')
+            hAxes = findall(fig,'type','axes');
+            for idx = 1 : numel(hAxes)
+                hAx = hAxes(idx);
+                try
+                    hTitle = hAx.Title;
+                    oldColor = hTitle.Color;
+                    if all(oldColor < 5*eps) || (ischar(oldColor) && lower(oldColor(1))=='k')
+                        hTitles(end+1) = hTitle; %#ok<AGROW>
+                        hTitle.Color = [0,0,.01];
+                    end
+                catch
+                end
+            end
+        end
+
         % 2. Create a bitmap image and use crop_borders to create the relative
         %    bb with respect to the PageBoundingBox
         [A, bcol] = print2array(fig, 1, renderer);
         [aa, aa, aa, bb_rel] = crop_borders(A, bcol, bb_padding, crop_amounts); %#ok<ASGLU>
+
+        try set(hTitles,'Color','k'); catch, end
 
         % 3. Calculate the new Bounding Box
         pagew = pagebb_matlab(3)-pagebb_matlab(1);
@@ -567,7 +588,7 @@ function [StoredColors, fstrm, foundFlags] = eps_maintainAlpha(fig, fstrm, Store
                     oldStr = sprintf(['\n' colorID ' RC\n']);  % ...1 LJ\n (removed to fix issue #225)
                     newStr = sprintf(['\n' origRGB ' RC\n' origAlpha ' .setopacityalpha true\n']);
                 end
-                foundFlags(objIdx) = ~isempty(strfind(fstrm, oldStr));
+                foundFlags(objIdx) = ~isempty(strfind(fstrm, oldStr)); %#ok<STREMP>
                 fstrm = strrep(fstrm, oldStr, newStr);
 
                 %Restore the figure object's original color
