@@ -264,6 +264,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 % 11/12/17: Fixed issue #230: use OpenGL renderer when exported image contains transparency (also see issue #206)
 % 30/01/18: Updated SVG message to point to https://github.com/kupiqu/plot2svg and display user-selected filename if available
 % 27/02/18: Fixed issue #236: axes exponent cropped from output if on right-hand axes
+% 29/05/18: Fixed issue #245: process "string" inputs just like 'char' inputs
 %}
 
     if nargout
@@ -949,6 +950,9 @@ end
 function [fig, options] = parse_args(nout, fig, varargin)
     % Parse the input arguments
 
+    % Convert strings => chars
+    varargin = cellfun(@str2char,varargin,'un',false);
+
     % Set the defaults
     native = false; % Set resolution to native of an image
     options = default_options();
@@ -1228,6 +1232,13 @@ function [fig, options] = parse_args(nout, fig, varargin)
             options.magnify = abs((height * diff(yl2)) / (pos * diff(yl)));  % magnification must never be negative: issue #103
             break
         end
+    end
+end
+
+% Convert a possible string => char (issue #245)
+function value = str2char(value)
+    if isa(value,'string')
+        value = char(value);
     end
 end
 
