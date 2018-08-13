@@ -265,6 +265,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 % 30/01/18: Updated SVG message to point to https://github.com/kupiqu/plot2svg and display user-selected filename if available
 % 27/02/18: Fixed issue #236: axes exponent cropped from output if on right-hand axes
 % 29/05/18: Fixed issue #245: process "string" inputs just like 'char' inputs
+% 13/08/18: Fixed issue #249: correct black axes color to off-black to avoid extra cropping with -transparent
 %}
 
     if nargout
@@ -458,6 +459,11 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                 % Correct the colorbar axes colours
                 set(hCB(yCol==0), 'YColor', [0 0 0]);
                 set(hCB(xCol==0), 'XColor', [0 0 0]);
+                % Correct black axes color to off-black (issue #249)
+                hAxes = findall(fig, 'Type','axes');
+                hXs = fixBlackAxle(hAxes, 'XColor');
+                hYs = fixBlackAxle(hAxes, 'YColor');
+                hZs = fixBlackAxle(hAxes, 'ZColor');
 
                 % The following code might cause out-of-memory errors
                 try
@@ -475,6 +481,10 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                 % Correct the colorbar axes colours
                 set(hCB(yCol==3), 'YColor', [1 1 1]);
                 set(hCB(xCol==3), 'XColor', [1 1 1]);
+                % Revert the black axes colors
+                set(hXs, 'XColor', [0,0,0]);
+                set(hYs, 'YColor', [0,0,0]);
+                set(hZs, 'ZColor', [0,0,0]);
 
                 % The following code might cause out-of-memory errors
                 try
@@ -677,6 +687,12 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                     else
                         originalBgColor = get(fig, 'Color');
                         set(fig,'Color','none');
+
+                        % Correct black axes color to off-black (issue #249)
+                        hAxes = findall(fig, 'Type','axes');
+                        hXs = fixBlackAxle(hAxes, 'XColor');
+                        hYs = fixBlackAxle(hAxes, 'YColor');
+                        hZs = fixBlackAxle(hAxes, 'ZColor');
                     end
                 end
                 % Generate an eps
@@ -685,6 +701,11 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                 % Remove the background, if desired
                 if options.transparent %&& ~isequal(get(fig, 'Color'), 'none')
                     eps_remove_background(tmp_nam, 1 + using_hg2(fig));
+
+                    % Revert the black axes colors
+                    set(hXs, 'XColor', [0,0,0]);
+                    set(hYs, 'YColor', [0,0,0]);
+                    set(hZs, 'ZColor', [0,0,0]);
                 end
                 %}
                 % Restore the figure's previous background color (if modified)
@@ -1415,4 +1436,16 @@ function change_rgb_to_cmyk(fname)  % convert RGB => CMYK within an EPS file
     catch
         % never mind - leave as is...
     end
+end
+
+function hBlackAxles = fixBlackAxle(hAxes, axleName)
+    hBlackAxles = [];
+    for idx = 1 : numel(hAxes)
+        ax = hAxes(idx);
+        axleColor = get(ax, axleName);
+        if isequal(axleColor,[0,0,0]) || isequal(axleColor,'k')
+            hBlackAxles(end+1) = ax; %#ok<AGROW>
+        end
+    end
+    set(hBlackAxles, axleName, [0,0,0.01]);  % off-black
 end
