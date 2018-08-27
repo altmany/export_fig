@@ -266,6 +266,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 % 27/02/18: Fixed issue #236: axes exponent cropped from output if on right-hand axes
 % 29/05/18: Fixed issue #245: process "string" inputs just like 'char' inputs
 % 13/08/18: Fixed issue #249: correct black axes color to off-black to avoid extra cropping with -transparent
+% 27/08/18: Added a possible file-open reason in EPS/PDF write-error message (suggested by "craq" on FEX page)
 %}
 
     if nargout
@@ -735,7 +736,8 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                 catch
                     % Alert in case of error creating output PDF/EPS file (issue #179)
                     if exist(pdf_nam_tmp, 'file')
-                        error(['Could not create ' pdf_nam ' - perhaps the folder does not exist, or you do not have write permissions']);
+                        errMsg = ['Could not create ' pdf_nam ' - perhaps the folder does not exist, or you do not have write permissions, or the file is open in another application'];
+                        error(errMsg);
                     else
                         error('Could not generate the intermediary EPS file.');
                     end
