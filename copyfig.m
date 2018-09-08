@@ -13,23 +13,31 @@ function fh = copyfig(fh)
 % OUT:
 %    fh_new - The handle of the created figure.
 
-% Copyright (C) Oliver Woodford 2012
+% Copyright (C) Oliver Woodford 2012, Yair Altman 2015
 
 % 26/02/15: If temp dir is not writable, use the dest folder for temp
 %           destination files (Javier Paredes)
 % 15/04/15: Suppress warnings during copyobj (Dun Kirk comment on FEX page 2013-10-02)
+% 09/09/18: Fix issue #252: Workaround for cases where copyobj() fails for any reason
 
     % Set the default
     if nargin == 0
         fh = gcf;
     end
     % Is there a legend?
-    if isempty(findall(fh, 'Type', 'axes', 'Tag', 'legend'))
+    useCopyobj = isempty(findall(fh, 'Type', 'axes', 'Tag', 'legend'));
+    if useCopyobj
         % Safe to copy using copyobj
-        oldWarn = warning('off'); %#ok<WNOFF>  %Suppress warnings during copyobj (Dun Kirk comment on FEX page 2013-10-02)
-        fh = copyobj(fh, 0);
+        oldWarn = warning('off'); %Suppress warnings during copyobj (Dun Kirk comment on FEX page 2013-10-02)
+        try
+            fh = copyobj(fh, 0);
+        catch
+            % Fix issue #252: Workaround for cases where copyobj() fails for any reason
+            useCopyobj = false;  % if copyobj() croaks, use file save/load below
+        end
         warning(oldWarn);
-    else
+    end
+    if ~useCopyobj
         % copyobj will change the figure, so save and then load it instead
         tmp_nam = [tempname '.fig'];
         try
