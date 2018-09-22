@@ -267,6 +267,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 % 13/08/18: Fixed issue #249: correct black axes color to off-black to avoid extra cropping with -transparent
 % 27/08/18: Added a possible file-open reason in EPS/PDF write-error message (suggested by "craq" on FEX page)
 % 22/09/18: Xpdf website changed to xpdfreader.com
+% 23/09/18: Fixed issue #243: only set non-bold font (workaround for issue #69) in R2015b or earlier; warn if changing font
 %}
 
     if nargout
@@ -356,9 +357,16 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
         if using_hg2(fig) && isvector(options)
             % Set the FontWeight of axes labels/titles to 'normal'
             % Fix issue #69: set non-bold font only if the string contains symbols (\beta etc.)
-            texLabels = findall(fig, 'type','text', 'FontWeight','bold');
-            symbolIdx = ~cellfun('isempty',strfind({texLabels.String},'\'));
-            set(texLabels(symbolIdx), 'FontWeight','normal');
+            % Issue #243: only set non-bold font (workaround for issue #69) in R2015b or earlier
+            try isPreR2016a = verLessThan('matlab','8.7'); catch, isPreR2016a = true; end
+            if isPreR2016a
+                texLabels = findall(fig, 'type','text', 'FontWeight','bold');
+                symbolIdx = ~cellfun('isempty',strfind({texLabels.String},'\'));
+                if ~isempty(symbolIdx)
+                    set(texLabels(symbolIdx), 'FontWeight','normal');
+                    warning('export_fig:BoldTexLabels', 'Bold labels with Tex symbols converted into non-bold in export_fig (fix for issue #69)');
+                end
+            end
         end
     catch
         % ignore
