@@ -74,8 +74,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 % on your system. You can download this from:
 %   http://www.ghostscript.com
 % When exporting to eps it additionally requires pdftops, from the Xpdf
-% suite of functions. You can download this from:
-%   http://www.foolabs.com/xpdf
+% suite of functions. You can download this from: http://xpdfreader.com
 %
 % Inputs:
 %   filename - string containing the name (optionally including full or
@@ -267,6 +266,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 % 29/05/18: Fixed issue #245: process "string" inputs just like 'char' inputs
 % 13/08/18: Fixed issue #249: correct black axes color to off-black to avoid extra cropping with -transparent
 % 27/08/18: Added a possible file-open reason in EPS/PDF write-error message (suggested by "craq" on FEX page)
+% 22/09/18: Xpdf website changed to xpdfreader.com
 %}
 
     if nargout
@@ -915,7 +915,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
             end
             try
                 if options.eps
-                    fprintf(2, '  and that you have <a href="http://www.foolabs.com/xpdf">pdftops</a> installed\n');
+                    fprintf(2, '  and that you have <a href="http://xpdfreader.com/download.html">pdftops</a> installed\n');
                 end
             catch
                 % ignore - probably an error in parse_args
