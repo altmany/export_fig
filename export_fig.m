@@ -268,6 +268,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 % 27/08/18: Added a possible file-open reason in EPS/PDF write-error message (suggested by "craq" on FEX page)
 % 22/09/18: Xpdf website changed to xpdfreader.com
 % 23/09/18: Fixed issue #243: only set non-bold font (workaround for issue #69) in R2015b or earlier; warn if changing font
+% 23/09/18: Workaround for issue #241: don't use -r864 in EPS/PDF outputs when -native is requested (solves black lines problem)
 %}
 
     if nargout
@@ -673,7 +674,10 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                 pdf_nam = pdf_nam_tmp;
             end
             % Generate the options for print
-            p2eArgs = {renderer, sprintf('-r%d', options.resolution)};
+            p2eArgs = {renderer};
+            if ~isempty(options.resolution)  % issue #241
+                p2eArgs{end+1} = sprintf('-r%d', options.resolution);
+            end
             if options.colourspace == 1  % CMYK
                 % Issue #33: due to internal bugs in Matlab's print() function, we can't use its -cmyk option
                 %p2eArgs{end+1} = '-cmyk';
@@ -690,6 +694,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
             end
             try
                 % Remove background if requested (issue #207)
+                [hXs, hYs, hZs] = deal([]);
                 if options.transparent %&& ~isequal(get(fig, 'Color'), 'none')
                     if options.renderer == 1  % OpenGL
                         warning('export_fig:openglTransparentBG', '-opengl sometimes fails to produce transparent backgrounds; try -painters instead');
@@ -1222,46 +1227,50 @@ function [fig, options] = parse_args(nout, fig, varargin)
 
     % If requested, set the resolution to the native vertical resolution of the
     % first suitable image found
-    if native && isbitmap(options)
-        % Find a suitable image
-        list = findall(fig, 'Type','image', 'Tag','export_fig_native');
-        if isempty(list)
-            list = findall(fig, 'Type','image', 'Visible','on');
-        end
-        for hIm = list(:)'
-            % Check height is >= 2
-            height = size(get(hIm, 'CData'), 1);
-            if height < 2
-                continue
+    if native
+        if isbitmap(options)
+            % Find a suitable image
+            list = findall(fig, 'Type','image', 'Tag','export_fig_native');
+            if isempty(list)
+                list = findall(fig, 'Type','image', 'Visible','on');
             end
-            % Account for the image filling only part of the axes, or vice versa
-            yl = get(hIm, 'YData');
-            if isscalar(yl)
-                yl = [yl(1)-0.5 yl(1)+height+0.5];
-            else
-                yl = [min(yl), max(yl)];  % fix issue #151 (case of yl containing more than 2 elements)
-                if ~diff(yl)
+            for hIm = list(:)'
+                % Check height is >= 2
+                height = size(get(hIm, 'CData'), 1);
+                if height < 2
                     continue
                 end
-                yl = yl + [-0.5 0.5] * (diff(yl) / (height - 1));
+                % Account for the image filling only part of the axes, or vice versa
+                yl = get(hIm, 'YData');
+                if isscalar(yl)
+                    yl = [yl(1)-0.5 yl(1)+height+0.5];
+                else
+                    yl = [min(yl), max(yl)];  % fix issue #151 (case of yl containing more than 2 elements)
+                    if ~diff(yl)
+                        continue
+                    end
+                    yl = yl + [-0.5 0.5] * (diff(yl) / (height - 1));
+                end
+                hAx = get(hIm, 'Parent');
+                yl2 = get(hAx, 'YLim');
+                % Find the pixel height of the axes
+                oldUnits = get(hAx, 'Units');
+                set(hAx, 'Units', 'pixels');
+                pos = get(hAx, 'Position');
+                set(hAx, 'Units', oldUnits);
+                if ~pos(4)
+                    continue
+                end
+                % Found a suitable image
+                % Account for stretch-to-fill being disabled
+                pbar = get(hAx, 'PlotBoxAspectRatio');
+                pos = min(pos(4), pbar(2)*pos(3)/pbar(1));
+                % Set the magnification to give native resolution
+                options.magnify = abs((height * diff(yl2)) / (pos * diff(yl)));  % magnification must never be negative: issue #103
+                break
             end
-            hAx = get(hIm, 'Parent');
-            yl2 = get(hAx, 'YLim');
-            % Find the pixel height of the axes
-            oldUnits = get(hAx, 'Units');
-            set(hAx, 'Units', 'pixels');
-            pos = get(hAx, 'Position');
-            set(hAx, 'Units', oldUnits);
-            if ~pos(4)
-                continue
-            end
-            % Found a suitable image
-            % Account for stretch-to-fill being disabled
-            pbar = get(hAx, 'PlotBoxAspectRatio');
-            pos = min(pos(4), pbar(2)*pos(3)/pbar(1));
-            % Set the magnification to give native resolution
-            options.magnify = abs((height * diff(yl2)) / (pos * diff(yl)));  % magnification must never be negative: issue #103
-            break
+        elseif options.resolution == 864  % don't use -r864 in vector mode if user asked for -native
+            options.resolution = []; % issue #241 (internal Matlab bug produces black lines with -r864)
         end
     end
 end
