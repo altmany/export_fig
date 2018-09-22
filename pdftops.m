@@ -11,8 +11,7 @@ function varargout = pdftops(cmd)
 % Once found, the executable is called with the input command string.
 %
 % This function requires that you have pdftops (from the Xpdf package)
-% installed on your system. You can download this from:
-% http://www.foolabs.com/xpdf
+% installed on your system. You can download this from: http://xpdfreader.com
 %
 % IN:
 %   cmd - Command string to be passed into pdftops (e.g. '-help').
@@ -30,6 +29,7 @@ function varargout = pdftops(cmd)
 % 02/05/2016 - Added possible error explanation suggested by Michael Pacer (issue #137)
 % 02/05/2016 - Search additional possible paths suggested by Jonas Stein (issue #147)
 % 03/05/2016 - Display the specific error message if pdftops fails for some reason (issue #148)
+% 22/09/2018 - Xpdf website changed to xpdfreader.com; improved popup logic
 
     % Call pdftops
     [varargout{1:nargout}] = system([xpdf_command(xpdf_path()) cmd]);
@@ -68,7 +68,7 @@ function path_ = xpdf_path
 
     % Ask the user to enter the path
     errMsg1 = 'Pdftops not found. Please locate the program, or install xpdf-tools from ';
-    url1 = 'http://foolabs.com/xpdf';
+    url1 = 'http://xpdfreader.com/download.html'; %='http://foolabs.com/xpdf';
     fprintf(2, '%s\n', [errMsg1 '<a href="matlab:web(''-browser'',''' url1 ''');">' url1 '</a>']);
     errMsg1 = [errMsg1 url1];
     %if strncmp(computer,'MAC',3) % Is a Mac
@@ -82,7 +82,7 @@ function path_ = xpdf_path
     fprintf(2, '%s\n', [errMsg2 '<a href="matlab:web(''-browser'',''' url2 ''');">issue #137</a>']);
     errMsg2 = [errMsg2 url1];
 
-    state = 0;
+    state = 1;
     while 1
         if state
             option1 = 'Install pdftops';
@@ -94,6 +94,7 @@ function path_ = xpdf_path
         switch answer
             case 'Install pdftops'
                 web('-browser',url1);
+                state = 0;
             case 'Issue #137'
                 web('-browser',url2);
                 state = 1;
@@ -140,7 +141,7 @@ function good = check_xpdf_path(path_)
     [good, message] = system([xpdf_command(path_) '-h']); %#ok<ASGLU>
     % system returns good = 1 even when the command runs
     % Look for something distinct in the help text
-    good = ~isempty(strfind(message, 'PostScript'));
+    good = ~isempty(strfind(message, 'PostScript')); %#ok<STREMP>
 
     % Display the error message if the pdftops executable exists but fails for some reason
     if ~good && exist(path_,'file')  % file exists but generates an error
