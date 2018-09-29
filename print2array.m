@@ -50,6 +50,7 @@ function [A, bcol] = print2array(fig, res, renderer, gs_options)
 % 28/05/15: Fixed issue #69: patches with LineWidth==0.75 appear wide (internal bug in Matlab's print() func)
 % 07/07/15: Fixed issue #83: use numeric handles in HG1
 % 11/12/16: Fixed cropping issue reported by Harry D.
+% 29/09/18: Fixed issue #254: error in print2array>read_tif_img
 %}
 
     % Generate default input arguments, if needed
@@ -207,6 +208,7 @@ end
 
 % Function to create a TIF image of the figure and read it into an array
 function [A, err, ex] = read_tif_img(fig, res_str, renderer, tmp_nam)
+    A =  [];  % fix for issue #254
     err = false;
     ex = [];
     % Temporarily set the paper size
