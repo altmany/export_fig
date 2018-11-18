@@ -269,6 +269,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 % 22/09/18: Xpdf website changed to xpdfreader.com
 % 23/09/18: Fixed issue #243: only set non-bold font (workaround for issue #69) in R2015b or earlier; warn if changing font
 % 23/09/18: Workaround for issue #241: don't use -r864 in EPS/PDF outputs when -native is requested (solves black lines problem)
+% 18/11/18: Issue #261: Added informative alert when trying to export a uifigure (which is not currently supported)
 %}
 
     if nargout
@@ -290,6 +291,13 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
         return;  % silent bail-out
     elseif isempty(fig)
         error('No figure found');
+    else
+        oldWarn = warning('off','MATLAB:HandleGraphics:ObsoletedProperty:JavaFrame');
+        try jf = get(handle(fig),'JavaFrame'); catch, end
+        warning(oldWarn);
+        if isempty(jf)
+            error('Figures created using the uifigure command or App Designer are not supported by export_fig. See <a href="https://github.com/altmany/export_fig/issues/261">issue #261</a> for details.');
+        end
     end
 
     % Isolate the subplot, if it is one
@@ -394,8 +402,9 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 
     % Set to print exactly what is there
     if options.invert_hardcopy
-        set(fig, 'InvertHardcopy', 'off');
+        try set(fig, 'InvertHardcopy', 'off'); catch, end  % fail silently in uifigures
     end
+
     % Set the renderer
     switch options.renderer
         case 1
@@ -812,7 +821,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
             close(fig);
         else
             % Reset the hardcopy mode
-            set(fig, 'InvertHardcopy', old_mode);
+            try set(fig, 'InvertHardcopy', old_mode); catch, end  % fail silently in uifigures
             % Reset the axes limit and tick modes
             for a = 1:numel(Hlims)
                 try
