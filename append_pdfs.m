@@ -36,6 +36,7 @@
 %           files when appending (Javier Paredes); sanity check of inputs
 % 24/01/18: Fixed error in case of existing output file (append mode)
 % 24/01/18: Fixed issue #213: non-ASCII characters in folder names on Windows
+% 06/12/18: Avoid an "invalid escape-char" warning upon error
 
 function append_pdfs(varargin)
 
@@ -75,7 +76,7 @@ function append_pdfs(varargin)
     [status, errMsg] = ghostscript(['@"' cmdfile '"']);
 
     % Check for ghostscript execution errors
-    if status && ~isempty(strfind(errMsg,'undefinedfile')) && ispc
+    if status && ~isempty(strfind(errMsg,'undefinedfile')) && ispc %#ok<STREMP>
         % Fix issue #213: non-ASCII characters in folder names on Windows
         for fileIdx = 2 : numel(varargin)
             [fpath,fname,fext] = fileparts(varargin{fileIdx});
@@ -91,6 +92,7 @@ function append_pdfs(varargin)
 
     % Check for ghostscript execution errors
     if status
+        errMsg = strrep(errMsg,'\','\\');  % Avoid an "invalid escape-char" warning
         error('YMA:export_fig:append_pdf',errMsg);
     end
 
