@@ -270,6 +270,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 % 23/09/18: Fixed issue #243: only set non-bold font (workaround for issue #69) in R2015b or earlier; warn if changing font
 % 23/09/18: Workaround for issue #241: don't use -r864 in EPS/PDF outputs when -native is requested (solves black lines problem)
 % 18/11/18: Issue #261: Added informative alert when trying to export a uifigure (which is not currently supported)
+% 13/12/18: Issue #261: Fixed last commit for cases of specifying axes/panel handle as input, rather than a figure handle
 %}
 
     if nargout
@@ -293,7 +294,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
         error('No figure found');
     else
         oldWarn = warning('off','MATLAB:HandleGraphics:ObsoletedProperty:JavaFrame');
-        try jf = get(handle(fig),'JavaFrame'); catch, end
+        try jf = get(handle(ancestor(fig,'figure')),'JavaFrame'); catch, jf=1; end
         warning(oldWarn);
         if isempty(jf)
             error('Figures created using the uifigure command or App Designer are not supported by export_fig. See <a href="https://github.com/altmany/export_fig/issues/261">issue #261</a> for details.');
