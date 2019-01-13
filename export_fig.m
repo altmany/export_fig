@@ -76,6 +76,11 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 % When exporting to eps it additionally requires pdftops, from the Xpdf
 % suite of functions. You can download this from: http://xpdfreader.com
 %
+% SVG output uses the fig2svg (https://github.com/kupiqu/fig2svg) or plot2svg
+% (https://github.com/jschwizer99/plot2svg) utilities, or Matlab's built-in
+% SVG export if neither of these utilities are available on Matlab's path.
+% Note: cropping/padding are not supported in export_fig's SVG output.
+%
 % Inputs:
 %   filename - string containing the name (optionally including full or
 %              relative path) of the file the figure is to be saved as. If
@@ -86,9 +91,9 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 %              and the figure saved in that format.
 %   -format1, -format2, etc. - strings containing the extensions of the
 %                              file formats the figure is to be saved as.
-%                              Valid options are: '-pdf', '-eps', '-png',
-%                              '-tif', '-jpg' and '-bmp'. All combinations
-%                              of formats are valid.
+%                              Valid options: '-pdf', '-eps', '-svg', '-png',
+%                              '-tif', '-jpg', '-bmp'.
+%                              All combinations of formats are valid.
 %   -nocrop - option indicating that the borders of the output are not to
 %             be cropped.
 %   -c[<val>,<val>,<val>,<val>] - option indicating crop amounts. Must be
@@ -271,6 +276,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 % 23/09/18: Workaround for issue #241: don't use -r864 in EPS/PDF outputs when -native is requested (solves black lines problem)
 % 18/11/18: Issue #261: Added informative alert when trying to export a uifigure (which is not currently supported)
 % 13/12/18: Issue #261: Fixed last commit for cases of specifying axes/panel handle as input, rather than a figure handle
+% 13/01/19: Issue #72: Added basic SVG output support
 %}
 
     if nargout
@@ -684,23 +690,23 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                 pdf_nam = pdf_nam_tmp;
             end
             % Generate the options for print
-            p2eArgs = {renderer};
+            printArgs = {renderer};
             if ~isempty(options.resolution)  % issue #241
-                p2eArgs{end+1} = sprintf('-r%d', options.resolution);
+                printArgs{end+1} = sprintf('-r%d', options.resolution);
             end
             if options.colourspace == 1  % CMYK
                 % Issue #33: due to internal bugs in Matlab's print() function, we can't use its -cmyk option
-                %p2eArgs{end+1} = '-cmyk';
+                %printArgs{end+1} = '-cmyk';
             end
             if ~options.crop
                 % Issue #56: due to internal bugs in Matlab's print() function, we can't use its internal cropping mechanism,
                 % therefore we always use '-loose' (in print2eps.m) and do our own cropping (in crop_borders)
-                %p2eArgs{end+1} = '-loose';
+                %printArgs{end+1} = '-loose';
             end
             if any(strcmpi(varargin,'-depsc'))
                 % Issue #45: lines in image subplots are exported in invalid color.
                 % The workaround is to use the -depsc parameter instead of the default -depsc2
-                p2eArgs{end+1} = '-depsc';
+                printArgs{end+1} = '-depsc';
             end
             try
                 % Remove background if requested (issue #207)
@@ -720,7 +726,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                     end
                 end
                 % Generate an eps
-                print2eps(tmp_nam, fig, options, p2eArgs{:});
+                print2eps(tmp_nam, fig, options, printArgs{:});
                 % {
                 % Remove the background, if desired
                 if options.transparent %&& ~isequal(get(fig, 'Color'), 'none')
@@ -813,6 +819,49 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                            'If so, try to change viewer, or increase the image''s CData resolution, or use -opengl renderer, or export via the print function. ' ...
                            'See <a href="matlab:web(''https://github.com/altmany/export_fig/issues/206'',''-browser'');">issue #206</a> for details.'];
                 warning('export_fig:pdf_eps:blurry_image', warnMsg);
+            end
+        end
+
+        % SVG format
+        if options.svg
+            oldUnits = get(fig,'Units');
+            filename = [options.name '.svg'];
+            % Adapted from Dan Joshea's https://github.com/djoshea/matlab-save-figure :
+            try %if verLessThan('matlab', '8.4')
+                % Try using the fig2svg/plot2svg utilities
+                try
+                    fig2svg(filename, fig);  %https://github.com/kupiqu/fig2svg
+                catch
+                    plot2svg(filename, fig); %https://github.com/jschwizer99/plot2svg
+                    warning('export_fig:SVG:plot2svg', 'export_fig used the plot2svg utility for SVG output. Better results may be gotten via the fig2svg utility (https://github.com/kupiqu/fig2svg).');
+                end
+            catch %else  % (neither fig2svg nor plot2svg are available)
+                % Try Matlab's built-in svg engine (from Batik Graphics2D for java)
+                try
+                    set(fig,'Units','pixels');   % All data in the svg-file is saved in pixels
+                    printArgs = {renderer};
+                    if ~isempty(options.resolution)
+                        printArgs{end+1} = sprintf('-r%d', options.resolution);
+                    end
+                    print(fig, '-dsvg', printArgs{:}, filename);
+                    warning('export_fig:SVG:print', 'export_fig used Matlab''s built-in SVG output engine. Better results may be gotten via the fig2svg utility (https://github.com/kupiqu/fig2svg).');
+                catch err
+                    set(fig,'Units',oldUnits);
+                    filename = strrep(filename,'export_fig_out','filename');
+                    msg = ['SVG output is not supported for your figure: ' err.message '\n' ...
+                        'Try one of the following alternatives:\n' ...
+                        '  1. saveas(gcf,''' filename ''')\n' ...
+                        '  2. fig2svg utility: https://github.com/kupiqu/fig2svg\n' ...  % Note: replaced defunct https://github.com/jschwizer99/plot2svg with up-to-date fork on https://github.com/kupiqu/fig2svg
+                        '  3. export_fig to EPS/PDF, then convert to SVG using non-Matlab tools\n'];
+                    error(sprintf(msg)); %#ok<SPERR>
+                end
+            end
+            % SVG output was successful if we reached this point
+            % Restore original figure units
+            set(fig,'Units',oldUnits);
+            % Add warning about unsupported export_fig options with SVG output
+            if any(~isnan(options.crop_amounts)) || any(options.bb_padding)
+                warning('export_fig:SVG:options', 'export_fig''s SVG output does not [currently] support cropping/padding.');
             end
         end
 
@@ -969,6 +1018,7 @@ function options = default_options()
         'renderer',     0, ...         % 0: default, 1: OpenGL, 2: ZBuffer, 3: Painters
         'pdf',          false, ...
         'eps',          false, ...
+        'svg',          false, ...
         'png',          false, ...
         'tif',          false, ...
         'jpg',          false, ...
@@ -1032,6 +1082,8 @@ function [fig, options] = parse_args(nout, fig, varargin)
                         options.pdf = true;
                     case 'eps'
                         options.eps = true;
+                    case 'svg'
+                        options.svg = true;
                     case 'png'
                         options.png = true;
                     case {'tif', 'tiff'}
@@ -1058,13 +1110,6 @@ function [fig, options] = parse_args(nout, fig, varargin)
                         options.clipboard = true;
                         options.im = true;
                         options.alpha = true;
-                    case 'svg'
-                        filename = strrep(options.name,'export_fig_out','filename');
-                        msg = ['SVG output is not supported by export_fig. Use one of the following alternatives:\n' ...
-                               '  1. saveas(gcf,''' filename '.svg'')\n' ...
-                               '  2. plot2svg utility: https://github.com/kupiqu/plot2svg\n' ...  % Note: replaced defunct https://github.com/jschwizer99/plot2svg with up-to-date fork on https://github.com/kupiqu/plot2svg
-                               '  3. export_fig to EPS/PDF, then convert to SVG using generic (non-Matlab) tools\n'];
-                        error(sprintf(msg)); %#ok<SPERR>
                     case 'update'
                         % Download the latest version of export_fig into the export_fig folder
                         try
@@ -1181,12 +1226,7 @@ function [fig, options] = parse_args(nout, fig, varargin)
                             return
                         end
                     case '.svg'
-                        filename = strrep(options.name,'export_fig_out','filename');
-                        msg = ['SVG output is not supported by export_fig. Use one of the following alternatives:\n' ...
-                               '  1. saveas(gcf,''' filename '.svg'')\n' ...
-                               '  2. plot2svg utility: https://github.com/kupiqu/plot2svg\n' ...  % Note: replaced defunct https://github.com/jschwizer99/plot2svg with up-to-date fork on https://github.com/kupiqu/plot2svg
-                               '  3. export_fig to EPS/PDF, then convert to SVG using generic (non-Matlab) tools\n'];
-                        error(sprintf(msg)); %#ok<SPERR>
+                        options.svg = true;
                     otherwise
                         options.name = varargin{a};
                 end
