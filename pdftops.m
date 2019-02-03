@@ -30,6 +30,7 @@ function varargout = pdftops(cmd)
 % 02/05/2016 - Search additional possible paths suggested by Jonas Stein (issue #147)
 % 03/05/2016 - Display the specific error message if pdftops fails for some reason (issue #148)
 % 22/09/2018 - Xpdf website changed to xpdfreader.com; improved popup logic
+% 03/02/2019 - Fixed one-off 'pdftops not found' error after install (Mac/Linux) (issue #266)
 
     % Call pdftops
     [varargout{1:nargout}] = system([xpdf_command(xpdf_path()) cmd]);
@@ -144,7 +145,8 @@ function good = check_xpdf_path(path_)
     good = ~isempty(strfind(message, 'PostScript')); %#ok<STREMP>
 
     % Display the error message if the pdftops executable exists but fails for some reason
-    if ~good && exist(path_,'file')  % file exists but generates an error
+    % Note: on Mac/Linux, exist('pdftops','file') will always return 2 due to pdftops.m => check for '/','.' (issue #266)
+    if ~good && exist(path_,'file') && ~isempty(regexp(path_,'[/.]')) %#ok<RGXP1> % file exists but generates an error
         fprintf('Error running %s:\n', path_);
         fprintf(2,'%s\n\n',message);
     end
