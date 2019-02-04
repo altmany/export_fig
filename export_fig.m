@@ -44,7 +44,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 %   - Variable image compression, including lossless (pdf, eps, jpg)
 %   - Optional rounded line-caps (pdf, eps)
 %   - Optionally append to file (pdf, tiff)
-%   - Vector formats: pdf, eps
+%   - Vector formats: pdf, eps, svg
 %   - Bitmap formats: png, tiff, jpg, bmp, export to workspace
 %
 % This function is especially suited to exporting figures for use in
@@ -59,15 +59,15 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 % 'none'. PDF, EPS, TIF & PNG are the only formats that support a transparent
 % background; only TIF & PNG formats support transparency of patch objects.
 %
-% The choice of renderer (opengl, zbuffer or painters) has a large impact
-% on the quality of output. The default value (opengl for bitmaps, painters
-% for vector formats) generally gives good results, but if you aren't
-% satisfied then try another renderer.  Notes: 1) For vector formats (EPS,
-% PDF), only painters generates vector graphics. 2) For bitmaps, only
-% opengl can render transparent patch objects correctly. 3) For bitmaps,
-% only painters will correctly scale line dash and dot lengths when
-% magnifying or anti-aliasing. 4) Fonts may be substitued with Courier when
-% using painters.
+% The choice of renderer (opengl/zbuffer/painters) has a large impact on the
+% output quality. The default value (opengl for bitmaps, painters for vector
+% formats) generally gives good results, but if you aren't satisfied
+% then try another renderer.  Notes:
+%   1) For vector formats (EPS,PDF), only painters generates vector graphics
+%   2) For bitmaps, only opengl renders transparent patch objects correctly
+%   3) For bitmaps, only painters correctly scales line dash and dot lengths
+%      when magnifying or anti-aliasing
+%   4) Fonts may be substitued with Courier when using painters
 %
 % When exporting to vector format (PDF & EPS) and bitmap format using the
 % painters renderer, this function requires that ghostscript is installed
@@ -83,25 +83,23 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 %
 % Inputs:
 %   filename - string containing the name (optionally including full or
-%              relative path) of the file the figure is to be saved as. If
-%              a path is not specified, the figure is saved in the current
-%              directory. If no name and no output arguments are specified,
-%              the default name, 'export_fig_out', is used. If neither a
-%              file extension nor a format are specified, a ".png" is added
-%              and the figure saved in that format.
-%   -format1, -format2, etc. - strings containing the extensions of the
-%                              file formats the figure is to be saved as.
-%                              Valid options: '-pdf', '-eps', '-svg', '-png',
-%                              '-tif', '-jpg', '-bmp'.
-%                              All combinations of formats are valid.
-%   -nocrop - option indicating that the borders of the output are not to
-%             be cropped.
+%             relative path) of the file the figure is to be saved as. If
+%             a path is not specified, the figure is saved in the current
+%             directory. If no name and no output arguments are specified,
+%             the default name, 'export_fig_out', is used. If neither a
+%             file extension nor a format are specified, a ".png" is added
+%             and the figure saved in that format.
+%   -<format> - string(s) containing the output file extension(s). Options:
+%             '-pdf', '-eps', '-svg', '-png', '-tif', '-jpg' and '-bmp'.
+%             Multiple formats can be specified, without restriction.
+%             For example: export_fig('-jpg', '-pdf', '-png', ...)
+%   -nocrop - option indicating that empty margins should not be cropped.
 %   -c[<val>,<val>,<val>,<val>] - option indicating crop amounts. Must be
 %             a 4-element vector of numeric values: [top,right,bottom,left]
 %             where NaN/Inf indicate auto-cropping, 0 means no cropping,
 %             and any other value mean cropping in pixel amounts.
-%   -transparent - option indicating that the figure background is to be
-%                  made transparent (png, pdf, tif and eps output only).
+%   -transparent - option indicating that the figure background is to be made
+%             transparent (png,pdf,tif,eps output only). Implies -noinvert.
 %   -m<val> - option where val indicates the factor to magnify the
 %             on-screen figure pixel dimensions by when generating bitmap
 %             outputs (does not affect vector formats). Default: '-m1'.
@@ -121,15 +119,15 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 %             should not be relied upon. Anti-aliasing can have adverse
 %             effects on image quality (disable with the -a1 option).
 %   -a1, -a2, -a3, -a4 - option indicating the amount of anti-aliasing to
-%                        use for bitmap outputs. '-a1' means no anti-
-%                        aliasing; '-a4' is the maximum amount (default).
+%             use for bitmap outputs. '-a1' means no anti-aliasing;
+%             '-a4' is the maximum amount (default).
 %   -<renderer> - option to force a particular renderer (painters, opengl or
-%                 zbuffer). Default value: opengl for bitmap formats or
-%                 figures with patches and/or transparent annotations;
-%                 painters for vector formats without patches/transparencies.
+%             zbuffer). Default value: opengl for bitmap formats or
+%             figures with patches and/or transparent annotations;
+%             painters for vector formats without patches/transparencies.
 %   -<colorspace> - option indicating which colorspace color figures should
-%                   be saved in: RGB (default), CMYK or gray. CMYK is only
-%                   supported in pdf, eps and tiff output.
+%             be saved in: RGB (default), CMYK or gray. CMYK is only
+%             supported in pdf, eps and tiff output.
 %   -q<val> - option to vary bitmap image quality (in pdf, eps and jpg
 %             files only).  Larger val, in the range 0-100, gives higher
 %             quality/lower compression. val > 100 gives lossless
@@ -148,11 +146,11 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 %             exists, the figure is to be appended as a new page, instead
 %             of being overwritten (default).
 %   -bookmark - option to indicate that a bookmark with the name of the
-%               figure is to be created in the output file (pdf only).
+%             figure is to be created in the output file (pdf only).
 %   -clipboard - option to save output as an image on the system clipboard.
-%                Note: background transparency is not preserved in clipboard
+%             Note: background transparency is not preserved in clipboard
 %   -d<gs_option> - option to indicate a ghostscript setting. For example,
-%                   -dMaxBitmap=0 or -dNoOutputFonts (Ghostscript 9.15+).
+%             -dMaxBitmap=0 or -dNoOutputFonts (Ghostscript 9.15+).
 %   -depsc -  option to use EPS level-3 rather than the default level-2 print
 %             device. This solves some bugs with Matlab's default -depsc2 device
 %             such as discolored subplot lines on images (vector formats only).
@@ -166,8 +164,8 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 %   -noinvert - option to avoid setting figure's InvertHardcopy property to
 %             'off' during output (this solves some problems of empty outputs).
 %   handle -  The handle of the figure, axes or uipanels (can be an array of
-%             handles, but the objects must be in the same figure) to be
-%             saved. Default: gcf.
+%             handles, but the objects must be in the same figure) which is
+%             to be saved. Default: gcf (handle of current figure).
 %
 % Outputs:
 %   imageData - MxNxC uint8 image array of the exported image.
@@ -277,6 +275,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 % 18/11/18: Issue #261: Added informative alert when trying to export a uifigure (which is not currently supported)
 % 13/12/18: Issue #261: Fixed last commit for cases of specifying axes/panel handle as input, rather than a figure handle
 % 13/01/19: Issue #72: Added basic SVG output support
+% 04/02/19: Workaround for issues #207 and #267: -transparent implies -noinvert
 %}
 
     if nargout
@@ -845,7 +844,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                     end
                     print(fig, '-dsvg', printArgs{:}, filename);
                     warning('export_fig:SVG:print', 'export_fig used Matlab''s built-in SVG output engine. Better results may be gotten via the fig2svg utility (https://github.com/kupiqu/fig2svg).');
-                catch err
+                catch err  % built-in print() failed - maybe an old Matlab release (no -dsvg)
                     set(fig,'Units',oldUnits);
                     filename = strrep(filename,'export_fig_out','filename');
                     msg = ['SVG output is not supported for your figure: ' err.message '\n' ...
@@ -1072,6 +1071,7 @@ function [fig, options] = parse_args(nout, fig, varargin)
                         options.crop_amounts = [0,0,0,0];
                     case {'trans', 'transparent'}
                         options.transparent = true;
+                        options.invert_hardcopy = false; % issue #207, issue #267
                     case 'opengl'
                         options.renderer = 1;
                     case 'zbuffer'
