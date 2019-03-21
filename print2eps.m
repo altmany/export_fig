@@ -97,6 +97,7 @@ function print2eps(name, fig, export_options, varargin)
 % 15/11/17: Updated issue #211: only set SortMethod='ChildOrder' in HG2, and when it looks the same onscreen; support multiple figure axes
 % 18/11/17: Fixed issue #225: transparent/translucent dashed/dotted lines appear solid in EPS/PDF
 % 24/03/18: Fixed issue #239: black title meshes with temporary black background figure bgcolor, causing bad cropping
+% 21/03/19: Improvement for issue #258: missing fonts in output EPS/PDF (still *NOT* fully solved)
 %}
 
     options = {'-loose'};
@@ -178,8 +179,13 @@ function print2eps(name, fig, export_options, varargin)
 
     % Determine the font swap table
     if fontswap
-        matlab_fonts = {'Helvetica', 'Times-Roman', 'Palatino', 'Bookman', 'Helvetica-Narrow', 'Symbol', ...
-                        'AvantGarde', 'NewCenturySchlbk', 'Courier', 'ZapfChancery', 'ZapfDingbats'};
+        % Issue #258: Rearrange standard fonts list based on decending "problematicness"
+        % The issue is still *NOT* fully solved because I cannot figure out how to force
+        % the EPS postscript engine to look for the user's font on disk
+        % Also see: https://stat.ethz.ch/pipermail/r-help/2005-January/064374.html
+        matlab_fonts = {'Courier', 'Times', 'Helvetica', 'Symbol', 'ZapfDingbats', ...
+                        'Palatino', 'Bookman', 'ZapfChancery', 'AvantGarde', ...
+                        'NewCenturySchlbk', 'Helvetica-Narrow'};
         matlab_fontsl = lower(matlab_fonts);
         require_swap = find(~ismember(fontslu, matlab_fontsl));
         unused_fonts = find(~ismember(matlab_fontsl, fontslu));
@@ -449,8 +455,14 @@ function print2eps(name, fig, export_options, varargin)
             else
                 fontName(fontName==' ') = char(font_space);
             end
+
+            % Replace all instances of the standard Matlab fonts with the original user's font names
             %fstrm = regexprep(fstrm, [font_swap{1,a} '-?[a-zA-Z]*\>'], fontName);
-            fstrm = regexprep(fstrm, font_swap{2,a}, fontName);
+            %fstrm = regexprep(fstrm, [font_swap{2,a} '([ \n])'], [fontName '$1']);
+            %fstrm = regexprep(fstrm, font_swap{2,a}, fontName);  % also replace -Bold, -Italic, -BoldItalic
+
+            % Times-Roman's Bold/Italic fontnames don't include '-Roman'
+            fstrm = regexprep(fstrm, [font_swap{2,a} '(\-Roman)?'], fontName);
         end
     end
 
