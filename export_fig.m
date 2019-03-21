@@ -283,6 +283,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 % 13/01/19: Issue #72: Added basic SVG output support
 % 04/02/19: Workaround for issues #207 and #267: -transparent implies -noinvert
 % 08/03/19: Issue #269: Added ability to specify format-specific options for PNG,TIF,JPG outputs; fixed help section
+% 21/03/19: Fixed the workaround for issues #207 and #267 from 4/2/19 (-transparent now does *NOT* imply -noinvert; -transparent output should now be ok in all formats)
 %}
 
     if nargout
@@ -732,20 +733,21 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
             end
             try
                 % Remove background if requested (issue #207)
+                originalBgColor = get(fig, 'Color');
                 [hXs, hYs, hZs] = deal([]);
                 if options.transparent %&& ~isequal(get(fig, 'Color'), 'none')
                     if options.renderer == 1  % OpenGL
-                        warning('export_fig:openglTransparentBG', '-opengl sometimes fails to produce transparent backgrounds; try -painters instead');
-                    else
-                        originalBgColor = get(fig, 'Color');
-                        set(fig,'Color','none');
-
-                        % Correct black axes color to off-black (issue #249)
-                        hAxes = findall(fig, 'Type','axes');
-                        hXs = fixBlackAxle(hAxes, 'XColor');
-                        hYs = fixBlackAxle(hAxes, 'YColor');
-                        hZs = fixBlackAxle(hAxes, 'ZColor');
+                        warning('export_fig:openglTransparentBG', '-opengl sometimes fails to produce transparent backgrounds; in such a case, try to use -painters instead');
                     end
+
+                    % Fix for issue #207, #267 (corrected)
+                    set(fig,'Color','none');
+
+                    % Correct black axes color to off-black (issue #249)
+                    hAxes = findall(fig, 'Type','axes');
+                    hXs = fixBlackAxle(hAxes, 'XColor');
+                    hYs = fixBlackAxle(hAxes, 'YColor');
+                    hZs = fixBlackAxle(hAxes, 'ZColor');
                 end
                 % Generate an eps
                 print2eps(tmp_nam, fig, options, printArgs{:});
@@ -794,8 +796,11 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                     end
                 end
             catch ex
+                % Restore the figure's previous background color (in case it was not already restored)
+                try set(fig,'Color',originalBgColor); drawnow; catch, end
                 % Delete the eps
                 delete(tmp_nam);
+                % Rethrow the EPS/PDF-generation error
                 rethrow(ex);
             end
             % Delete the eps
@@ -1097,7 +1102,6 @@ function [fig, options] = parse_args(nout, fig, varargin)
                         options.crop_amounts = [0,0,0,0];
                     case {'trans', 'transparent'}
                         options.transparent = true;
-                        options.invert_hardcopy = false; % issue #207, issue #267
                     case 'opengl'
                         options.renderer = 1;
                     case 'zbuffer'
