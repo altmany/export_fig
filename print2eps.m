@@ -98,6 +98,7 @@ function print2eps(name, fig, export_options, varargin)
 % 18/11/17: Fixed issue #225: transparent/translucent dashed/dotted lines appear solid in EPS/PDF
 % 24/03/18: Fixed issue #239: black title meshes with temporary black background figure bgcolor, causing bad cropping
 % 21/03/19: Improvement for issue #258: missing fonts in output EPS/PDF (still *NOT* fully solved)
+% 21/03/19: Fixed issue #251: Arial font is no longer replaced with Helvetica but rather treated as a non-standard user font
 %}
 
     options = {'-loose'};
@@ -167,9 +168,9 @@ function print2eps(name, fig, export_options, varargin)
         f(f==' ') = [];
         switch f
             case {'times', 'timesnewroman', 'times-roman'}
-                fontsl{a} = 'times-roman';
-            case {'arial', 'helvetica'}
-                fontsl{a} = 'helvetica';
+                fontsl{a} = 'times';
+            %case {'arial', 'helvetica'}  % issue #251
+            %    fontsl{a} = 'helvetica';
             case {'newcenturyschoolbook', 'newcenturyschlbk'}
                 fontsl{a} = 'newcenturyschlbk';
             otherwise
