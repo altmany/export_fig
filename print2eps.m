@@ -99,6 +99,7 @@ function print2eps(name, fig, export_options, varargin)
 % 24/03/18: Fixed issue #239: black title meshes with temporary black background figure bgcolor, causing bad cropping
 % 21/03/19: Improvement for issue #258: missing fonts in output EPS/PDF (still *NOT* fully solved)
 % 21/03/19: Fixed issues #166,#251: Arial font is no longer replaced with Helvetica but rather treated as a non-standard user font
+% 14/05/19: Made Helvetica the top default font-swap, replacing Courier
 %}
 
     options = {'-loose'};
@@ -184,7 +185,7 @@ function print2eps(name, fig, export_options, varargin)
         % The issue is still *NOT* fully solved because I cannot figure out how to force
         % the EPS postscript engine to look for the user's font on disk
         % Also see: https://stat.ethz.ch/pipermail/r-help/2005-January/064374.html
-        matlab_fonts = {'Courier', 'Times', 'Helvetica', 'Symbol', 'ZapfDingbats', ...
+        matlab_fonts = {'Helvetica', 'Times', 'Courier', 'Symbol', 'ZapfDingbats', ...
                         'Palatino', 'Bookman', 'ZapfChancery', 'AvantGarde', ...
                         'NewCenturySchlbk', 'Helvetica-Narrow'};
         matlab_fontsl = lower(matlab_fonts);
