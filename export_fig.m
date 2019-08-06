@@ -288,6 +288,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 % 08/03/19: Issue #269: Added ability to specify format-specific options for PNG,TIF,JPG outputs; fixed help section
 % 21/03/19: Fixed the workaround for issues #207 and #267 from 4/2/19 (-transparent now does *NOT* imply -noinvert; -transparent output should now be ok in all formats)
 % 12/06/19: Issue #277: Enabled preservation of figure's PaperSize in output PDF/EPS file
+% 06/08/19: Remove warning message about obsolete JavaFrame in R2019b
 %}
 
     if nargout
@@ -311,6 +312,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
         error('No figure found');
     else
         oldWarn = warning('off','MATLAB:HandleGraphics:ObsoletedProperty:JavaFrame');
+        warning off MATLAB:ui:javaframe:PropertyToBeRemoved
         try jf = get(handle(ancestor(fig,'figure')),'JavaFrame'); catch, jf=1; end
         warning(oldWarn);
         if isempty(jf)
