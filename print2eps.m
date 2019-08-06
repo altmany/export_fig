@@ -102,6 +102,7 @@ function print2eps(name, fig, export_options, varargin)
 % 21/03/19: Fixed issues #166,#251: Arial font is no longer replaced with Helvetica but rather treated as a non-standard user font
 % 14/05/19: Made Helvetica the top default font-swap, replacing Courier
 % 12/06/19: Issue #277: Enabled preservation of figure's PaperSize in output PDF/EPS file
+% 06/08/19: Issue #281: only fix patch/textbox color if it's not opaque
 %}
 
     options = {'-loose'};
@@ -445,6 +446,7 @@ function print2eps(name, fig, export_options, varargin)
 
     % Preserve the figure's PaperSize in the output file, if requested (issue #277)
     if preserve_size
+        % https://stackoverflow.com/questions/19646329/postscript-document-size
         paper_size = get(fig, 'PaperSize');  % in [points]
         fstrm = sprintf('<< /PageSize [%d %d] >> setpagedevice\n%s', paper_size, fstrm);
     end
@@ -581,11 +583,13 @@ function [StoredColors, fstrm, foundFlags] = eps_maintainAlpha(fig, fstrm, Store
                 try
                     propName = propNames{propIdx};
                     if strcmp(hObj.(propName).ColorType, 'truecoloralpha')
-                        nColors = length(StoredColors);
                         oldColor = hObj.(propName).ColorData;
-                        newColor = uint8([101; 102+floor(nColors/255); mod(nColors,255); 255]);
-                        StoredColors{end+1} = {hObj, propName, oldColor, newColor}; %#ok<AGROW>
-                        hObj.(propName).ColorData = newColor;
+                        if numel(oldColor)>3 && oldColor(4)~=255  % issue #281: only fix patch/textbox color if it's not opaque
+                            nColors = length(StoredColors);
+                            newColor = uint8([101; 102+floor(nColors/255); mod(nColors,255); 255]);
+                            StoredColors{end+1} = {hObj, propName, oldColor, newColor}; %#ok<AGROW>
+                            hObj.(propName).ColorData = newColor;
+                        end
                     end
                 catch
                     % Never mind - ignore (either doesn't have the property or cannot change it)
