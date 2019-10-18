@@ -55,6 +55,7 @@ function eps2pdf(source, dest, crop, append, gray, quality, gs_options)
 % 20/03/17: Added informational message in case of GS croak (issue #186)
 % 16/01/18: Improved appending of multiple EPS files into single PDF (issue #233; thanks @shartjen)
 % 18/10/19: Workaround for GS 9.51+ .setpdfwrite removal problem (issue #285)
+% 18/10/19: Warn when ignoring GS fontpath or quality options; clarified error messages
 
     % Intialise the options string for ghostscript
     options = ['-q -dNOPAUSE -dBATCH -sDEVICE=pdfwrite -dPDFSETTINGS=/prepress -sOutputFile="' dest '"'];
@@ -158,14 +159,20 @@ function eps2pdf(source, dest, crop, append, gray, quality, gs_options)
         if ~isempty(fp)
             options = regexprep(options, ' -sFONTPATH=[^ ]+ ',' ');
             status = ghostscript(options);
-            if ~status, return; end  % hurray! (no error)
+            if ~status % hurray! (no error)
+                warning('export_fig:GS:fontpath','Export_fig font option is ignored - not supported by your Ghostscript version')
+                return
+            end
         end
 
         % Retry without quality options (may solve problems with GS 9.51+, issue #285)
         if ~isempty(qualityOptions)
             options = strrep(orig_options, qualityOptions, '');
             [status, message] = ghostscript(options);
-            if ~status, return; end  % hurray! (no error)
+            if ~status % hurray! (no error)
+                warning('export_fig:GS:quality','Export_fig quality option is ignored - not supported by your Ghostscript version')
+                return
+            end
         end
 
         % Report error
@@ -182,7 +189,7 @@ function eps2pdf(source, dest, crop, append, gray, quality, gs_options)
         else
             fprintf(2, '\nGhostscript error: perhaps %s is open by another application\n', dest);
             if ~isempty(gs_options)
-                fprintf(2, '  or maybe your GS version does not accept the extra "%s" option(s) that you requested\n', gs_options);
+                fprintf(2, '  or maybe your Ghostscript version does not accept the extra "%s" option(s) that you requested\n', gs_options);
             end
             fprintf(2, '  or maybe you have another gs executable in your system''s path\n');
             fprintf(2, 'Ghostscript options: %s\n\n', orig_options);
