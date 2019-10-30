@@ -289,6 +289,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 % 21/03/19: Fixed the workaround for issues #207 and #267 from 4/2/19 (-transparent now does *NOT* imply -noinvert; -transparent output should now be ok in all formats)
 % 12/06/19: Issue #277: Enabled preservation of figure's PaperSize in output PDF/EPS file
 % 06/08/19: Remove warning message about obsolete JavaFrame in R2019b
+% 30/10/19: Fixed issue #261: added support for exporting uifigures and uiaxes (thanks to idea by @MarvinILA)
 %}
 
     if nargout
@@ -307,16 +308,64 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 
     % Ensure that we have a figure handle
     if isequal(fig,-1)
-        return;  % silent bail-out
+        return  % silent bail-out
     elseif isempty(fig)
         error('No figure found');
     else
         oldWarn = warning('off','MATLAB:HandleGraphics:ObsoletedProperty:JavaFrame');
         warning off MATLAB:ui:javaframe:PropertyToBeRemoved
-        try jf = get(handle(ancestor(fig,'figure')),'JavaFrame'); catch, jf=1; end
+        uifig = handle(ancestor(fig,'figure'));
+        try jf = get(uifig,'JavaFrame'); catch, jf=1; end
         warning(oldWarn);
-        if isempty(jf)
-            error('Figures created using the uifigure command or App Designer are not supported by export_fig. See <a href="https://github.com/altmany/export_fig/issues/261">issue #261</a> for details.');
+        if isempty(jf)  % this is a uifigure
+            %error('Figures created using the uifigure command or App Designer are not supported by export_fig. See <a href="https://github.com/altmany/export_fig/issues/261">issue #261</a> for details.');
+            if numel(fig) > 1
+                error('export_fig:uifigure:multipleHandles', 'export_fig only supports exporting a single uifigure handle at a time; array of handles is not currently supported.')
+            elseif ~any(strcmpi(fig.Type,{'figure','axes'}))
+                error('export_fig:uifigure:notFigureOrAxes', 'export_fig only supports exporting a uifigure or uiaxes handle; other handles of a uifigure are not currently supported.')
+            end
+            % fig is either a uifigure or uiaxes handle
+            isUiaxes = strcmpi(fig.Type,'axes');
+            if isUiaxes
+                % Label the specified axes so that we can find it in the legacy figure
+                oldUserData = fig.UserData;
+                tempStr = tempname;
+                fig.UserData = tempStr;
+            end
+            try
+                % Create an invisible legacy figure at the same position/size as the uifigure
+                hNewFig = figure('Units',uifig.Units, 'Position',uifig.Position, 'MenuBar','none', 'ToolBar','none', 'Visible','off');
+                % Copy the uifigure contents onto the new invisible legacy figure
+                try
+                    hChildren = allchild(uifig); %=uifig.Children;
+                    copyobj(hChildren,hNewFig);
+                catch
+                    warning('export_fig:uifigure:controls', 'Some uifigure controls cannot be exported by export_fig and will not appear in the generated output.');
+                end
+                try fig.UserData = oldUserData; catch, end  % restore axes UserData, if modified above
+                % Replace the uihandle in the input args with the legacy handle
+                if isUiaxes  % uiaxes
+                    % Locate the corresponding axes handle in the new legacy figure
+                    hAxes = findall(hNewFig,'type','axes','UserData',tempStr);
+                    if isempty(hAxes) % should never happen, check just in case
+                        hNewHandle = hNewFig;  % export the figure instead of the axes
+                    else
+                        hNewHandle = hAxes;  % new axes handle found: use it instead of the uiaxes
+                    end
+                else  % uifigure
+                    hNewHandle = hNewFig;
+                end
+                varargin(cellfun(@(c)isequal(c,fig),varargin)) = {hNewHandle};
+                % Rerun export_fig on the legacy figure (with the replaced handle)
+                [imageData, alpha] = export_fig(varargin{:});
+                % Delete the temp legacy figure and bail out
+                try delete(hNewFig); catch, end
+                return
+            catch err
+                % Clean up the temp legacy figure and report the error
+                try delete(hNewFig); catch, end
+                rethrow(err)
+            end
         end
     end
 
