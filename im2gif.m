@@ -183,6 +183,8 @@ switch lower(info(1).Format)
                 A{a} = 255 - A{a};
                 A{a}(:,:,4) = A{a}(:,:,4) / 255;
                 A{a} = uint8(A(:,:,1:3) .* A{a}(:,:,[4 4 4]));
+            elseif
+                A{a} = cat(3, A{a}, A{a}, A{a});
             end
         end
         A = cat(4, A{:});
