@@ -9,6 +9,8 @@ Exporting a figure from MATLAB the way you want it (hopefully the way it looks o
 The second goal is to make the output media suitable for publication, allowing you to publish your results in the full glory that you originally intended. This includes embedding fonts, setting image compression levels (including lossless), anti-aliasing, cropping, setting the colourspace, alpha-blending and getting the right resolution.
 
 Perhaps the best way to demonstrate what export_fig can do is with some examples.
+
+*Note: `export_fig` currently supports only with figures created the `figure` function, or GUIDE. Figures created using `uifigure` or AppDesigner have only partial support. See issues #287, #261 for details.*
   
 ### Examples
 **Visual accuracy** - MATLAB's exporting functions, namely `saveas` and `print`, change many visual properties of a figure, such as size, axes limits and ticks, and background colour, in unexpected and unintended ways. Export_fig aims to faithfully reproduce the figure as it appears on screen. For example:  
