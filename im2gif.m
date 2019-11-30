@@ -183,6 +183,9 @@ switch lower(info(1).Format)
                 A{a} = 255 - A{a};
                 A{a}(:,:,4) = A{a}(:,:,4) / 255;
                 A{a} = uint8(A(:,:,1:3) .* A{a}(:,:,[4 4 4]));
+            elseif size(A{a}, 3) < 3 %Check whether TIFF has been read in as greyscale
+                %Convert from greyscale to RGB colorspace
+                A{a} = cat(3, A{a}, A{a}, A{a});
             end
         end
         A = cat(4, A{:});
