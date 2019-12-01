@@ -10,7 +10,7 @@ The second goal is to make the output media suitable for publication, allowing y
 
 Perhaps the best way to demonstrate what export_fig can do is with some examples.
 
-*Note: `export_fig` currently supports only with figures created the `figure` function, or GUIDE. Figures created using `uifigure` or AppDesigner have only partial support. See issues [#287](https://github.com/altmany/export_fig/issues/287), [#261](https://github.com/altmany/export_fig/issues/261) for details.*
+*Note: `export_fig` currently supports only figures created with the `figure` function, or GUIDE. Figures created using `uifigure` or AppDesigner are only partially supported. See issues [#287](https://github.com/altmany/export_fig/issues/287), [#261](https://github.com/altmany/export_fig/issues/261) for details.*
   
 ### Examples
 **Visual accuracy** - MATLAB's exporting functions, namely `saveas` and `print`, change many visual properties of a figure, such as size, axes limits and ticks, and background colour, in unexpected and unintended ways. Export_fig aims to faithfully reproduce the figure as it appears on screen. For example:  
