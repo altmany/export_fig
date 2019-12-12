@@ -121,9 +121,9 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 %             with the screen. The output resolution is approximate and
 %             should not be relied upon. Anti-aliasing can have adverse
 %             effects on image quality (disable with the -a1 option).
-%   -a1, -a2, -a3, -a4 - option indicating the amount of anti-aliasing to
-%             use for bitmap outputs. '-a1' means no anti-aliasing;
-%             '-a4' is the maximum amount (default).
+%   -a1, -a2, -a3, -a4 - option indicating the amount of anti-aliasing to use
+%             for bitmap outputs. '-a1' means no anti-aliasing; '-a4' is the
+%             maximum amount (default: 3 for painters/HG1, 1 for openGL on HG2).
 %   -<renderer> - option to force a particular renderer (painters, opengl or
 %             zbuffer). Default value: opengl for bitmap formats or
 %             figures with patches and/or transparent annotations;
