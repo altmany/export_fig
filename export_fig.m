@@ -290,6 +290,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 % 12/06/19: Issue #277: Enabled preservation of figure's PaperSize in output PDF/EPS file
 % 06/08/19: Remove warning message about obsolete JavaFrame in R2019b
 % 30/10/19: Fixed issue #261: added support for exporting uifigures and uiaxes (thanks to idea by @MarvinILA)
+% 12/12/19: Added warning in case user requested anti-aliased output on an aliased HG2 figure (issue #292)
 %}
 
     if nargout
@@ -1344,9 +1345,12 @@ function [fig, options] = parse_args(nout, fig, varargin)
     end
 
     % Set default anti-aliasing now we know the renderer
+    try isAA = strcmp(get(ancestor(fig, 'figure'), 'GraphicsSmoothing'), 'on'); catch, isAA = false; end
     if options.aa_factor == 0
-        try isAA = strcmp(get(ancestor(fig, 'figure'), 'GraphicsSmoothing'), 'on'); catch, isAA = false; end
         options.aa_factor = 1 + 2 * (~(using_hg2(fig) && isAA) | (options.renderer == 3));
+    end
+    if options.aa_factor > 1 && ~isAA && using_hg2(fig)
+        warning('export_fig:AntiAliasing','You requested export_fig anti-aliased output of an aliased figure (''GraphicsSmoothing''=''off''). You will see better results if you set your figure''s GraphicsSmoothing property to ''on'' before calling export_fig.')
     end
 
     % Convert user dir '~' to full path
