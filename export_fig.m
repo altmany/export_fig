@@ -291,6 +291,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 % 06/08/19: Remove warning message about obsolete JavaFrame in R2019b
 % 30/10/19: Fixed issue #261: added support for exporting uifigures and uiaxes (thanks to idea by @MarvinILA)
 % 12/12/19: Added warning in case user requested anti-aliased output on an aliased HG2 figure (issue #292)
+% 15/12/19: Added promo message
 %}
 
     if nargout
@@ -302,6 +303,22 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
     % Ensure the figure is rendered correctly _now_ so that properties like axes limits are up-to-date
     drawnow;
     pause(0.05);  % this solves timing issues with Java Swing's EDT (http://undocumentedmatlab.com/blog/solving-a-matlab-hang-problem)
+
+    % Display promo (just once!)
+    persistent promo
+    if isempty(promo)
+        msg = 'If you need expert assistance with Matlab, consider my professional consulting/training services';
+        website = 'https://UndocumentedMatlab.com';
+        msg = [msg ' (' website ')'];
+        if ~isdeployed
+            link = ['<a href="' website];
+            msg = regexprep(msg,website,[link '">$0</a>']);
+            msg = regexprep(msg,{'consulting','training'},[link '/$0">$0</a>']);
+        end
+        %warning('YMA:findjobj:promo',msg);
+        disp(['[' 8 msg ']' 8]);
+        promo = true;
+    end
 
     % Parse the input arguments
     fig = get(0, 'CurrentFigure');
