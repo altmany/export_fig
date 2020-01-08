@@ -292,7 +292,11 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 % 30/10/19: Fixed issue #261: added support for exporting uifigures and uiaxes (thanks to idea by @MarvinILA)
 % 12/12/19: Added warning in case user requested anti-aliased output on an aliased HG2 figure (issue #292)
 % 15/12/19: Added promo message
+% 08/01/20: Added check for newer version online (initialized to version 3.00)
 %}
+
+    % Check for newer version (not too often)
+    checkForNewerVersion(3.00);
 
     if nargout
         [imageData, alpha] = deal([]);
@@ -1662,5 +1666,56 @@ function [optionsCells, bitDepth] = getFormatOptions(options, formatName)
         end
     catch
         % never mind - ignore
+    end
+end
+
+% Check for newer version (only once a day)
+function checkForNewerVersion(currentVersion)
+    persistent lastCheckTime
+    if isempty(lastCheckTime) || now - lastCheckTime > 1
+        url = 'https://raw.githubusercontent.com/altmany/export_fig/master/export_fig.m';
+        try
+            str = readURL(url);
+            regexStr = '\n\s+checkForNewerVersion\(([^)]+)\)';
+            [unused,unused,unused,unused,latestVerStr] = regexp(str, regexStr); %#ok<ASGLU>
+            latestVersion = str2double(latestVerStr{1}{1});
+            if latestVersion > currentVersion
+                msg = 'A newer version of export_fig is available. You can download it from GitHub or Matlab File Exchange.';
+                msg = hyperlinkToken(msg, 'GitHub',               'https://github.com/altmany/export_fig');
+                msg = hyperlinkToken(msg, 'Matlab file exchange', 'https://www.mathworks.com/matlabcentral/fileexchange/23629-export_fig');
+                warning('export_fig:version',msg);
+            end
+        catch
+            % ignore
+        end
+        lastCheckTime = now;
+    end
+end
+function msg = hyperlinkToken(msg, token, url)
+    if ~isdeployed
+        msg = regexprep(msg,token,['<a href="' url '">$0</a>']);
+    else
+        msg = regexprep(msg,token,['$0 (' url ')']);
+    end
+end
+
+% Read a file from the web
+function str = readURL(url)
+    try
+        str = char(webread(url));
+    catch err %if isempty(which('webread'))
+        if isempty(strfind(err.message,'404'))
+            v = version;   % '9.6.0.1072779 (R2019a)'
+            if v(1) >= '8' % '8.0 (R2012b)'  https://www.mathworks.com/help/matlab/release-notes.html?rntext=urlread&searchHighlight=urlread&startrelease=R2012b&endrelease=R2012b
+                str = urlread(url, 'Timeout',5); %#ok<URLRD>
+            else
+                str = urlread(url); %#ok<URLRD>  % R2012a or older (no Timeout parameter)
+            end
+        else
+            rethrow(err)
+        end
+    end
+    if size(str,1) > 1  % ensure a row-wise string
+        str = str';
     end
 end
