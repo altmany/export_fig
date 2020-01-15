@@ -103,6 +103,7 @@ function print2eps(name, fig, export_options, varargin)
 % 14/05/19: Made Helvetica the top default font-swap, replacing Courier
 % 12/06/19: Issue #277: Enabled preservation of figure's PaperSize in output PDF/EPS file
 % 06/08/19: Issue #281: only fix patch/textbox color if it's not opaque
+% 15/01/20: Added warning ID for easier suppression by users
 %}
 
     options = {'-loose'};
@@ -355,7 +356,7 @@ function print2eps(name, fig, export_options, varargin)
 
     % Bail out if EPS post-processing is not possible
     if isempty(fstrm)
-        warning('Loading EPS file failed, so unable to perform post-processing. This is usually because the figure contains a large number of patch objects. Consider exporting to a bitmap format in this case.');
+        warning('YMA:export_fig:EPS','Loading EPS file failed, so unable to perform post-processing. This is usually because the figure contains a large number of patch objects. Consider exporting to a bitmap format in this case.');
         return
     end
 

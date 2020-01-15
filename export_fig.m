@@ -292,11 +292,12 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 % 30/10/19: Fixed issue #261: added support for exporting uifigures and uiaxes (thanks to idea by @MarvinILA)
 % 12/12/19: Added warning in case user requested anti-aliased output on an aliased HG2 figure (issue #292)
 % 15/12/19: Added promo message
-% 08/01/20: Added check for newer version online (initialized to version 3.00)
+% 08/01/20: (3.00) Added check for newer version online (initialized to version 3.00)
+% 15/01/20: (3.01) Clarified/fixed error messages; added error IDs; easier -update; various other small fixes
 %}
 
     % Check for newer version (not too often)
-    checkForNewerVersion(3.00);
+    checkForNewerVersion(3.01);
 
     if nargout
         [imageData, alpha] = deal([]);
@@ -310,16 +311,14 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 
     % Display promo (just once!)
     persistent promo
-    if isempty(promo)
-        msg = 'If you need expert assistance with Matlab, consider my professional consulting/training services';
+    if isempty(promo) && ~isdeployed
         website = 'https://UndocumentedMatlab.com';
+        link = ['<a href="' website];
+        msg = 'If you need expert assistance with Matlab, please consider my professional consulting/training services';
         msg = [msg ' (' website ')'];
-        if ~isdeployed
-            link = ['<a href="' website];
-            msg = regexprep(msg,website,[link '">$0</a>']);
-            msg = regexprep(msg,{'consulting','training'},[link '/$0">$0</a>']);
-        end
-        %warning('YMA:findjobj:promo',msg);
+        msg = regexprep(msg,website,[link '">$0</a>']);
+        msg = regexprep(msg,{'consulting','training'},[link '/$0">$0</a>']);
+        %warning('export_fig:promo',msg);
         disp(['[' 8 msg ']' 8]);
         promo = true;
     end
@@ -332,15 +331,15 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
     if isequal(fig,-1)
         return  % silent bail-out
     elseif isempty(fig)
-        error('No figure found');
+        error('export_fig:NoFigure','No figure found');
     else
         oldWarn = warning('off','MATLAB:HandleGraphics:ObsoletedProperty:JavaFrame');
         warning off MATLAB:ui:javaframe:PropertyToBeRemoved
         uifig = handle(ancestor(fig,'figure'));
-        try jf = get(uifig,'JavaFrame'); catch, jf=1; end
+        try jf = get(uifig,'JavaFrame'); catch, jf=1; end %#ok<JAVFM>
         warning(oldWarn);
         if isempty(jf)  % this is a uifigure
-            %error('Figures created using the uifigure command or App Designer are not supported by export_fig. See <a href="https://github.com/altmany/export_fig/issues/261">issue #261</a> for details.');
+            %error('export_fig:uifigures','Figures created using the uifigure command or App Designer are not supported by export_fig. See %s for details.', hyperlink('https://github.com/altmany/export_fig/issues/261','issue #261'));
             if numel(fig) > 1
                 error('export_fig:uifigure:multipleHandles', 'export_fig only supports exporting a single uifigure handle at a time; array of handles is not currently supported.')
             elseif ~any(strcmpi(fig.Type,{'figure','axes'}))
@@ -399,7 +398,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
     else
         % Check we have a figure
         if ~isequal(get(fig, 'Type'), 'figure')
-            error('Handle must be that of a figure, axes or uipanel');
+            error('export_fig:BadHandle','Handle must be that of a figure, axes or uipanel');
         end
         % Get the old InvertHardcopy mode
         old_mode = get(fig, 'InvertHardcopy');
@@ -539,7 +538,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
         if isbitmap(options)
             if abs(options.bb_padding) > 1
                 displaySuggestedWorkarounds = false;
-                error('For bitmap output (png,jpg,tif,bmp) the padding value (-p) must be between -1<p<1')
+                error('export_fig:padding','For bitmap output (png,jpg,tif,bmp) the padding value (-p) must be between -1<p<1')
             end
             % Get the background colour
             if options.transparent && (options.png || options.alpha)
@@ -867,9 +866,9 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                     % Alert in case of error creating output PDF/EPS file (issue #179)
                     if exist(pdf_nam_tmp, 'file')
                         errMsg = ['Could not create ' pdf_nam ' - perhaps the folder does not exist, or you do not have write permissions, or the file is open in another application'];
-                        error(errMsg);
+                        error('export_fig:PDF:create',errMsg);
                     else
-                        error('Could not generate the intermediary EPS file.');
+                        error('export_fig:NoEPS','Could not generate the intermediary EPS file.');
                     end
                 end
             catch ex
@@ -921,7 +920,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
             if ~isempty(hImages) && strcmpi(renderer,'-opengl')  % see addendum to issue #206
                 warnMsg = ['exporting images to PDF/EPS may result in blurry images on some viewers. ' ...
                            'If so, try to change viewer, or increase the image''s CData resolution, or use -opengl renderer, or export via the print function. ' ...
-                           'See <a href="matlab:web(''https://github.com/altmany/export_fig/issues/206'',''-browser'');">issue #206</a> for details.'];
+                           'See ' hyperlink('https://github.com/altmany/export_fig/issues/206', 'issue #206') ' for details.'];
                 warning('export_fig:pdf_eps:blurry_image', warnMsg);
             end
         end
@@ -957,7 +956,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                         '  1. saveas(gcf,''' filename ''')\n' ...
                         '  2. fig2svg utility: https://github.com/kupiqu/fig2svg\n' ...  % Note: replaced defunct https://github.com/jschwizer99/plot2svg with up-to-date fork on https://github.com/kupiqu/fig2svg
                         '  3. export_fig to EPS/PDF, then convert to SVG using non-Matlab tools\n'];
-                    error(sprintf(msg)); %#ok<SPERR>
+                    error('export_fig:SVG:error',msg);
                 end
             end
             % SVG output was successful if we reached this point
@@ -1029,9 +1028,9 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
             end
             try
                 % Import necessary Java classes
-                import java.awt.Toolkit
-                import java.awt.image.BufferedImage
-                import java.awt.datatransfer.DataFlavor
+                import java.awt.Toolkit                 %#ok<SIMPT>
+                import java.awt.image.BufferedImage     %#ok<SIMPT>
+                import java.awt.datatransfer.DataFlavor %#ok<SIMPT>
 
                 % Get System Clipboard object (java.awt.Toolkit)
                 cb = Toolkit.getDefaultToolkit.getSystemClipboard();
@@ -1081,34 +1080,50 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
     catch err
         % Display possible workarounds before the error message
         if displaySuggestedWorkarounds && ~strcmpi(err.message,'export_fig error')
+            isNewerVersionAvailable = checkForNewerVersion();  % alert if a newer version exists
             if ~hadError,  fprintf(2, 'export_fig error. ');  end
             fprintf(2, 'Please ensure:\n');
-            fprintf(2, '  that you are using the <a href="https://github.com/altmany/export_fig/archive/master.zip">latest version</a> of export_fig\n');
+            fprintf(2, '  that the function you used (%s.m) is from the expected location\n', mfilename('fullpath'));
+            paths = which(mfilename,'-all');
+            if iscell(paths) && numel(paths) > 1
+                fprintf(2, '    (you appear to have %s of export_fig installed)\n', hyperlink('matlab:which export_fig -all','multiple versions'));
+            end
+            if isNewerVersionAvailable
+                fprintf(2, '  and that you are using the %s of export_fig (you are not: run %s to update it)\n', ...
+                        hyperlink('https://github.com/altmany/export_fig/archive/master.zip','latest version'), ...
+                        hyperlink('matlab:export_fig(''-update'')','export_fig(''-update'')'));
+            end
+            fprintf(2, '  and that you did not made a mistake in export_fig''s %s\n', hyperlink('matlab:help export_fig','expected input arguments'));
             if isvector(options)
                 if ismac
-                    fprintf(2, '  and that you have <a href="http://pages.uoregon.edu/koch">Ghostscript</a> installed\n');
+                    url = 'http://pages.uoregon.edu/koch';
                 else
-                    fprintf(2, '  and that you have <a href="http://www.ghostscript.com">Ghostscript</a> installed\n');
+                    url = 'http://ghostscript.com';
                 end
+                fpath = user_string('ghostscript');
+                fprintf(2, '  and that %s is properly installed in %s\n', ...
+                        hyperlink(url,'ghostscript'), ...
+                        hyperlink(['matlab:winopen(''' fileparts(fpath) ''')'], fpath));
             end
             try
                 if options.eps
-                    fprintf(2, '  and that you have <a href="http://xpdfreader.com/download.html">pdftops</a> installed\n');
+                    fpath = user_string('pdftops');
+                    fprintf(2, '  and that %s is properly installed in %s\n', ...
+                            hyperlink('http://xpdfreader.com/download.html','pdftops'), ...
+                            hyperlink(['matlab:winopen(''' fileparts(fpath) ''')'], fpath));
                 end
             catch
                 % ignore - probably an error in parse_args
             end
-            fprintf(2, '  and that you do not have <a href="matlab:which export_fig -all">multiple versions</a> of export_fig installed by mistake\n');
-            fprintf(2, '  and that you did not made a mistake in the <a href="matlab:help export_fig">expected input arguments</a>\n');
             try
                 % Alert per issue #149
                 if ~strncmpi(get(0,'Units'),'pixel',5)
-                    fprintf(2, '  or try to set groot''s Units property back to its default value of ''pixels'' (<a href="matlab:web(''https://github.com/altmany/export_fig/issues/149'',''-browser'');">details</a>)\n');
+                    fprintf(2, '  or try to set groot''s Units property back to its default value of ''pixels'' (%s)\n', hyperlink('https://github.com/altmany/export_fig/issues/149','details'));
                 end
             catch
                 % ignore - maybe an old MAtlab release
             end
-            fprintf(2, '\nIf the problem persists, then please <a href="https://github.com/altmany/export_fig/issues">report a new issue</a>.\n\n');
+            fprintf(2, '\nIf the problem persists, then please %s.\n\n', hyperlink('https://github.com/altmany/export_fig/issues','report a new issue'));
         end
         rethrow(err)
     end
@@ -1219,22 +1234,9 @@ function [fig, options] = parse_args(nout, fig, varargin)
                         options.im = true;
                         options.alpha = true;
                     case 'update'
-                        % Download the latest version of export_fig into the export_fig folder
-                        try
-                            zipFileName = 'https://github.com/altmany/export_fig/archive/master.zip';
-                            folderName = fileparts(which(mfilename('fullpath')));
-                            targetFileName = fullfile(folderName, datestr(now,'yyyy-mm-dd.zip'));
-                            urlwrite(zipFileName,targetFileName); %#ok<URLWR>
-                        catch
-                            error('Could not download %s into %s\n',zipFileName,targetFileName);
-                        end
-
-                        % Unzip the downloaded zip file in the export_fig folder
-                        try
-                            unzip(targetFileName,folderName);
-                        catch
-                            error('Could not unzip %s\n',targetFileName);
-                        end
+                        updateInstalledVersion();
+                        fig = -1;  % silent bail-out
+                        return  % ignore any additional args
                     case 'nofontswap'
                         options.fontswap = false;
                     case 'font_space'
@@ -1274,7 +1276,7 @@ function [fig, options] = parse_args(nout, fig, varargin)
                                 end
                                 if numel(vals)~=4
                                     wasError = true;
-                                    error('option -c cannot be parsed: must be a 4-element numeric vector');
+                                    error('export_fig:BadOptionValue','option -c cannot be parsed: must be a 4-element numeric vector');
                                 end
                                 options.crop_amounts = vals;
                                 options.crop = true;
@@ -1289,14 +1291,14 @@ function [fig, options] = parse_args(nout, fig, varargin)
                                 end
                                 if ~isscalar(val) || isnan(val)
                                     wasError = true;
-                                    error('option %s is not recognised or cannot be parsed', varargin{a});
+                                    error('export_fig:BadOptionValue','option %s is not recognised or cannot be parsed', varargin{a});
                                 end
                                 switch lower(varargin{a}(2))
                                     case 'm'
                                         % Magnification may never be negative
                                         if val <= 0
                                             wasError = true;
-                                            error('Bad magnification value: %g (must be positive)', val);
+                                            error('export_fig:BadMagnification','Bad magnification value: %g (must be positive)', val);
                                         end
                                         options.magnify = val;
                                     case 'r'
@@ -1312,7 +1314,7 @@ function [fig, options] = parse_args(nout, fig, varargin)
                             if wasError  % intentional raise
                                 rethrow(err)
                             else  % unintentional
-                                error(['Unrecognized export_fig input option: ''' varargin{a} '''']);
+                                error('export_fig:BadOption',['Unrecognized export_fig input option: ''' varargin{a} '''']);
                             end
                         end
                 end
@@ -1320,7 +1322,7 @@ function [fig, options] = parse_args(nout, fig, varargin)
                 [p, options.name, ext] = fileparts(varargin{a});
                 if ~isempty(p)
                     % Issue #221: alert if the requested folder does not exist
-                    if ~exist(p,'dir'),  error(['Folder ' p ' does not exist!']);  end
+                    if ~exist(p,'dir'),  error('export_fig:BadPath',['Folder ' p ' does not exist!']);  end
                     options.name = [p filesep options.name];
                 end
                 switch lower(ext)
@@ -1503,7 +1505,7 @@ function eps_remove_background(fname, count)
     % Open the file
     fh = fopen(fname, 'r+');
     if fh == -1
-        error('Not able to open file %s.', fname);
+        error('export_fig:EPS:open','Cannot open file %s.', fname);
     end
     % Read the file line by line
     while count
@@ -1546,7 +1548,7 @@ function add_bookmark(fname, bookmark_text)
     % Read in the file
     fh = fopen(fname, 'r');
     if fh == -1
-        error('File %s not found.', fname);
+        error('export_fig:bookmark:FileNotFound','File %s not found.', fname);
     end
     try
         fstrm = fread(fh, '*char')';
@@ -1564,7 +1566,7 @@ function add_bookmark(fname, bookmark_text)
     % Write out the updated file
     fh = fopen(fname, 'w');
     if fh == -1
-        error('Unable to open %s for writing.', fname);
+        error('export_fig:bookmark:permission','Unable to open %s for writing.', fname);
     end
     try
         fwrite(fh, fstrm, 'char*1');
@@ -1670,33 +1672,57 @@ function [optionsCells, bitDepth] = getFormatOptions(options, formatName)
 end
 
 % Check for newer version (only once a day)
-function checkForNewerVersion(currentVersion)
-    persistent lastCheckTime
-    if isempty(lastCheckTime) || now - lastCheckTime > 1
+function isNewerVersionAvailable = checkForNewerVersion(currentVersion)
+    persistent lastCheckTime lastVersion
+    isNewerVersionAvailable = false;
+    if nargin < 1 || isempty(lastCheckTime) || now - lastCheckTime > 1
         url = 'https://raw.githubusercontent.com/altmany/export_fig/master/export_fig.m';
         try
             str = readURL(url);
             regexStr = '\n\s+checkForNewerVersion\(([^)]+)\)';
             [unused,unused,unused,unused,latestVerStr] = regexp(str, regexStr); %#ok<ASGLU>
             latestVersion = str2double(latestVerStr{1}{1});
-            if latestVersion > currentVersion
-                msg = 'A newer version of export_fig is available. You can download it from GitHub or Matlab File Exchange.';
-                msg = hyperlinkToken(msg, 'GitHub',               'https://github.com/altmany/export_fig');
-                msg = hyperlinkToken(msg, 'Matlab file exchange', 'https://www.mathworks.com/matlabcentral/fileexchange/23629-export_fig');
+            if nargin < 1, currentVersion = lastVersion; end
+            isNewerVersionAvailable = latestVersion > currentVersion;
+            if isNewerVersionAvailable
+                msg = 'A newer version of export_fig is available. You can download it from GitHub or Matlab File Exchange, or run export_fig(''-update'') to install it directly.';
+                msg = hyperlink('https://github.com/altmany/export_fig', 'GitHub', msg);
+                msg = hyperlink('https://www.mathworks.com/matlabcentral/fileexchange/23629-export_fig', 'Matlab File Exchange', msg);
+                msg = hyperlink('matlab:export_fig(''-update'')', 'export_fig(''-update'')', msg);
                 warning('export_fig:version',msg);
             end
         catch
             % ignore
         end
         lastCheckTime = now;
+        lastVersion = currentVersion;
     end
 end
-function msg = hyperlinkToken(msg, token, url)
-    if ~isdeployed
-        msg = regexprep(msg,token,['<a href="' url '">$0</a>']);
-    else
-        msg = regexprep(msg,token,['$0 (' url ')']);
+
+% Update the installed version of export_fig from the latest version online
+function updateInstalledVersion()
+    % Download the latest version of export_fig into the export_fig folder
+    try
+        zipFileName = 'https://github.com/altmany/export_fig/archive/master.zip';
+        folderName = fileparts(which(mfilename('fullpath')));
+        targetFileName = fullfile(folderName, datestr(now,'yyyy-mm-dd.zip'));
+        urlwrite(zipFileName,targetFileName); %#ok<URLWR>
+    catch
+        error('export_fig:update:download','Could not download %s into %s\n',zipFileName,targetFileName);
     end
+
+    % Unzip the downloaded zip file in the export_fig folder
+    try
+        unzip(targetFileName,folderName);
+    catch
+        error('export_fig:update:unzip','Could not unzip %s\n',targetFileName);
+    end
+
+    % Notify the user and rehash
+    folder = hyperlink(['matlab:winopen(''' folderName ''')'], folderName);
+    fprintf('Successfully installed the latest %s version in %s\n', mfilename, folder);
+    clear functions %#ok<CLFUNC>
+    rehash
 end
 
 % Read a file from the web

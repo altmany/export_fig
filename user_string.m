@@ -1,9 +1,10 @@
-function string = user_string(string_name, string)
+function [string, file_name] = user_string(string_name, string)
 %USER_STRING  Get/set a user specific string
 %
 % Examples:
 %   string  = user_string(string_name)
 %   isSaved = user_string(string_name, new_string)
+%   [value, file_name] = user_string(...)
 %
 % Function to get and set a string in a system or user specific file. This
 % enables, for example, system specific paths to binaries to be saved.
@@ -20,6 +21,7 @@ function string = user_string(string_name, string)
 % OUT:
 %   string  - The currently saved string. Default: ''
 %   isSaved - Boolean indicating whether the save was succesful
+%   file_name - path of the .txt file used to contain the requested string
 
 % Copyright (C) Oliver Woodford 2011-2014, Yair Altman 2015-
 
@@ -33,6 +35,7 @@ function string = user_string(string_name, string)
 %              errors. Thanks to Christian for pointing this out.
 % 29/05/2015 - Save file in prefdir if current folder is non-writable (issue #74)
 % 09/01/2018 - Fix issue #232: if the string looks like a file/folder path, ensure it actually exists
+% 15/01/2020 - Added file_name output argument
 
     if ~ischar(string_name)
         error('string_name must be a string.');
@@ -41,6 +44,7 @@ function string = user_string(string_name, string)
     fname = [string_name '.txt'];
     dname = fullfile(fileparts(mfilename('fullpath')), '.ignore');
     file_name = fullfile(dname, fname);
+    default_file_name = file_name;
     if nargin > 1
         % Set string
         if ~ischar(string)
@@ -76,7 +80,8 @@ function string = user_string(string_name, string)
             end
             if fid == -1
                 string = false;
-                return;
+                file_name = default_file_name;
+                return
             end
         end
         try
@@ -97,6 +102,7 @@ function string = user_string(string_name, string)
             fid = fopen(file_name, 'rt');
             if fid == -1
                 string = '';
+                file_name = default_file_name;
                 return
             end
         end

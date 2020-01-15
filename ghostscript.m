@@ -10,8 +10,9 @@ function varargout = ghostscript(cmd)
 % 
 % Once found, the executable is called with the input command string.
 %
-% This function requires that you have Ghostscript installed on your
-% system. You can download this from: http://www.ghostscript.com
+% This function requires a Ghostscript installation on your system.
+% You can download Ghostscript from http://ghostscript.com (Windows/Linux)
+% or http://pages.uoregon.edu/koch (MacOS).
 %
 % IN:
 %   cmd - Command string to be passed into ghostscript.
@@ -41,6 +42,7 @@ function varargout = ghostscript(cmd)
 % 14/05/15 - Clarified warning message in case GS path could not be saved
 % 29/05/15 - Avoid cryptic error in case the ghostscipt path cannot be saved (issue #74)
 % 10/11/15 - Custom GS installation webpage for MacOS. Thanks to Andy Hueni via FEX
+% 15/01/20 - Various message cleanups/fixes in case of errors
 %}
 
     try
@@ -51,18 +53,24 @@ function varargout = ghostscript(cmd)
         url1 = 'https://github.com/altmany/export_fig/issues/12#issuecomment-61467998';  % issue #12
         url2 = 'https://github.com/altmany/export_fig/issues/20#issuecomment-63826270';  % issue #20
         hg2_str = ''; if using_hg2, hg2_str = ' or Matlab R2014a'; end
-        fprintf(2, 'Ghostscript error. Rolling back to GS 9.10%s may possibly solve this:\n * <a href="%s">%s</a> ',hg2_str,url1,url1);
+        fprintf(2, 'Ghostscript error. Rolling back to GS 9.10%s may possibly solve this:\n * %s ', hg2_str, hyperlink(url1));
         if using_hg2
-            fprintf(2, '(GS 9.10)\n * <a href="%s">%s</a> (R2014a)',url2,url2);
+            fprintf(2, '(GS 9.10)\n * %s (R2014a)', hyperlink(url2));
         end
         fprintf('\n\n');
         if ismac || isunix
             url3 = 'https://github.com/altmany/export_fig/issues/27';  % issue #27
-            fprintf(2, 'Alternatively, this may possibly be due to a font path issue:\n * <a href="%s">%s</a>\n\n',url3,url3);
+            fprintf(2, 'Alternatively, this may possibly be due to a font path issue:\n * %s\n\n', hyperlink(url3));
             % issue #20
-            fpath = which(mfilename);
-            if isempty(fpath), fpath = [mfilename('fullpath') '.m']; end
-            fprintf(2, 'Alternatively, if you are using csh, modify shell_cmd from "export..." to "setenv ..."\nat the bottom of <a href="matlab:opentoline(''%s'',174)">%s</a>\n\n',fpath,fpath);
+            % TODO: in Unix/Mac, find a way to automatically determine whether to use "export" (bash) or "setenv" (csh/tcsh)
+            if isdeployed
+                url = [mfilename '.m'];
+            else
+                fpath = which(mfilename);
+                if isempty(fpath), fpath = [mfilename('fullpath') '.m']; end
+                url = ['<a href="matlab:opentoline(''' fpath ''',201)">' fpath '</a>'];
+            end
+            fprintf(2, 'Alternatively, if you are using csh, modify shell_cmd from "export ..." to "setenv ..."\nat the bottom of %s\n\n', url);
         end
         rethrow(err);
     end
@@ -127,10 +135,12 @@ function path_ = gs_path
     while true
         if strncmp(computer, 'MAC', 3) % Is a Mac
             % Give separate warning as the uigetdir dialogue box doesn't have a
-            % title
-            uiwait(warndlg('Ghostscript not found. Please locate the program.'))
+            % title on MacOS
+            uiwait(warndlg('Ghostscript installation not found - please locate the program.', 'Ghostscript'))
+            base = uigetdir('/', 'Ghostcript program location');
+        else
+            base = uigetdir('/', 'Ghostcript program not found - please locate it');
         end
-        base = uigetdir('/', 'Ghostcript not found. Please locate the program.');
         if isequal(base, 0)
             % User hit cancel or closed window
             break;
@@ -149,10 +159,11 @@ function path_ = gs_path
         end
     end
     if ismac
-        error('Ghostscript not found. Have you installed it (http://pages.uoregon.edu/koch)?');
+        url = 'http://pages.uoregon.edu/koch';
     else
-        error('Ghostscript not found. Have you installed it from www.ghostscript.com?');
+        url = 'http://ghostscript.com';
     end
+    error('Ghostscript:NotFound', 'Ghostscript not found. Have you installed it from %s ?', hyperlink(url));
 end
 
 function good = check_store_gs_path(path_)
@@ -163,8 +174,9 @@ function good = check_store_gs_path(path_)
     end
     % Update the current default path to the path found
     if ~user_string('ghostscript', path_)
-        filename = fullfile(fileparts(which('user_string.m')), '.ignore', 'ghostscript.txt');
-        warning('Path to ghostscript installation could not be saved in %s (perhaps a permissions issue). You can manually create this file and set its contents to %s, to improve performance in future invocations (this warning is safe to ignore).', filename, path_);
+        %filename = fullfile(fileparts(which('user_string.m')), '.ignore', 'ghostscript.txt');
+        [unused, filename] = user_string('ghostscript'); %#ok<ASGLU>
+        warning('Ghostscript:path', 'Path to ghostscript installation could not be saved in %s (perhaps a permissions issue). You can manually create this file and set its contents to %s, to improve performance in future invocations (this warning is safe to ignore).', filename, path_);
         return
     end
 end
@@ -183,7 +195,7 @@ end
 
 function cmd = gs_command(path_)
     % Initialize any required system calls before calling ghostscript
-    % TODO: in Unix/Mac, find a way to determine whether to use "export" (bash) or "setenv" (csh/tcsh)
+    % TODO: in Unix/Mac, find a way to automatically determine whether to use "export" (bash) or "setenv" (csh/tcsh)
     shell_cmd = '';
     if isunix
         shell_cmd = 'export LD_LIBRARY_PATH=""; '; % Avoids an error on Linux with GS 9.07

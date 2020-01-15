@@ -56,6 +56,7 @@ function eps2pdf(source, dest, crop, append, gray, quality, gs_options)
 % 16/01/18: Improved appending of multiple EPS files into single PDF (issue #233; thanks @shartjen)
 % 18/10/19: Workaround for GS 9.51+ .setpdfwrite removal problem (issue #285)
 % 18/10/19: Warn when ignoring GS fontpath or quality options; clarified error messages
+% 15/01/20: Added information about the GS/destination filepath in case of error (issue #294)
 
     % Intialise the options string for ghostscript
     options = ['-q -dNOPAUSE -dBATCH -sDEVICE=pdfwrite -dPDFSETTINGS=/prepress -sOutputFile="' dest '"'];
@@ -177,13 +178,14 @@ function eps2pdf(source, dest, crop, append, gray, quality, gs_options)
 
         % Report error
         if isempty(message)
-            error('Unable to generate pdf. Ensure that the destination folder is writable.');
+            error(['Unable to generate pdf. Ensure that the destination folder (' fileparts(dest) ') is writable.']);
         elseif ~isempty(strfind(message,'/typecheck in /findfont')) %#ok<STREMP>
             % Suggest a workaround for issue #41 (missing font path)
             font_name = strtrim(regexprep(message,'.*Operand stack:\s*(.*)\s*Execution.*','$1'));
             fprintf(2, 'Ghostscript error: could not find the following font(s): %s\n', font_name);
-            fpath = fileparts(mfilename('fullpath'));
-            gs_fonts_file = fullfile(fpath, '.ignore', 'gs_font_path.txt');
+            %fpath = fileparts(mfilename('fullpath'));
+            %gs_fonts_file = fullfile(fpath, '.ignore', 'gs_font_path.txt');
+            [unused, gs_fonts_file] = user_string('gs_font_path'); %#ok<ASGLU>
             fprintf(2, '  try to add the font''s folder to your %s file\n\n', gs_fonts_file);
             error('export_fig error');
         else
@@ -191,7 +193,8 @@ function eps2pdf(source, dest, crop, append, gray, quality, gs_options)
             if ~isempty(gs_options)
                 fprintf(2, '  or maybe your Ghostscript version does not accept the extra "%s" option(s) that you requested\n', gs_options);
             end
-            fprintf(2, '  or maybe you have another gs executable in your system''s path\n');
+            fprintf(2, '  or maybe you have another gs executable in your system''s path\n\n');
+            fprintf(2, 'Ghostscript path: %s\n', user_string('ghostscript'));
             fprintf(2, 'Ghostscript options: %s\n\n', orig_options);
             error(message);
         end

@@ -31,6 +31,7 @@ function varargout = pdftops(cmd)
 % 03/05/2016 - Display the specific error message if pdftops fails for some reason (issue #148)
 % 22/09/2018 - Xpdf website changed to xpdfreader.com; improved popup logic
 % 03/02/2019 - Fixed one-off 'pdftops not found' error after install (Mac/Linux) (issue #266)
+% 15/01/2020 - Fixed reported path of pdftops.txt file in case of error; added warning ID
 
     % Call pdftops
     [varargout{1:nargout}] = system([xpdf_command(xpdf_path()) cmd]);
@@ -70,7 +71,7 @@ function path_ = xpdf_path
     % Ask the user to enter the path
     errMsg1 = 'Pdftops not found. Please locate the program, or install xpdf-tools from ';
     url1 = 'http://xpdfreader.com/download.html'; %='http://foolabs.com/xpdf';
-    fprintf(2, '%s\n', [errMsg1 '<a href="matlab:web(''-browser'',''' url1 ''');">' url1 '</a>']);
+    fprintf(2, '%s%s\n', errMsg1, hyperlink(url1));
     errMsg1 = [errMsg1 url1];
     %if strncmp(computer,'MAC',3) % Is a Mac
     %    % Give separate warning as the MacOS uigetdir dialogue box doesn't have a title
@@ -80,7 +81,7 @@ function path_ = xpdf_path
     % Provide an alternative possible explanation as per issue #137
     errMsg2 = 'If you have pdftops installed, perhaps Matlab is shaddowing it as described in ';
     url2 = 'https://github.com/altmany/export_fig/issues/137';
-    fprintf(2, '%s\n', [errMsg2 '<a href="matlab:web(''-browser'',''' url2 ''');">issue #137</a>']);
+    fprintf(2, '%s%s\n', errMsg2, hyperlink(url2,'issue #137'));
     errMsg2 = [errMsg2 url1];
 
     state = 1;
@@ -132,7 +133,9 @@ function good = check_store_xpdf_path(path_)
     end
     % Update the current default path to the path found
     if ~user_string('pdftops', path_)
-        warning('Path to pdftops executable could not be saved. Enter it manually in %s.', fullfile(fileparts(which('user_string.m')), '.ignore', 'pdftops.txt'));
+        %filename = fullfile(fileparts(which('user_string.m')), '.ignore', 'pdftops.txt');
+        [unused, filename] = user_string('pdftops'); %#ok<ASGLU>
+        warning('export_fig:pdftops','Path to pdftops executable could not be saved. Enter it manually in %s.', filename);
         return
     end
 end
