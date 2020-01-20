@@ -57,6 +57,7 @@ function eps2pdf(source, dest, crop, append, gray, quality, gs_options)
 % 18/10/19: Workaround for GS 9.51+ .setpdfwrite removal problem (issue #285)
 % 18/10/19: Warn when ignoring GS fontpath or quality options; clarified error messages
 % 15/01/20: Added information about the GS/destination filepath in case of error (issue #294)
+% 20/01/20: Attempted fix for issue #285: unsupported patch transparency in some Ghostscript versions
 
     % Intialise the options string for ghostscript
     options = ['-q -dNOPAUSE -dBATCH -sDEVICE=pdfwrite -dPDFSETTINGS=/prepress -sOutputFile="' dest '"'];
@@ -154,12 +155,25 @@ function eps2pdf(source, dest, crop, append, gray, quality, gs_options)
 
     % Check for error
     if status
+        % Catch and correct undefined .setopacityalpha errors (issue #285)
+        % (see explanation inside print2eps.m)
+        if ~isempty(regexpi(message,'undefined in .setopacityalpha'))
+            fstrm = read_write_entire_textfile(source);
+            fstrm = regexprep(fstrm, '0?\.\d+ .setopacityalpha \w+\n', '');
+            read_write_entire_textfile(source, fstrm);
+            [status, message] = ghostscript(options);
+            if ~status % hurray! (no error)
+                warning('export_fig:GS:quality','Export_fig Face/Edge alpha transparancy is ignored - not supported by your Ghostscript version')
+                return
+            end
+        end
+
         % Retry without the -sFONTPATH= option (this might solve some GS
         % /findfont errors according to James Rankin, FEX Comment 23/01/15)
         orig_options = options;
         if ~isempty(fp)
             options = regexprep(options, ' -sFONTPATH=[^ ]+ ',' ');
-            status = ghostscript(options);
+            [status, message] = ghostscript(options);
             if ~status % hurray! (no error)
                 warning('export_fig:GS:fontpath','Export_fig font option is ignored - not supported by your Ghostscript version')
                 return
@@ -189,11 +203,17 @@ function eps2pdf(source, dest, crop, append, gray, quality, gs_options)
             fprintf(2, '  try to add the font''s folder to your %s file\n\n', gs_fonts_file);
             error('export_fig error');
         else
-            fprintf(2, '\nGhostscript error: perhaps %s is open by another application\n', dest);
-            if ~isempty(gs_options)
-                fprintf(2, '  or maybe your Ghostscript version does not accept the extra "%s" option(s) that you requested\n', gs_options);
+            gs_options = strtrim(gs_options);
+            fprintf(2, '\nGhostscript error: ');
+            msg = regexprep(message, '^Error: /([^\n]+).*', '$1');
+            if ~isempty(msg) && ~strcmp(msg,message)
+                fprintf(2,'%s',msg);
             end
-            fprintf(2, '  or maybe you have another gs executable in your system''s path\n\n');
+            fprintf(2, '\n * perhaps %s is open by another application\n', dest);
+            if ~isempty(gs_options)
+                fprintf(2, ' * or maybe your Ghostscript version does not accept the extra "%s" option(s) that you requested\n', gs_options);
+            end
+            fprintf(2, ' * or maybe you have another gs executable in your system''s path\n\n');
             fprintf(2, 'Ghostscript path: %s\n', user_string('ghostscript'));
             fprintf(2, 'Ghostscript options: %s\n\n', orig_options);
             error(message);

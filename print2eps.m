@@ -104,6 +104,7 @@ function print2eps(name, fig, export_options, varargin)
 % 12/06/19: Issue #277: Enabled preservation of figure's PaperSize in output PDF/EPS file
 % 06/08/19: Issue #281: only fix patch/textbox color if it's not opaque
 % 15/01/20: Added warning ID for easier suppression by users
+% 20/01/20: Added comment about unsupported patch transparency in some Ghostscript versions (issue #285)
 %}
 
     options = {'-loose'};
@@ -615,6 +616,8 @@ function [StoredColors, fstrm, foundFlags] = eps_maintainAlpha(fig, fstrm, Store
                 origAlpha = num2str(round(double(origColor(end)) /255,3),'%.3g'); %Convert alpha value for EPS
 
                 %Find and replace the RGBA values within the EPS text fstrm
+                %Note: .setopacityalpha is an unsupported PS extension that coraks in some GS versions (issue #285, https://bugzilla.redhat.com/show_bug.cgi?id=1632030)
+                %      (such cases are caught in eps2pdf.m and corrected by removing the .setopacityalpha line)
                 if strcmpi(propName,'Face')
                     oldStr = sprintf(['\n' colorID ' RC\n']);  % ...N\n (removed to fix issue #225)
                     newStr = sprintf(['\n' origRGB ' RC\n' origAlpha ' .setopacityalpha true\n']);  % ...N\n

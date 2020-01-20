@@ -294,15 +294,15 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 % 15/12/19: Added promo message
 % 08/01/20: (3.00) Added check for newer version online (initialized to version 3.00)
 % 15/01/20: (3.01) Clarified/fixed error messages; added error IDs; easier -update; various other small fixes
+% 20/01/20: (3.02) Attempted fix for issue #285: unsupported patch transparency in some Ghostscript versions; improved suggested fixes message upon error
 %}
 
     % Check for newer version (not too often)
-    checkForNewerVersion(3.01);
+    checkForNewerVersion(3.02);
 
     if nargout
         [imageData, alpha] = deal([]);
     end
-    hadError = false;
     displaySuggestedWorkarounds = true;
 
     % Ensure the figure is rendered correctly _now_ so that properties like axes limits are up-to-date
@@ -1081,19 +1081,21 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
         % Display possible workarounds before the error message
         if displaySuggestedWorkarounds && ~strcmpi(err.message,'export_fig error')
             isNewerVersionAvailable = checkForNewerVersion();  % alert if a newer version exists
-            if ~hadError,  fprintf(2, 'export_fig error. ');  end
+            if isempty(regexpi(err.message,'Ghostscript'))
+                fprintf(2, 'export_fig error. ');
+            end
             fprintf(2, 'Please ensure:\n');
-            fprintf(2, '  that the function you used (%s.m) is from the expected location\n', mfilename('fullpath'));
+            fprintf(2, ' * that the function you used (%s.m) is from the expected location\n', mfilename('fullpath'));
             paths = which(mfilename,'-all');
             if iscell(paths) && numel(paths) > 1
                 fprintf(2, '    (you appear to have %s of export_fig installed)\n', hyperlink('matlab:which export_fig -all','multiple versions'));
             end
             if isNewerVersionAvailable
-                fprintf(2, '  and that you are using the %s of export_fig (you are not: run %s to update it)\n', ...
+                fprintf(2, ' * and that you are using the %s of export_fig (you are not: run %s to update it)\n', ...
                         hyperlink('https://github.com/altmany/export_fig/archive/master.zip','latest version'), ...
                         hyperlink('matlab:export_fig(''-update'')','export_fig(''-update'')'));
             end
-            fprintf(2, '  and that you did not made a mistake in export_fig''s %s\n', hyperlink('matlab:help export_fig','expected input arguments'));
+            fprintf(2, ' * and that you did not made a mistake in export_fig''s %s\n', hyperlink('matlab:help export_fig','expected input arguments'));
             if isvector(options)
                 if ismac
                     url = 'http://pages.uoregon.edu/koch';
@@ -1101,14 +1103,14 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                     url = 'http://ghostscript.com';
                 end
                 fpath = user_string('ghostscript');
-                fprintf(2, '  and that %s is properly installed in %s\n', ...
+                fprintf(2, ' * and that %s is properly installed in %s\n', ...
                         hyperlink(url,'ghostscript'), ...
                         hyperlink(['matlab:winopen(''' fileparts(fpath) ''')'], fpath));
             end
             try
                 if options.eps
                     fpath = user_string('pdftops');
-                    fprintf(2, '  and that %s is properly installed in %s\n', ...
+                    fprintf(2, ' * and that %s is properly installed in %s\n', ...
                             hyperlink('http://xpdfreader.com/download.html','pdftops'), ...
                             hyperlink(['matlab:winopen(''' fileparts(fpath) ''')'], fpath));
                 end
@@ -1118,7 +1120,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
             try
                 % Alert per issue #149
                 if ~strncmpi(get(0,'Units'),'pixel',5)
-                    fprintf(2, '  or try to set groot''s Units property back to its default value of ''pixels'' (%s)\n', hyperlink('https://github.com/altmany/export_fig/issues/149','details'));
+                    fprintf(2, ' * or try to set groot''s Units property back to its default value of ''pixels'' (%s)\n', hyperlink('https://github.com/altmany/export_fig/issues/149','details'));
                 end
             catch
                 % ignore - maybe an old MAtlab release
