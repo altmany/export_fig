@@ -58,6 +58,7 @@ function eps2pdf(source, dest, crop, append, gray, quality, gs_options)
 % 18/10/19: Warn when ignoring GS fontpath or quality options; clarified error messages
 % 15/01/20: Added information about the GS/destination filepath in case of error (issue #294)
 % 20/01/20: Attempted fix for issue #285: unsupported patch transparency in some Ghostscript versions
+% 12/02/20: Improved fix for issue #285: add -dNOSAFER and -dALLOWPSTRANSPARENCY (thanks @linasstonys)
 
     % Intialise the options string for ghostscript
     options = ['-q -dNOPAUSE -dBATCH -sDEVICE=pdfwrite -dPDFSETTINGS=/prepress -sOutputFile="' dest '"'];
@@ -158,13 +159,24 @@ function eps2pdf(source, dest, crop, append, gray, quality, gs_options)
         % Catch and correct undefined .setopacityalpha errors (issue #285)
         % (see explanation inside print2eps.m)
         if ~isempty(regexpi(message,'undefined in .setopacityalpha'))
-            fstrm = read_write_entire_textfile(source);
-            fstrm = regexprep(fstrm, '0?\.\d+ .setopacityalpha \w+\n', '');
-            read_write_entire_textfile(source, fstrm);
-            [status, message] = ghostscript(options);
-            if ~status % hurray! (no error)
-                warning('export_fig:GS:quality','Export_fig Face/Edge alpha transparancy is ignored - not supported by your Ghostscript version')
+            % First try with -dNOSAFER and -dALLOWPSTRANSPARENCY  (thanks @linasstonys)
+            new_options = [options ' -dNOSAFER -dALLOWPSTRANSPARENCY'];
+            [status, message] = ghostscript(new_options);
+            if ~status  % hurray! (no error)
                 return
+            elseif isempty(regexpi(message,'undefined in .setopacityalpha'))  % still some other error
+                options = new_options;
+            else  % we still get a .setopacityalpha error
+                % Remove the transparency and retry
+                fstrm = read_write_entire_textfile(source);
+                fstrm = regexprep(fstrm, '0?\.\d+ .setopacityalpha \w+\n', '');
+                read_write_entire_textfile(source, fstrm);
+                [status, message] = ghostscript(options);
+                if ~status % hurray! (no error)
+                    % Alert the user that transparency is not supported
+                    warning('export_fig:GS:quality','Export_fig Face/Edge alpha transparancy is ignored - not supported by your Ghostscript version')
+                    return
+                end
             end
         end
 
