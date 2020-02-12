@@ -616,8 +616,8 @@ function [StoredColors, fstrm, foundFlags] = eps_maintainAlpha(fig, fstrm, Store
                 origAlpha = num2str(round(double(origColor(end)) /255,3),'%.3g'); %Convert alpha value for EPS
 
                 %Find and replace the RGBA values within the EPS text fstrm
-                %Note: .setopacityalpha is an unsupported PS extension that coraks in some GS versions (issue #285, https://bugzilla.redhat.com/show_bug.cgi?id=1632030)
-                %      (such cases are caught in eps2pdf.m and corrected by removing the .setopacityalpha line)
+                %Note: .setopacityalpha is an unsupported PS extension that croaks in some GS versions (issue #285, https://bugzilla.redhat.com/show_bug.cgi?id=1632030)
+                %      (such cases are caught in eps2pdf.m and corrected by adding the -dNOSAFER Ghosscript option or by removing the .setopacityalpha line)
                 if strcmpi(propName,'Face')
                     oldStr = sprintf(['\n' colorID ' RC\n']);  % ...N\n (removed to fix issue #225)
                     newStr = sprintf(['\n' origRGB ' RC\n' origAlpha ' .setopacityalpha true\n']);  % ...N\n
