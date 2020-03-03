@@ -295,10 +295,11 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 % 08/01/20: (3.00) Added check for newer version online (initialized to version 3.00)
 % 15/01/20: (3.01) Clarified/fixed error messages; added error IDs; easier -update; various other small fixes
 % 20/01/20: (3.02) Attempted fix for issue #285: unsupported patch transparency in some Ghostscript versions; improved suggested fixes message upon error
+% 03/03/20: (3.03) Suggest to upload problematic EPS file in case of a Ghostscript error in eps2pdf (& don't delete this file)
 %}
 
     % Check for newer version (not too often)
-    checkForNewerVersion(3.02);
+    checkForNewerVersion(3.03);
 
     if nargout
         [imageData, alpha] = deal([]);
@@ -534,6 +535,8 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
     end
 
     try
+        tmp_nam = '';  % initialize
+
         % Do the bitmap formats first
         if isbitmap(options)
             if abs(options.bb_padding) > 1
@@ -874,8 +877,8 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
             catch ex
                 % Restore the figure's previous background color (in case it was not already restored)
                 try set(fig,'Color',originalBgColor); drawnow; catch, end
-                % Delete the eps
-                delete(tmp_nam);
+                % Delete the temporary eps file - NOT! (Yair 3/3/2020)
+                %delete(tmp_nam);
                 % Rethrow the EPS/PDF-generation error
                 rethrow(ex);
             end
@@ -1125,7 +1128,11 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
             catch
                 % ignore - maybe an old MAtlab release
             end
-            fprintf(2, '\nIf the problem persists, then please %s.\n\n', hyperlink('https://github.com/altmany/export_fig/issues','report a new issue'));
+            fprintf(2, '\nIf the problem persists, then please %s.\n', hyperlink('https://github.com/altmany/export_fig/issues','report a new issue'));
+            if exist(tmp_nam,'file')
+                fprintf(2, 'In your report, please upload the problematic EPS file: %s (you can then delete this file).\n', tmp_nam);
+            end
+            fprintf(2, '\n');
         end
         rethrow(err)
     end
