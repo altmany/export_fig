@@ -51,6 +51,7 @@ function [A, bcol] = print2array(fig, res, renderer, gs_options)
 % 07/07/15: Fixed issue #83: use numeric handles in HG1
 % 11/12/16: Fixed cropping issue reported by Harry D.
 % 29/09/18: Fixed issue #254: error in print2array>read_tif_img
+% 22/03/20: Alert if ghostscript.m is required but not found on Matlab path
 %}
 
     % Generate default input arguments, if needed
@@ -109,6 +110,10 @@ function [A, bcol] = print2array(fig, res, renderer, gs_options)
             [A, err, ex] = read_tif_img(fig, res_str, renderer, tmp_nam);
             if err, rethrow(ex); end
         catch  % error - try to print to EPS and then using Ghostscript to TIF
+            % Ensure that ghostscript() exists on the Matlab path
+            if ~exist('ghostscript','file') && isempty(which('ghostscript'))
+                error('export_fig:print2array:ghostscript', 'The ghostscript.m function is required by print2array.m. Install the complete export_fig package from https://www.mathworks.com/matlabcentral/fileexchange/23629-export_fig or https://github.com/altmany/export_fig')
+            end
             % Print to eps file
             if isTempDirOk
                 tmp_eps = [tempname '.eps'];
