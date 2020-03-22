@@ -296,10 +296,11 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 % 15/01/20: (3.01) Clarified/fixed error messages; added error IDs; easier -update; various other small fixes
 % 20/01/20: (3.02) Attempted fix for issue #285: unsupported patch transparency in some Ghostscript versions; improved suggested fixes message upon error
 % 03/03/20: (3.03) Suggest to upload problematic EPS file in case of a Ghostscript error in eps2pdf (& don't delete this file)
+% 22/03/20: (3.04) Workaround for issue #15; alert if ghostscript file not found on Matlab path
 %}
 
     % Check for newer version (not too often)
-    checkForNewerVersion(3.03);
+    checkForNewerVersion(3.04);
 
     if nargout
         [imageData, alpha] = deal([]);
@@ -611,6 +612,14 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 
                 % Set the background colour (and size) back to normal
                 set(fig, 'Color', tcol, 'Position', pos);
+                % Workaround for issue #15
+                szA = size(A);
+                szB = size(B);
+                if ~isequal(szA,szB)
+                    A = A(1:min(szA(1),szB(1)), 1:min(szA(2),szB(2)), :);
+                    B = B(1:min(szA(1),szB(1)), 1:min(szA(2),szB(2)), :);
+                    warning('export_fig:bitmap:sizeMismatch','Problem detected by export_fig generation of a bitmap image; the generated export may look bad. Try to reduce the figure size to fit the screen, or avoid using export_fig''s -transparent option.')
+                end
                 % Compute the alpha map
                 alpha = round(sum(B - A, 3)) / (255 * 3) + 1;
                 A = alpha;
