@@ -19,7 +19,7 @@
 %    input_list - cell array list of input file name strings. All input
 %                 files are appended in order.
 
-% Copyright: Oliver Woodford, 2011
+% Copyright: Oliver Woodford, 2011-2014, Yair Altman 2015-
 
 % Thanks to Reinhard Knoll for pointing out that appending multiple pdfs in
 % one go is much faster than appending them one at a time.
@@ -37,10 +37,16 @@
 % 24/01/18: Fixed error in case of existing output file (append mode)
 % 24/01/18: Fixed issue #213: non-ASCII characters in folder names on Windows
 % 06/12/18: Avoid an "invalid escape-char" warning upon error
+% 22/03/20: Alert if ghostscript.m is not found on Matlab path
 
 function append_pdfs(varargin)
 
     if nargin < 2,  return;  end  % sanity check
+
+    % Ensure that ghostscript() exists on the Matlab path
+    if ~exist('ghostscript','file')
+        error('export_fig:append_pdfs:ghostscript', 'The ghostscript.m function is required by append_pdf. Install the compleet export_fig package from https://www.mathworks.com/matlabcentral/fileexchange/23629-export_fig or https://github.com/altmany/export_fig')
+    end
 
     % Are we appending or creating a new file
     append = exist(varargin{1}, 'file') == 2;
