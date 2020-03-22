@@ -45,7 +45,7 @@ function append_pdfs(varargin)
 
     % Ensure that ghostscript() exists on the Matlab path
     if ~exist('ghostscript','file')
-        error('export_fig:append_pdfs:ghostscript', 'The ghostscript.m function is required by append_pdf. Install the complete export_fig package from https://www.mathworks.com/matlabcentral/fileexchange/23629-export_fig or https://github.com/altmany/export_fig')
+        error('export_fig:append_pdfs:ghostscript', 'The ghostscript.m function is required by append_pdf.m. Install the complete export_fig package from https://www.mathworks.com/matlabcentral/fileexchange/23629-export_fig or https://github.com/altmany/export_fig')
     end
 
     % Are we appending or creating a new file
