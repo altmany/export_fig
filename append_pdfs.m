@@ -1,9 +1,11 @@
+function append_pdfs(varargin)
 %APPEND_PDFS Appends/concatenates multiple PDF files
 %
 % Example:
-%   append_pdfs(output, input1, input2, ...)
-%   append_pdfs(output, input_list{:})
-%   append_pdfs test.pdf temp1.pdf temp2.pdf
+%   append_pdfs(outputFilename, inputFilename1, inputFilename2, ...)
+%   append_pdfs(outputFilename, inputFilenames_list{:})
+%   append_pdfs(outputFilename, inputFilenames_cell_or_string_array)
+%   append_pdfs output.pdf input1.pdf input2.pdf
 %
 % This function appends multiple PDF files to an existing PDF file, or
 % concatenates them into a PDF file if the output file doesn't yet exist.
@@ -21,16 +23,15 @@
 
 % Copyright: Oliver Woodford, 2011-2014, Yair Altman 2015-
 
+%{
 % Thanks to Reinhard Knoll for pointing out that appending multiple pdfs in
 % one go is much faster than appending them one at a time.
 
 % Thanks to Michael Teo for reporting the issue of a too long command line.
 % Issue resolved on 5/5/2011, by passing gs a command file.
 
-% Thanks to Martin Wittmann for pointing out the quality issue when
-% appending multiple bitmaps.
-% Issue resolved (to best of my ability) 1/6/2011, using the prepress
-% setting
+% Thanks to Martin Wittmann for pointing out quality issue when appending bitmaps
+% Issue resolved (to best of my ability) 1/6/2011, using the prepress setting
 
 % 26/02/15: If temp dir is not writable, use the output folder for temp
 %           files when appending (Javier Paredes); sanity check of inputs
@@ -38,10 +39,18 @@
 % 24/01/18: Fixed issue #213: non-ASCII characters in folder names on Windows
 % 06/12/18: Avoid an "invalid escape-char" warning upon error
 % 22/03/20: Alert if ghostscript.m is not found on Matlab path
-
-function append_pdfs(varargin)
+% 29/03/20: Accept a cell-array of input files (issue #299); accept both "strings", 'chars'
+%}
 
     if nargin < 2,  return;  end  % sanity check
+
+    % Convert strings => chars; strtrim extra spaces
+    varargin = cellfun(@str2char,varargin,'un',false);
+
+    % Convert cell array into individual strings (issue #299)
+    if nargin==2 && iscell(varargin{2})
+        varargin = {varargin{1} varargin{2}{:}}; %#ok<CCAT>
+    end
 
     % Ensure that ghostscript() exists on the Matlab path
     if ~exist('ghostscript','file')
@@ -127,4 +136,16 @@ function pathStr = normalizePath(pathStr)
     end
     fpath = normalizePath(fpath);  %recursive until entire fpath is processed
     pathStr = fullfile(fpath, shortName);
+end
+
+% Convert a possible string => char
+function value = str2char(value)
+    try
+        value = controllib.internal.util.hString2Char(value);
+    catch
+        if isa(value,'string')
+            value = char(value);
+        end
+    end
+    value = strtrim(value);
 end
