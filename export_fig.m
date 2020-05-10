@@ -297,10 +297,11 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 % 20/01/20: (3.02) Attempted fix for issue #285: unsupported patch transparency in some Ghostscript versions; improved suggested fixes message upon error
 % 03/03/20: (3.03) Suggest to upload problematic EPS file in case of a Ghostscript error in eps2pdf (& don't delete this file)
 % 22/03/20: (3.04) Workaround for issue #15; alert if ghostscript file not found on Matlab path
+% 10/05/20: (3.05) Fix the generated SVG file, based on Cris Luengo's SVG_FIX_VIEWBOX; don't generate PNG when only SVG is requested
 %}
 
     % Check for newer version (not too often)
-    checkForNewerVersion(3.04);
+    checkForNewerVersion(3.05);
 
     if nargout
         [imageData, alpha] = deal([]);
@@ -329,6 +330,8 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
     fig = get(0, 'CurrentFigure');
     [fig, options] = parse_args(nargout, fig, varargin{:});
 
+    % exportgraphics/copygraphics - here & in README.md
+    
     % Ensure that we have a figure handle
     if isequal(fig,-1)
         return  % silent bail-out
@@ -978,6 +981,27 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
             if any(~isnan(options.crop_amounts)) || any(options.bb_padding)
                 warning('export_fig:SVG:options', 'export_fig''s SVG output does not [currently] support cropping/padding.');
             end
+
+            % Fix the generated SVG file, based on Cris Luengo's SVG_FIX_VIEWBOX:
+            % https://www.mathworks.com/matlabcentral/fileexchange/49617-svg_fix_viewbox-in_name-varargin
+            try
+                % Read SVG file
+                s = read_write_entire_textfile(filename);
+                % Fix fonts #1: 'SansSerif' doesn't work on my browser, the correct CSS is 'sans-serif'
+                s = regexprep(s,'font-family:SansSerif;|font-family:''SansSerif'';','font-family:''sans-serif'';');
+                % Fix fonts #1: The document-wide default font is 'Dialog'. What is this anyway?
+                s = regexprep(s,'font-family:''Dialog'';','font-family:''sans-serif'';');
+                % Replace 'width="xxx" height="yyy"' with 'width="100%" viewBox="0 0 xxx yyy"'
+                t = regexp(s,'<svg.* width="(?<width>[0-9]*)" height="(?<height>[0-9]*)"','names');
+                if ~isempty(t)
+                    relativeWidth = 100;  %TODO - user-settable via input parameter?
+                    s = regexprep(s,'(?<=<svg[^\n]*) width="[0-9]*" height="[0-9]*"',sprintf(' width="%d\\%%" viewBox="0 0 %s %s"',relativeWidth,t.width,t.height));
+                end
+                % Write updated SVG file
+                read_write_entire_textfile(filename, s);
+            catch
+                % never mind - ignore
+            end
         end
 
         % Revert the figure or close it (if requested)
@@ -1412,7 +1436,7 @@ function [fig, options] = parse_args(nout, fig, varargin)
     end
 
     % Set the default format
-    if ~isvector(options) && ~isbitmap(options)
+    if ~isvector(options) && ~isbitmap(options) && ~options.svg
         options.png = true;
     end
 
