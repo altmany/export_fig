@@ -21,7 +21,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 %   export_fig ... -<colorspace>
 %   export_fig ... -append
 %   export_fig ... -bookmark
-%   export_fig ... -clipboard
+%   export_fig ... -clipboard<:format>
 %   export_fig ... -update
 %   export_fig ... -nofontswap
 %   export_fig ... -font_space <char>
@@ -46,8 +46,8 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 %   - Variable image compression, including lossless (pdf, eps, jpg)
 %   - Optional rounded line-caps (pdf, eps)
 %   - Optionally append to file (pdf, tif)
-%   - Vector formats: pdf, eps, svg
-%   - Bitmap formats: png, tif, jpg, bmp, export to workspace
+%   - Vector formats: pdf, eps, emf, svg
+%   - Bitmap formats: png, tif, jpg, bmp, clipboard, export to workspace
 %
 % This function is especially suited to exporting figures for use in
 % publications and presentations, because of the high quality and
@@ -73,15 +73,14 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 %
 % When exporting to vector format (PDF & EPS) and bitmap format using the
 % painters renderer, this function requires that ghostscript is installed
-% on your system. You can download this from:
-%   http://www.ghostscript.com
+% on your system. You can download this from: http://www.ghostscript.com
 % When exporting to EPS it additionally requires pdftops, from the Xpdf
 % suite of functions. You can download this from: http://xpdfreader.com
 %
 % SVG output uses the fig2svg (https://github.com/kupiqu/fig2svg) or plot2svg
 % (https://github.com/jschwizer99/plot2svg) utilities, or Matlab's built-in
 % SVG export if neither of these utilities are available on Matlab's path.
-% Note: cropping/padding are not supported in export_fig's SVG output.
+% Note: cropping/padding are not supported in export_fig's SVG and EMF output.
 %
 % Inputs:
 %   filename - string containing the name (optionally including full or
@@ -92,41 +91,49 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 %             file extension nor a format are specified, a ".png" is added
 %             and the figure saved in that format.
 %   -<format> - string(s) containing the output file extension(s). Options:
-%             '-pdf', '-eps', '-svg', '-png', '-tif', '-jpg' and '-bmp'.
+%             '-pdf', '-eps', 'emf', '-svg', '-png', '-tif', '-jpg' and '-bmp'.
 %             Multiple formats can be specified, without restriction.
 %             For example: export_fig('-jpg', '-pdf', '-png', ...)
-%             Either '-tif','-tiff' can be specified, and either '-jpg','-jpeg'.
+%             Note: '-tif','-tiff' are equivalent, and so are '-jpg','-jpeg'.
+%   -transparent - option indicating that the figure background is to be made
+%             transparent (PNG,PDF,TIF,EPS,EMF formats only). Implies -noinvert.
 %   -nocrop - option indicating that empty margins should not be cropped.
 %   -c[<val>,<val>,<val>,<val>] - option indicating crop amounts. Must be
 %             a 4-element vector of numeric values: [top,right,bottom,left]
-%             where NaN/Inf indicate auto-cropping, 0 means no cropping,
-%             and any other value mean cropping in pixel amounts.
-%   -transparent - option indicating that the figure background is to be made
-%             transparent (PNG,PDF,TIF,EPS formats only). Implies -noinvert.
-%   -m<val> - option where val indicates the factor to magnify the
-%             on-screen figure pixel dimensions by when generating bitmap
-%             outputs (does not affect vector formats). Default: '-m1'.
+%             where NaN/Inf indicates auto-cropping, 0 means no cropping, any
+%             other value means cropping in pixel amounts. e.g. '-c7,15,0,NaN'
+%             Note: this option is not supported by SVG and EMF formats.
+%   -p<val> - option to pad a border of width val to exported files, where
+%             val is either a relative size with respect to cropped image
+%             size (i.e. p=0.01 adds a 1% border). For EPS & PDF formats,
+%             val can also be integer in units of 1/72" points (abs(val)>1).
+%             val can be positive (padding) or negative (extra cropping).
+%             If used, the -nocrop flag will be ignored, i.e. the image will
+%             always be cropped and then padded. Default: 0 (i.e. no padding).
+%             Note: this option is not supported by SVG and EMF formats.
+%   -m<val> - option val indicates the factor to magnify the figure dimensions
+%             when generating bitmap outputs (does not affect vector formats).
+%             Default: '-m1' (i.e. val=1). Note: val~=1 slows down export_fig.
 %   -r<val> - option val indicates the resolution (in pixels per inch) to
-%             export bitmap and vector outputs at, keeping the dimensions
-%             of the on-screen figure. Default: '-r864' (for vector output
-%             only). Note that the -m option overides the -r option for
-%             bitmap outputs only.
+%             export bitmap and vector outputs, without changing dimensions of
+%             the on-screen figure. Default: '-r864' (for vector output only).
+%             Note: -m option overides -r option for bitmap exports only.
 %   -native - option indicating that the output resolution (when outputting
 %             a bitmap format) should be such that the vertical resolution
 %             of the first suitable image found in the figure is at the
 %             native resolution of that image. To specify a particular
-%             image to use, give it the tag 'export_fig_native'. Notes:
-%             This overrides any value set with the -m and -r options. It
-%             also assumes that the image is displayed front-to-parallel
+%             image to use, give it the tag 'export_fig_native'. 
+%             Notes: This overrides any value set with the -m and -r options.
+%             It also assumes that the image is displayed front-to-parallel
 %             with the screen. The output resolution is approximate and
 %             should not be relied upon. Anti-aliasing can have adverse
 %             effects on image quality (disable with the -a1 option).
-%   -a1, -a2, -a3, -a4 - option indicating the amount of anti-aliasing to use
-%             for bitmap outputs. '-a1' means no anti-aliasing; '-a4' is the
-%             maximum amount (default: 3 for painters/HG1, 1 for openGL on HG2).
+%   -a1, -a2, -a3, -a4 - option indicating the amount of anti-aliasing (AA) to
+%             use for bitmap outputs, when GraphicsSmoothing is not available.
+%             '-a1'=no AA; '-a4'=max. Default: 3 for HG1, 1 for HG2.
 %   -<renderer> - option to force a particular renderer (painters, opengl or
-%             zbuffer). Default value: opengl for bitmap formats or
-%             figures with patches and/or transparent annotations;
+%             [in R2014a or older] zbuffer). Default value: opengl for bitmap
+%             formats or figures with patches and/or transparent annotations;
 %             painters for vector formats without patches/transparencies.
 %   -<colorspace> - option indicating which colorspace color figures should
 %             be saved in: RGB (default), CMYK or gray. Usage example: '-gray'.
@@ -137,20 +144,21 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 %             Default: '-q95' for JPG, ghostscript prepress default for PDF,EPS.
 %             Note: lossless compression can sometimes give a smaller file size
 %             than the default lossy compression, depending on the image type.
-%   -p<val> - option to pad a border of width val to exported files, where
-%             val is either a relative size with respect to cropped image
-%             size (i.e. p=0.01 adds a 1% border). For EPS & PDF formats,
-%             val can also be integer in units of 1/72" points (abs(val)>1).
-%             val can be positive (padding) or negative (extra cropping).
-%             If used, the -nocrop flag will be ignored, i.e. the image will
-%             always be cropped and then padded. Default: 0 (i.e. no padding).
 %   -append - option indicating that if the file already exists the figure is to
 %             be appended as a new page, instead of being overwritten (default).
 %             PDF & TIF output formats only.
 %   -bookmark - option to indicate that a bookmark with the name of the
 %             figure is to be created in the output file (PDF format only).
 %   -clipboard - option to save output as an image on the system clipboard.
-%             Note: background transparency is not preserved in clipboard
+%   -clipboard<:format> - copies to clipboard in the specified format:
+%             image (default), bitmap, emf, or pdf.
+%             Notes: Only -clipboard (or -clipboard:image, which is the same)
+%                    applies export_fig parameters such as cropping, padding etc.
+%                    Only the emf format supports -transparent background
+%             -clipboard:image  create a bitmap image using export_fig processing
+%             -clipboard:bitmap create a bitmap image as-is (no auto-cropping etc.)
+%             -clipboard:emf is vector format without auto-cropping; Windows-only
+%             -clipboard:pdf is vector format without cropping; not universally supported
 %   -d<gs_option> - option to indicate a ghostscript setting. For example,
 %             -dMaxBitmap=0 or -dNoOutputFonts (Ghostscript 9.15+).
 %   -depsc -  option to use EPS level-3 rather than the default level-2 print
@@ -298,10 +306,12 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 % 03/03/20: (3.03) Suggest to upload problematic EPS file in case of a Ghostscript error in eps2pdf (& don't delete this file)
 % 22/03/20: (3.04) Workaround for issue #15; alert if ghostscript file not found on Matlab path
 % 10/05/20: (3.05) Fix the generated SVG file, based on Cris Luengo's SVG_FIX_VIEWBOX; don't generate PNG when only SVG is requested
+% 02/07/20: (3.06) Significantly improved performance (speed) and fidelity of bitmap images; return alpha matrix for bitmap images; fixed -update bug (issue #302); added EMF output; added -clipboard formats (image,bitmap,emf,pdf); added hints for exportgraphics/copygraphics usage in certain use-cases; added description of new version features in the update message; fixed issue #306 (yyaxis cropping); fixed EPS/PDF auto-cropping with -transparent
 %}
 
     % Check for newer version (not too often)
-    checkForNewerVersion(3.05);
+    currentVersion = 3.06;
+    checkForNewerVersion(3.06);  % ...(currentVersion) is better but breaks in version 3.05- due to regexp limitation in checkForNewerVersion()
 
     if nargout
         [imageData, alpha] = deal([]);
@@ -310,7 +320,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 
     % Ensure the figure is rendered correctly _now_ so that properties like axes limits are up-to-date
     drawnow;
-    pause(0.05);  % this solves timing issues with Java Swing's EDT (http://undocumentedmatlab.com/blog/solving-a-matlab-hang-problem)
+    pause(0.02);  % this solves timing issues with Java Swing's EDT (http://undocumentedmatlab.com/blog/solving-a-matlab-hang-problem)
 
     % Display promo (just once!)
     persistent promo
@@ -330,8 +340,9 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
     fig = get(0, 'CurrentFigure');
     [fig, options] = parse_args(nargout, fig, varargin{:});
 
-    % exportgraphics/copygraphics - here & in README.md
-    
+    % Hint to users to use exportgraphics/copygraphics in certain cases
+    alertForExportOrCopygraphics(options);
+
     % Ensure that we have a figure handle
     if isequal(fig,-1)
         return  % silent bail-out
@@ -408,6 +419,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
         % Get the old InvertHardcopy mode
         old_mode = get(fig, 'InvertHardcopy');
     end
+    % from this point onward, fig is assured to be a figure handle
 
     % Hack the font units where necessary (due to a font rendering bug in print?).
     % This may not work perfectly in all cases.
@@ -495,6 +507,11 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
     oldFigUnits = get(fig,'Units');
     set(fig,'Units','pixels');
 
+    pixelpos = getpixelposition(fig);
+    pos  = get(fig, 'Position');
+    tcol = get(fig, 'Color');
+    tcol_orig = tcol;
+
     % Set to print exactly what is there
     if options.invert_hardcopy
         try set(fig, 'InvertHardcopy', 'off'); catch, end  % fail silently in uifigures
@@ -512,32 +529,6 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
             renderer = '-opengl'; % Default for bitmaps
     end
 
-    hImages = findall(fig,'type','image');
-
-    % Handle transparent patches
-    hasTransparency = ~isempty(findall(fig,'-property','FaceAlpha','-and','-not','FaceAlpha',1));
-    hasPatches      = ~isempty(findall(fig,'type','patch'));
-    if hasTransparency
-        % Alert if trying to export transparent patches/areas to non-supported outputs (issue #108)
-        % http://www.mathworks.com/matlabcentral/answers/265265-can-export_fig-or-else-draw-vector-graphics-with-transparent-surfaces
-        % TODO - use transparency when exporting to PDF by not passing via print2eps
-        msg = 'export_fig currently supports transparent patches/areas only in PNG output. ';
-        if options.pdf
-            warning('export_fig:transparency', '%s\nTo export transparent patches/areas to PDF, use the print command:\n print(gcf, ''-dpdf'', ''%s.pdf'');', msg, options.name);
-        elseif ~options.png && ~options.tif  % issue #168
-            warning('export_fig:transparency', '%s\nTo export the transparency correctly, try using the ScreenCapture utility on the Matlab File Exchange: http://bit.ly/1QFrBip', msg);
-        end
-    elseif ~isempty(hImages)
-        % Fix for issue #230: use OpenGL renderer when exported image contains transparency
-        for idx = 1 : numel(hImages)
-            cdata = get(hImages(idx),'CData');
-            if any(isnan(cdata(:)))
-                hasTransparency = true;
-                break
-            end
-        end
-    end
-
     try
         tmp_nam = '';  % initialize
 
@@ -547,194 +538,171 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                 displaySuggestedWorkarounds = false;
                 error('export_fig:padding','For bitmap output (png,jpg,tif,bmp) the padding value (-p) must be between -1<p<1')
             end
+            % Print large version to array
+            [A, tcol, alpha] = getFigImage(fig, magnify, renderer, options, pos);
             % Get the background colour
             if options.transparent && (options.png || options.alpha)
-                % Get out an alpha channel
-                % MATLAB "feature": black colorbar axes can change to white and vice versa!
-                hCB = findall(fig, 'Type','axes', 'Tag','Colorbar');
-                if isempty(hCB)
-                    yCol = [];
-                    xCol = [];
-                else
-                    yCol = get(hCB, 'YColor');
-                    xCol = get(hCB, 'XColor');
-                    if iscell(yCol)
-                        yCol = cell2mat(yCol);
-                        xCol = cell2mat(xCol);
-                    end
-                    yCol = sum(yCol, 2);
-                    xCol = sum(xCol, 2);
-                end
-                % MATLAB "feature": apparently figure size can change when changing
-                % colour in -nodisplay mode
-                pos = get(fig, 'Position');
-                % Set the background colour to black, and set size in case it was
-                % changed internally
-                tcol = get(fig, 'Color');
-                set(fig, 'Color', 'k', 'Position', pos);
-                % Correct the colorbar axes colours
-                set(hCB(yCol==0), 'YColor', [0 0 0]);
-                set(hCB(xCol==0), 'XColor', [0 0 0]);
-                % Correct black axes color to off-black (issue #249)
-                hAxes = findall(fig, 'Type','axes');
-                hXs = fixBlackAxle(hAxes, 'XColor');
-                hYs = fixBlackAxle(hAxes, 'YColor');
-                hZs = fixBlackAxle(hAxes, 'ZColor');
-
-                % The following code might cause out-of-memory errors
-                try
-                    % Print large version to array
-                    B = print2array(fig, magnify, renderer);
-                    % Downscale the image
-                    B = downsize(single(B), options.aa_factor);
-                catch
-                    % This is more conservative in memory, but kills transparency (issue #58)
-                    B = single(print2array(fig, magnify/options.aa_factor, renderer));
-                end
-
-                % Set background to white (and set size)
-                set(fig, 'Color', 'w', 'Position', pos);
-                % Correct the colorbar axes colours
-                set(hCB(yCol==3), 'YColor', [1 1 1]);
-                set(hCB(xCol==3), 'XColor', [1 1 1]);
-                % Revert the black axes colors
-                set(hXs, 'XColor', [0,0,0]);
-                set(hYs, 'YColor', [0,0,0]);
-                set(hZs, 'ZColor', [0,0,0]);
-
-                % The following code might cause out-of-memory errors
-                try
-                    % Print large version to array
-                    A = print2array(fig, magnify, renderer);
-                    % Downscale the image
-                    A = downsize(single(A), options.aa_factor);
-                catch
-                    % This is more conservative in memory, but kills transparency (issue #58)
-                    A = single(print2array(fig, magnify/options.aa_factor, renderer));
-                end
-
-                % Set the background colour (and size) back to normal
-                set(fig, 'Color', tcol, 'Position', pos);
-                % Workaround for issue #15
-                szA = size(A);
-                szB = size(B);
-                if ~isequal(szA,szB)
-                    A = A(1:min(szA(1),szB(1)), 1:min(szA(2),szB(2)), :);
-                    B = B(1:min(szA(1),szB(1)), 1:min(szA(2),szB(2)), :);
-                    warning('export_fig:bitmap:sizeMismatch','Problem detected by export_fig generation of a bitmap image; the generated export may look bad. Try to reduce the figure size to fit the screen, or avoid using export_fig''s -transparent option.')
-                end
-                % Compute the alpha map
-                alpha = round(sum(B - A, 3)) / (255 * 3) + 1;
-                A = alpha;
-                A(A==0) = 1;
-                A = B ./ A(:,:,[1 1 1]);
-                clear B
-                % Convert to greyscale
-                if options.colourspace == 2
-                    A = rgb2grey(A);
-                end
-                A = uint8(A);
-                % Crop the background
-                if options.crop
-                    %[alpha, v] = crop_borders(alpha, 0, 1, options.crop_amounts);
-                    %A = A(v(1):v(2),v(3):v(4),:);
-                    [alpha, vA, vB] = crop_borders(alpha, 0, options.bb_padding, options.crop_amounts);
-                    if ~any(isnan(vB)) % positive padding
-                        B = repmat(uint8(zeros(1,1,size(A,3))),size(alpha));
-                        B(vB(1):vB(2), vB(3):vB(4), :) = A(vA(1):vA(2), vA(3):vA(4), :); % ADDED BY OH
-                        A = B;
-                    else  % negative padding
-                        A = A(vA(1):vA(2), vA(3):vA(4), :);
-                    end
-                end
-                if options.png
-                    % Compute the resolution
-                    res = options.magnify * get(0, 'ScreenPixelsPerInch') / 25.4e-3;
-                    % Save the png
-                    [format_options, bitDepth] = getFormatOptions(options, 'png');  %Issue #269
-                    if ~isempty(bitDepth) && bitDepth < 16 && size(A,3) == 3
-                        % BitDepth specification requires using a color-map
-                        [A, map] = rgb2ind(A, 256);
-                        imwrite(A, map, [options.name '.png'], 'Alpha',double(alpha), 'ResolutionUnit','meter', 'XResolution',res, 'YResolution',res, format_options{:});
+                try %options.aa_factor < 4  % default, faster but lines are not anti-aliased
+                    % If all pixels are indicated as opaque (i.e. something went wrong with the Java screen-capture)
+                    isBgColor = A(:,:,1) == tcol(1) & ...
+                                A(:,:,2) == tcol(2) & ...
+                                A(:,:,3) == tcol(3);
+                    % Set the bgcolor pixels to be fully-transparent
+                    A(repmat(isBgColor,[1,1,3])) = 255; %=white % TODO: more memory efficient without repmat
+                    alpha(isBgColor) = 0;
+                catch  % older logic - much slower and causes figure flicker
+                    if true  % to fold the code below...
+                    % Get out an alpha channel
+                    % MATLAB "feature": black colorbar axes can change to white and vice versa!
+                    hCB = findall(fig, 'Type','axes', 'Tag','Colorbar');
+                    if isempty(hCB)
+                        yCol = [];
+                        xCol = [];
                     else
-                        imwrite(A, [options.name '.png'], 'Alpha',double(alpha), 'ResolutionUnit','meter', 'XResolution',res, 'YResolution',res, format_options{:});
+                        yCol = get(hCB, 'YColor');
+                        xCol = get(hCB, 'XColor');
+                        if iscell(yCol)
+                            yCol = cell2mat(yCol);
+                            xCol = cell2mat(xCol);
+                        end
+                        yCol = sum(yCol, 2);
+                        xCol = sum(xCol, 2);
                     end
-                    % Clear the png bit
-                    options.png = false;
-                end
-                % Return only one channel for greyscale
-                if isbitmap(options)
-                    A = check_greyscale(A);
-                end
-                if options.alpha
-                    % Store the image
-                    imageData = A;
-                    % Clear the alpha bit
-                    options.alpha = false;
-                end
-                % Get the non-alpha image
-                if isbitmap(options)
-                    alph = alpha(:,:,ones(1, size(A, 3)));
-                    A = uint8(single(A) .* alph + 255 * (1 - alph));
-                    clear alph
-                end
-                if options.im
-                    % Store the new image
-                    imageData = A;
-                end
-            else
-                % Print large version to array
-                if options.transparent
                     % MATLAB "feature": apparently figure size can change when changing
                     % colour in -nodisplay mode
-                    pos = get(fig, 'Position');
-                    tcol = get(fig, 'Color');
+                    % Set the background colour to black, and set size in case it was
+                    % changed internally
+                    set(fig, 'Color', 'k', 'Position', pos);
+                    % Correct the colorbar axes colours
+                    set(hCB(yCol==0), 'YColor', [0 0 0]);
+                    set(hCB(xCol==0), 'XColor', [0 0 0]);
+                    % Correct black axes color to off-black (issue #249)
+                    hAxes = findall(fig, 'Type','axes');
+                    [hXs,hXrs] = fixBlackAxle(hAxes, 'XColor');
+                    [hYs,hYrs] = fixBlackAxle(hAxes, 'YColor');
+                    [hZs,hZrs] = fixBlackAxle(hAxes, 'ZColor');
+
+                    % The following code might cause out-of-memory errors
+                    try
+                        % Print large version to array
+                        B = print2array(fig, magnify, renderer);
+                        % Downscale the image
+                        B = downsize(single(B), options.aa_factor);
+                    catch
+                        % This is more conservative in memory, but kills transparency (issue #58)
+                        B = single(print2array(fig, magnify/options.aa_factor, renderer));
+                    end
+
+                    % Set background to white (and set size)
                     set(fig, 'Color', 'w', 'Position', pos);
-                    A = print2array(fig, magnify, renderer);
-                    set(fig, 'Color', tcol, 'Position', pos);
-                    tcol = 255;
-                else
-                    [A, tcol] = print2array(fig, magnify, renderer);
+                    % Correct the colorbar axes colours
+                    set(hCB(yCol==3), 'YColor', [1 1 1]);
+                    set(hCB(xCol==3), 'XColor', [1 1 1]);
+                    % Revert the black axes colors
+                    set(hXs, 'XColor', [0,0,0]);
+                    set(hYs, 'YColor', [0,0,0]);
+                    set(hZs, 'ZColor', [0,0,0]);
+                    set(hXrs, 'Color', [0,0,0]);
+                    set(hYrs, 'Color', [0,0,0]);
+                    set(hZrs, 'Color', [0,0,0]);
+
+                    % The following code might cause out-of-memory errors
+                    try
+                        % Print large version to array
+                        A = print2array(fig, magnify, renderer);
+                        % Downscale the image
+                        A = downsize(single(A), options.aa_factor);
+                    catch
+                        % This is more conservative in memory, but kills transparency (issue #58)
+                        A = single(print2array(fig, magnify/options.aa_factor, renderer));
+                    end
+
+                    % Workaround for issue #15
+                    szA = size(A);
+                    szB = size(B);
+                    if ~isequal(szA,szB)
+                        A = A(1:min(szA(1),szB(1)), 1:min(szA(2),szB(2)), :);
+                        B = B(1:min(szA(1),szB(1)), 1:min(szA(2),szB(2)), :);
+                        warning('export_fig:bitmap:sizeMismatch','Problem detected by export_fig generation of a bitmap image; the generated export may look bad. Try to reduce the figure size to fit the screen, or avoid using export_fig''s -transparent option.')
+                    end
+                    % Compute the alpha map
+                    alpha = round(sum(B - A, 3)) / (255 * 3) + 1;
+                    A = alpha;
+                    A(A==0) = 1;
+                    A = B ./ A(:,:,[1 1 1]);
+                    clear B
+                    end %folded code...
                 end
-                % Crop the background
-                if options.crop
-                    A = crop_borders(A, tcol, options.bb_padding, options.crop_amounts);
-                end
+                %A = uint8(A);
+            end
+            % Downscale the image if its size was increased (for anti-aliasing)
+            if size(A,1) > 1.1 * options.magnify * pixelpos(4) %1.1 to avoid edge-cases
                 % Downscale the image
-                A = downsize(A, options.aa_factor);
-                if options.colourspace == 2
-                    % Convert to greyscale
-                    A = rgb2grey(A);
-                else
-                    % Return only one channel for greyscale
-                    A = check_greyscale(A);
+                A     = downsize(A,     options.aa_factor);
+                alpha = downsize(alpha, options.aa_factor);
+            end
+            % Crop the margins based on the bgcolor, if requested
+            if options.crop
+                %[alpha, v] = crop_borders(alpha, 0, 1, options.crop_amounts);
+                %A = A(v(1):v(2),v(3):v(4),:);
+                [A, vA, vB] = crop_borders(A, tcol, options.bb_padding, options.crop_amounts);
+                if ~any(isnan(vB)) % positive padding
+                    B = repmat(uint8(zeros(1,1,size(alpha,3))),size(A));
+                    B(vB(1):vB(2), vB(3):vB(4), :) = alpha(vA(1):vA(2), vA(3):vA(4), :); % ADDED BY OH
+                    alpha = B;
+                else  % negative padding
+                    alpha = alpha(vA(1):vA(2), vA(3):vA(4), :);
                 end
-                % Outputs
-                if options.im
-                    imageData = A;
-                end
-                if options.alpha
-                    imageData = A;
-                    alpha = ones(size(A, 1), size(A, 2), 'single');
-                end
+            end
+            % Get the non-alpha image (presumably unneeded with Java-based screen-capture)
+            %{
+            if isbitmap(options)
+                % Modify the intensity of the pixels' RGB values based on their alpha transparency
+                % TODO: not sure that we want this with Java screen-capture values!
+                alph = alpha(:,:,ones(1, size(A, 3)));
+                A = uint8(single(A) .* alph + 255 * (1 - alph));
+            end
+            %}
+            % Revert the figure properties back to their original values
+            set(fig, 'Units',oldFigUnits, 'Position',pos, 'Color',tcol_orig);
+            % Check for greyscale images
+            if options.colourspace == 2
+                % Convert to greyscale
+                A = rgb2grey(A);
+            else
+                % Return only one channel for greyscale
+                A = check_greyscale(A);
+            end
+            % Change alpha from [0:255] uint8 => [0:1] single from here onward:
+            alpha = single(alpha) / 255;
+            % Outputs
+            if options.im
+                imageData = A;
+            end
+            if options.alpha
+                imageData = A;
+                %alpha = ones(size(A, 1), size(A, 2), 'single');  %=all pixels opaque
             end
             % Save the images
             if options.png
+                % Compute the resolution
                 res = options.magnify * get(0, 'ScreenPixelsPerInch') / 25.4e-3;
+                % Save the png
                 [format_options, bitDepth] = getFormatOptions(options, 'png');  %Issue #269
+                pngOptions = {[options.name '.png'], 'Alpha',double(alpha), 'ResolutionUnit','meter', 'XResolution',res, 'YResolution',res, format_options{:}}; %#ok<CCAT>
                 if ~isempty(bitDepth) && bitDepth < 16 && size(A,3) == 3
                     % BitDepth specification requires using a color-map
                     [A, map] = rgb2ind(A, 256);
-                    imwrite(A, map, [options.name '.png'], 'ResolutionUnit','meter', 'XResolution',res, 'YResolution',res, format_options{:});
+                    imwrite(A, map, pngOptions{:});
                 else
-                    imwrite(A, [options.name '.png'], 'ResolutionUnit','meter', 'XResolution',res, 'YResolution',res, format_options{:});
+                    imwrite(A, pngOptions{:});
                 end
             end
             if options.bmp
                 imwrite(A, [options.name '.bmp']);
             end
-            % Save jpeg with given quality
             if options.jpg
+                % Save jpeg with the specified quality
                 quality = options.quality;
                 if isempty(quality)
                     quality = 95;
@@ -746,8 +714,8 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                     imwrite(A, [options.name '.jpg'], 'Quality',quality, format_options{:});
                 end
             end
-            % Save tif images in cmyk if wanted (and possible)
             if options.tif
+                % Save tif images in cmyk if wanted (and possible)
                 if options.colourspace == 1 && size(A, 3) == 3
                     A = double(255 - A);
                     K = min(A, [], 3);
@@ -764,10 +732,34 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
             end
         end
 
-        % Now do the vector formats
+        % Now do the vector formats which are based on EPS
         if isvector(options)
+            hImages = findall(fig,'type','image');
             % Set the default renderer to painters
             if ~options.renderer
+                % Handle transparent patches
+                hasTransparency = ~isempty(findall(fig,'-property','FaceAlpha','-and','-not','FaceAlpha',1));
+                if hasTransparency
+                    % Alert if trying to export transparent patches/areas to non-supported outputs (issue #108)
+                    % http://www.mathworks.com/matlabcentral/answers/265265-can-export_fig-or-else-draw-vector-graphics-with-transparent-surfaces
+                    % TODO - use transparency when exporting to PDF by not passing via print2eps
+                    msg = 'export_fig currently supports transparent patches/areas only in PNG output. ';
+                    if options.pdf
+                        warning('export_fig:transparency', '%s\nTo export transparent patches/areas to PDF, use the print command:\n print(gcf, ''-dpdf'', ''%s.pdf'');', msg, options.name);
+                    elseif ~options.png && ~options.tif  % issue #168
+                        warning('export_fig:transparency', '%s\nTo export the transparency correctly, try using the ScreenCapture utility on the Matlab File Exchange: http://bit.ly/1QFrBip', msg);
+                    end
+                elseif ~isempty(hImages)
+                    % Fix for issue #230: use OpenGL renderer when exported image contains transparency
+                    for idx = 1 : numel(hImages)
+                        cdata = get(hImages(idx),'CData');
+                        if any(isnan(cdata(:)))
+                            hasTransparency = true;
+                            break
+                        end
+                    end
+                end
+                hasPatches = ~isempty(findall(fig,'type','patch'));
                 if hasTransparency || hasPatches
                     % This is *MUCH* slower, but more accurate for patches and transparent annotations (issue #39)
                     renderer = '-opengl';
@@ -822,10 +814,11 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                 % The workaround is to use the -depsc parameter instead of the default -depsc2
                 printArgs{end+1} = '-depsc';
             end
+            % Print to EPS file
             try
                 % Remove background if requested (issue #207)
                 originalBgColor = get(fig, 'Color');
-                [hXs, hYs, hZs] = deal([]);
+                [hXs, hXrs, hYs, hYrs, hZs, hZrs] = deal([]);
                 if options.transparent %&& ~isequal(get(fig, 'Color'), 'none')
                     if options.renderer == 1  % OpenGL
                         warning('export_fig:openglTransparentBG', '-opengl sometimes fails to produce transparent backgrounds; in such a case, try to use -painters instead');
@@ -836,9 +829,9 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 
                     % Correct black axes color to off-black (issue #249)
                     hAxes = findall(fig, 'Type','axes');
-                    hXs = fixBlackAxle(hAxes, 'XColor');
-                    hYs = fixBlackAxle(hAxes, 'YColor');
-                    hZs = fixBlackAxle(hAxes, 'ZColor');
+                    [hXs,hXrs] = fixBlackAxle(hAxes, 'XColor');
+                    [hYs,hYrs] = fixBlackAxle(hAxes, 'YColor');
+                    [hZs,hZrs] = fixBlackAxle(hAxes, 'ZColor');
                 end
                 % Generate an eps
                 print2eps(tmp_nam, fig, options, printArgs{:});
@@ -851,6 +844,9 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                     set(hXs, 'XColor', [0,0,0]);
                     set(hYs, 'YColor', [0,0,0]);
                     set(hZs, 'ZColor', [0,0,0]);
+                    set(hXrs, 'Color', [0,0,0]);
+                    set(hYrs, 'Color', [0,0,0]);
+                    set(hZrs, 'Color', [0,0,0]);
                 end
                 %}
                 % Restore the figure's previous background color (if modified)
@@ -942,7 +938,6 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 
         % SVG format
         if options.svg
-            oldUnits = get(fig,'Units');
             filename = [options.name '.svg'];
             % Adapted from Dan Joshea's https://github.com/djoshea/matlab-save-figure :
             try %if verLessThan('matlab', '8.4')
@@ -964,7 +959,6 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                     print(fig, '-dsvg', printArgs{:}, filename);
                     warning('export_fig:SVG:print', 'export_fig used Matlab''s built-in SVG output engine. Better results may be gotten via the fig2svg utility (https://github.com/kupiqu/fig2svg).');
                 catch err  % built-in print() failed - maybe an old Matlab release (no -dsvg)
-                    set(fig,'Units',oldUnits);
                     filename = strrep(filename,'export_fig_out','filename');
                     msg = ['SVG output is not supported for your figure: ' err.message '\n' ...
                         'Try one of the following alternatives:\n' ...
@@ -975,8 +969,6 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                 end
             end
             % SVG output was successful if we reached this point
-            % Restore original figure units
-            set(fig,'Units',oldUnits);
             % Add warning about unsupported export_fig options with SVG output
             if any(~isnan(options.crop_amounts)) || any(options.bb_padding)
                 warning('export_fig:SVG:options', 'export_fig''s SVG output does not [currently] support cropping/padding.');
@@ -1001,6 +993,41 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                 read_write_entire_textfile(filename, s);
             catch
                 % never mind - ignore
+            end
+        end
+
+        % EMF format
+        if options.emf
+            try
+                anythingChanged = false;
+                % Handle transparent bgcolor request
+                if options.transparent && ~isequal(tcol_orig,'none')
+                    anythingChanged = true;
+                    set(fig, 'Color','none');
+                end
+                if ~ispc
+                    warning('export_fig:EMF:NotWindows', 'EMF is only supported on Windows; exporting to EMF format on this machine may result in unexpected behavior.');
+                elseif isequal(renderer,'-painters') && (options.resolution~=864 || options.magnify~=1)
+                    warning('export_fig:EMF:Painters', 'export_fig -r and -m options are ignored for EMF export using the -painters renderer.');
+                elseif abs(get(0,'ScreenPixelsPerInch')*options.magnify - options.resolution) > 1e-6
+                    warning('export_fig:EMF:Magnify', 'export_fig -m option is ignored for EMF export.');
+                end
+                if ~isequal(options.bb_padding,0) || ~isempty(options.quality)
+                    warning('export_fig:EMF:Options', 'export_fig cropping, padding and quality options are ignored for EMF export.');
+                end
+                if ~anythingChanged
+                    warning('export_fig:EMF:print', 'For a figure without background transparency, export_fig uses Matlab''s built-in print(''-dmeta'') function without any extra processing, so try using it directly.');
+                end
+                printArgs = {renderer};
+                if ~isempty(options.resolution)
+                    printArgs{end+1} = sprintf('-r%d', options.resolution);
+                end
+                filename = [options.name '.emf'];
+                print(fig, '-dmeta', printArgs{:}, filename);
+            catch err  % built-in print() failed - maybe an old Matlab release (no -dsvg)
+                msg = ['EMF output is not supported: ' err.message '\n' ...
+                       'Try to use export_fig with other formats, such as PDF or EPS.\n'];
+                error('export_fig:EMF:error',msg);
             end
         end
 
@@ -1032,8 +1059,8 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                 end
                 try set(annotationHandles(handleIdx),'Units',oldUnits); catch, end
             end
-            % Revert figure units
-            set(fig,'Units',oldFigUnits);
+            % Revert figure properties in case they were changed
+            try set(fig, 'Units',oldFigUnits, 'Position',pos, 'Color',tcol_orig); catch, end
         end
 
         % Output to clipboard (if requested)
@@ -1054,58 +1081,78 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                 end
             end
 
-            % Save the image in the system clipboard
-            % credit: Jiro Doke's IMCLIPBOARD: http://www.mathworks.com/matlabcentral/fileexchange/28708-imclipboard
-            try
-                error(javachk('awt', 'export_fig -clipboard output'));
-            catch
-                warning('export_fig:clipboardJava', 'export_fig -clipboard output failed: requires Java to work');
-                return;
-            end
-            try
-                % Import necessary Java classes
-                import java.awt.Toolkit                 %#ok<SIMPT>
-                import java.awt.image.BufferedImage     %#ok<SIMPT>
-                import java.awt.datatransfer.DataFlavor %#ok<SIMPT>
-
-                % Get System Clipboard object (java.awt.Toolkit)
-                cb = Toolkit.getDefaultToolkit.getSystemClipboard();
-
-                % Add java class (ImageSelection) to the path
-                if ~exist('ImageSelection', 'class')
-                    javaaddpath(fileparts(which(mfilename)), '-end');
-                end
-
-                % Get image size
-                ht = size(imageData, 1);
-                wd = size(imageData, 2);
-
-                % Convert to Blue-Green-Red format
+            % Use Java clipboard by default
+            if strcmpi(options.clipformat,'image')
+                % Save the image in the system clipboard
+                % credit: Jiro Doke's IMCLIPBOARD: http://www.mathworks.com/matlabcentral/fileexchange/28708-imclipboard
                 try
-                    imageData2 = imageData(:, :, [3 2 1]);
+                    error(javachk('awt', 'export_fig -clipboard output'));
                 catch
-                    % Probably gray-scaled image (2D, without the 3rd [RGB] dimension)
-                    imageData2 = imageData(:, :, [1 1 1]);
+                    warning('export_fig:clipboardJava', 'export_fig -clipboard output failed: requires Java to work');
+                    return;
+                end
+                try
+                    % Import necessary Java classes
+                    import java.awt.Toolkit                 %#ok<SIMPT>
+                    import java.awt.image.BufferedImage     %#ok<SIMPT>
+                    import java.awt.datatransfer.DataFlavor %#ok<SIMPT>
+
+                    % Get System Clipboard object (java.awt.Toolkit)
+                    cb = Toolkit.getDefaultToolkit.getSystemClipboard();
+
+                    % Add java class (ImageSelection) to the path
+                    if ~exist('ImageSelection', 'class')
+                        javaaddpath(fileparts(which(mfilename)), '-end');
+                    end
+
+                    % Get image size
+                    ht = size(imageData, 1);
+                    wd = size(imageData, 2);
+
+                    % Convert to Blue-Green-Red format
+                    try
+                        imageData2 = imageData(:, :, [3 2 1]);
+                    catch
+                        % Probably gray-scaled image (2D, without the 3rd [RGB] dimension)
+                        imageData2 = imageData(:, :, [1 1 1]);
+                    end
+
+                    % Convert to 3xWxH format
+                    imageData2 = permute(imageData2, [3, 2, 1]);
+
+                    % Append Alpha data (unused - transparency is not supported in clipboard copy)
+                    alphaData2 = uint8(permute(255*alpha,[3,2,1])); %=255*ones(1,wd,ht,'uint8')
+                    imageData2 = cat(1, imageData2, alphaData2);
+
+                    % Create image buffer
+                    imBuffer = BufferedImage(wd, ht, BufferedImage.TYPE_INT_RGB);
+                    imBuffer.setRGB(0, 0, wd, ht, typecast(imageData2(:), 'int32'), 0, wd);
+
+                    % Create ImageSelection object from the image buffer
+                    imSelection = ImageSelection(imBuffer);
+
+                    % Set clipboard content to the image
+                    cb.setContents(imSelection, []);
+                catch
+                    warning('export_fig:clipboardFailed', 'export_fig -clipboard output failed: %s', lasterr); %#ok<LERR>
+                end
+            else  % use one of print()'s builtin clipboard formats
+                % Remove background if requested (EMF format only)
+                if options.transparent && strcmpi(options.clipformat,'meta')
+                    originalBgColor = get(fig, 'Color');
+                    set(fig,'Color','none');
                 end
 
-                % Convert to 3xWxH format
-                imageData2 = permute(imageData2, [3, 2, 1]);
+                % Call print() to create the clipboard output
+                clipformat = ['-d' options.clipformat];
+                printArgs = {renderer};
+                if ~isempty(options.resolution)
+                    printArgs{end+1} = sprintf('-r%d', options.resolution);
+                end
+                print(fig, '-clipboard', clipformat, printArgs{:});
 
-                % Append Alpha data (unused - transparency is not supported in clipboard copy)
-                alphaData2 = uint8(permute(255*alpha,[3,2,1])); %=255*ones(1,wd,ht,'uint8')
-                imageData2 = cat(1, imageData2, alphaData2);
-
-                % Create image buffer
-                imBuffer = BufferedImage(wd, ht, BufferedImage.TYPE_INT_RGB);
-                imBuffer.setRGB(0, 0, wd, ht, typecast(imageData2(:), 'int32'), 0, wd);
-
-                % Create ImageSelection object from the image buffer
-                imSelection = ImageSelection(imBuffer);
-
-                % Set clipboard content to the image
-                cb.setContents(imSelection, []);
-            catch
-                warning('export_fig:clipboardFailed', 'export_fig -clipboard output failed: %s', lasterr); %#ok<LERR>
+                % Restore the figure's original background color
+                try set(fig,'Color',originalBgColor); drawnow; catch, end
             end
         end
 
@@ -1114,9 +1161,11 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
             clear imageData alpha
         end
     catch err
+        % Revert figure properties in case they were changed
+        try set(fig,'Units',oldFigUnits, 'Position',pos, 'Color',tcol_orig); catch, end
         % Display possible workarounds before the error message
         if displaySuggestedWorkarounds && ~strcmpi(err.message,'export_fig error')
-            isNewerVersionAvailable = checkForNewerVersion();  % alert if a newer version exists
+            isNewerVersionAvailable = checkForNewerVersion(currentVersion);  % alert if a newer version exists
             if isempty(regexpi(err.message,'Ghostscript'))
                 fprintf(2, 'export_fig error. ');
             end
@@ -1181,12 +1230,14 @@ function options = default_options()
         'renderer',        0, ...         % 0: default, 1: OpenGL, 2: ZBuffer, 3: Painters
         'pdf',             false, ...
         'eps',             false, ...
+        'emf',             false, ...
         'svg',             false, ...
         'png',             false, ...
         'tif',             false, ...
         'jpg',             false, ...
         'bmp',             false, ...
         'clipboard',       false, ...
+        'clipformat',      'image', ...
         'colourspace',     0, ...         % 0: RGB/gray, 1: CMYK, 2: gray
         'append',          false, ...
         'im',              false, ...
@@ -1247,6 +1298,8 @@ function [fig, options] = parse_args(nout, fig, varargin)
                         options.pdf = true;
                     case 'eps'
                         options.eps = true;
+                    case {'emf','meta'}
+                        options.emf = true;
                     case 'svg'
                         options.svg = true;
                     case 'png'
@@ -1271,10 +1324,20 @@ function [fig, options] = parse_args(nout, fig, varargin)
                         options.bookmark = true;
                     case 'native'
                         native = true;
-                    case 'clipboard'
+                    case {'clipboard','clipboard:image'}
                         options.clipboard = true;
-                        options.im = true;
+                        options.clipformat = 'image';
+                        options.im    = true;  %ensure that imageData is created
                         options.alpha = true;
+                    case 'clipboard:bitmap'
+                        options.clipboard = true;
+                        options.clipformat = 'bitmap';
+                    case {'clipboard:emf','clipboard:meta'}
+                        options.clipboard = true;
+                        options.clipformat = 'meta';
+                    case 'clipboard:pdf'
+                        options.clipboard = true;
+                        options.clipformat = 'pdf';
                     case 'update'
                         updateInstalledVersion();
                         fig = -1;  % silent bail-out
@@ -1310,6 +1373,10 @@ function [fig, options] = parse_args(nout, fig, varargin)
                                 varargin{a}(2) = 'd';  % ensure lowercase 'd'
                                 options.gs_options{end+1} = varargin{a};
                             elseif strcmpi(varargin{a}(1:2),'-c')
+                                if strncmpi(varargin{a},'-clipboard:',11)
+                                    wasError = true;
+                                    error('export_fig:BadOptionValue','option ''%s'' cannot be parsed: only image, bitmap, emf and pdf formats are supported',varargin{a});
+                                end
                                 if numel(varargin{a})==2
                                     skipNext = true;
                                     vals = str2num(varargin{a+1}); %#ok<ST2NM>
@@ -1378,6 +1445,8 @@ function [fig, options] = parse_args(nout, fig, varargin)
                         options.bmp = true;
                     case '.eps'
                         options.eps = true;
+                    case '.emf'
+                        options.emf = true;
                     case '.pdf'
                         options.pdf = true;
                     case '.fig'
@@ -1411,11 +1480,17 @@ function [fig, options] = parse_args(nout, fig, varargin)
 
     % Set default anti-aliasing now we know the renderer
     try isAA = strcmp(get(ancestor(fig, 'figure'), 'GraphicsSmoothing'), 'on'); catch, isAA = false; end
-    if options.aa_factor == 0
-        options.aa_factor = 1 + 2 * (~(using_hg2(fig) && isAA) | (options.renderer == 3));
+    if isAA
+        if options.aa_factor > 1
+            warning('export_fig:AntiAliasing','You requested anti-aliased export_fig output of a figure that is already anti-aliased - your -a option in export_fig is ignored.')
+        end
+        options.aa_factor = 1;  % ignore -a option when the figure is already anti-aliased (HG2)
+    elseif options.aa_factor == 0  % default
+        %options.aa_factor = 1 + 2 * (~(using_hg2(fig) && isAA) | (options.renderer == 3));
+        options.aa_factor = 1 + 2 * (~using_hg2(fig));  % =1 in HG2, =3 in HG1
     end
     if options.aa_factor > 1 && ~isAA && using_hg2(fig)
-        warning('export_fig:AntiAliasing','You requested export_fig anti-aliased output of an aliased figure (''GraphicsSmoothing''=''off''). You will see better results if you set your figure''s GraphicsSmoothing property to ''on'' before calling export_fig.')
+        warning('export_fig:AntiAliasing','You requested anti-aliased export_fig output of an aliased figure (''GraphicsSmoothing''=''off''). You will see better results if you set your figure''s GraphicsSmoothing property to ''on'' before calling export_fig.')
     end
 
     % Convert user dir '~' to full path
@@ -1435,8 +1510,8 @@ function [fig, options] = parse_args(nout, fig, varargin)
         options.resolution = 864;
     end
 
-    % Set the default format
-    if ~isvector(options) && ~isbitmap(options) && ~options.svg
+    % Set the format to PNG, if no other format was specified
+    if ~isvector(options) && ~isbitmap(options) && ~options.svg && ~options.emf
         options.png = true;
     end
 
@@ -1578,6 +1653,27 @@ function b = isbitmap(options)
     b = options.png || options.tif || options.jpg || options.bmp || options.im || options.alpha;
 end
 
+function [A, tcol, alpha] = getFigImage(fig, magnify, renderer, options, pos)
+    if options.transparent
+        % MATLAB "feature": figure size can change when changing color in -nodisplay mode
+        set(fig, 'Color', 'w', 'Position', pos);
+        drawnow;  % repaint figure, otherwise Java screencapture will see black bgcolor
+    end
+    % Print large version to array
+    try
+        % The following code might cause out-of-memory errors
+        [A, tcol, alpha] = print2array(fig, magnify, renderer);
+    catch
+        % This is more conservative in memory, but perhaps kills transparency(?)
+        [A, tcol, alpha] = print2array(fig, magnify/options.aa_factor, renderer);
+    end
+    % In transparent mode, set the bgcolor to white
+    if options.transparent
+        % Note: tcol should already be [255,255,255] here, but just in case it's not...
+        tcol = uint8([255,255,255]);  %=white
+    end
+end
+
 % Helper function
 function A = make_cell(A)
     if ~iscell(A)
@@ -1677,13 +1773,22 @@ function change_rgb_to_cmyk(fname)  % convert RGB => CMYK within an EPS file
     end
 end
 
-function hBlackAxles = fixBlackAxle(hAxes, axleName)
-    hBlackAxles = [];
+function [hBlackAxles, hBlackRulers] = fixBlackAxle(hAxes, axleName)
+    hBlackAxles  = [];
+    hBlackRulers = [];
     for idx = 1 : numel(hAxes)
         ax = hAxes(idx);
         axleColor = get(ax, axleName);
         if isequal(axleColor,[0,0,0]) || isequal(axleColor,'k')
             hBlackAxles(end+1) = ax; %#ok<AGROW>
+            try  % Fix issue #306 - black yyaxis
+                if strcmpi(axleName,'Color'), continue, end  %ruler, not axle
+                rulerName = strrep(axleName,'Color','Axis');
+                hRulers = get(ax, rulerName);
+                newBlackRulers = fixBlackAxle(hRulers,'Color');
+                hBlackRulers = [hBlackRulers newBlackRulers]; %#ok<AGROW>
+            catch
+            end
         end
     end
     set(hBlackAxles, axleName, [0,0,0.01]);  % off-black
@@ -1721,13 +1826,14 @@ function isNewerVersionAvailable = checkForNewerVersion(currentVersion)
         url = 'https://raw.githubusercontent.com/altmany/export_fig/master/export_fig.m';
         try
             str = readURL(url);
-            regexStr = '\n\s+checkForNewerVersion\(([^)]+)\)';
-            [unused,unused,unused,unused,latestVerStr] = regexp(str, regexStr); %#ok<ASGLU>
-            latestVersion = str2double(latestVerStr{1}{1});
+            [unused,unused,unused,unused,latestVerStrs] = regexp(str, '\n[^:]+: \(([^)]+)\) ([^%]+)\n%}'); %#ok<ASGLU>
+            latestVersion = str2double(latestVerStrs{1}{1});
             if nargin < 1, currentVersion = lastVersion; end
-            isNewerVersionAvailable = latestVersion > currentVersion;
+            isNewerVersionAvailable = latestVersion > currentVersion + 1e3*eps;
             if isNewerVersionAvailable
-                msg = 'A newer version of export_fig is available. You can download it from GitHub or Matlab File Exchange, or run export_fig(''-update'') to install it directly.';
+                versionDesc = latestVerStrs{1}{2};
+                try versionDesc = strjoin(strrep(strcat(' ***', strtrim(strsplit(versionDesc,';'))),'***','* '), char(10)); catch, end %#ok<CHARTEN>
+                msg = sprintf('A newer version of export_fig (%g) is available, which includes the following improvements/fixes:\n%s\nYou can download the new version from GitHub or Matlab File Exchange, or run export_fig(''-update'') to install it directly.', latestVersion, versionDesc);
                 msg = hyperlink('https://github.com/altmany/export_fig', 'GitHub', msg);
                 msg = hyperlink('https://www.mathworks.com/matlabcentral/fileexchange/23629-export_fig', 'Matlab File Exchange', msg);
                 msg = hyperlink('matlab:export_fig(''-update'')', 'export_fig(''-update'')', msg);
@@ -1756,6 +1862,12 @@ function updateInstalledVersion()
     % Unzip the downloaded zip file in the export_fig folder
     try
         unzip(targetFileName,folderName);
+        % Fix issue #302 - zip file uses an internal folder export_fig-master
+        subFolder = fullfile(folderName,'export_fig-master');
+        try movefile(fullfile(subFolder,'*.*'),folderName, 'f'); catch, end %All OSes
+        try movefile(fullfile(subFolder,'*'),  folderName, 'f'); catch, end %MacOS/Unix
+        try movefile(fullfile(subFolder,'.*'), folderName, 'f'); catch, end %MacOS/Unix
+        try rmdir(subFolder); catch, end
     catch
         error('export_fig:update:unzip','Could not unzip %s\n',targetFileName);
     end
@@ -1785,5 +1897,139 @@ function str = readURL(url)
     end
     if size(str,1) > 1  % ensure a row-wise string
         str = str';
+    end
+end
+
+% Hint to users to use exportgraphics/copygraphics in certain cases
+function alertForExportOrCopygraphics(options)
+    %matlabVerNum = str2num(regexprep(version,'(\d+\.\d+).*','$1'));
+    try
+        % Bail out on R2019b- (copygraphics/exportgraphics not available/reliable)
+        if verLessThan('matlab','9.8')  % 9.8 = R2020a
+            return
+        end
+
+        isPainters = options.renderer == 3;
+        noResolutionSpecified = isempty(options.resolution) || isequal(options.resolution,864);
+
+        % First check for copygraphics compatibility (export to clipboard)
+        params = ',';
+        if options.clipboard
+            if options.transparent  % -transparent was requested
+                if isPainters  % painters renderer
+                    if noResolutionSpecified
+                        params = '''BackgroundColor'',''none'',''ContentType'',''vector'',';
+                    else  % exception: no message
+                        params = ',';
+                    end
+                else  % opengl/zbuffer renderer
+                    if options.invert_hardcopy  % default
+                        params = '''BackgroundColor'',''none'',';  % Rich Quist says ''current'', but ''none'' seems better
+                    else  % -noinvert was requested
+                        params = '''BackgroundColor'',''white'',';
+                    end
+                    if ~noResolutionSpecified
+                        params = [params '''Resolution'',' num2str(options.resolution) ','];
+                    else
+                        % don't add a resolution param
+                    end
+                end
+            else  % no -transparent
+                if options.invert_hardcopy  % default
+                    params = '''BackgroundColor'',''current'',';
+                else  % -noinvert was requested
+                    params = '''BackgroundColor'',''white'',';
+                end
+                if isPainters  % painters renderer
+                    if noResolutionSpecified
+                        params = [params '''ContentType'',''vector'','];
+                    else  % exception: no message
+                        params = ',';
+                    end
+                else  % opengl/zbuffer renderer
+                    params = [params '''ContentType'',''image'','];
+                    if ~noResolutionSpecified
+                        params = [params '''Resolution'',' num2str(options.resolution) ','];
+                    else
+                        % don't add a resolution param
+                    end
+                end
+            end
+        end
+        displayMsg(params, 'copygraphics', 'clipboard', '');
+
+        % Next check for exportgraphics compatibility (export to file)
+        % Note: not <else>, since -clipboard can be combined with file export
+        params = ',';
+        if ~options.clipboard
+            if options.transparent  % -transparent was requested
+                if isvector(options)  % vector output
+                    if isPainters  % painters renderer
+                        if noResolutionSpecified
+                            params = '''BackgroundColor'',''none'',''ContentType'',''vector'',';
+                        else  % exception: no message
+                            params = ',';
+                        end
+                    else  % opengl/zbuffer renderer
+                        params = '''BackgroundColor'',''none'',''ContentType'',''vector'',';
+                    end
+                else % non-vector output
+                    params = ',';
+                end
+            else  % no -transparent
+                if options.invert_hardcopy  % default
+                    params = '''BackgroundColor'',''current'',';
+                else  % -noinvert was requested
+                    params = '''BackgroundColor'',''white'',';
+                end
+                if isvector(options)  % vector output
+                    if isPainters  % painters renderer
+                        if noResolutionSpecified
+                            params = [params '''ContentType'',''vector'','];
+                        else  % exception: no message
+                            params = ',';
+                        end
+                    else  % opengl/zbuffer renderer
+                        if noResolutionSpecified
+                            params = [params '''ContentType'',''image'','];
+                        else  % exception: no message
+                            params = ',';
+                        end
+                    end
+                else % non-vector output
+                    if isPainters  % painters renderer
+                       % exception: no message
+                       params = ',';
+                    else  % opengl/zbuffer renderer
+                        if ~noResolutionSpecified
+                            params = [params '''Resolution'',' num2str(options.resolution) ','];
+                        end
+                    end
+                end
+            end
+        end
+        displayMsg(params, 'exportgraphics', 'file', 'filename,');
+    catch 
+        % Ignore errors - do not stop export_fig processing
+    end
+
+    % Utility function to display an alert message
+    function displayMsg(params, funcName, type, filenameParam)
+        if length(params) > 1
+            % strip default param values from the message
+            params = strrep(params, '''BackgroundColor'',''white'',', '');
+            % strip the trailing ,
+            if params(end)==',', params(end)=''; end
+            % if this message was not already displayed
+            try prevParams = getpref('export_fig',funcName); catch, prevParams = ''; end
+            if ~strcmpi(params, prevParams)
+                % display the message (TODO: perhaps replace warning() with fprintf()?)
+                msg = ['In Matlab R2020a+ you can also use the Matlab function ' funcName '(hFigure,' filenameParam params ') for simple ' type ' export'];
+                oldWarn = warning('on','verbose');
+                warning(['export_fig:' funcName], msg);
+                warning(oldWarn);
+                setpref('export_fig',funcName,params);
+            end
+        end
     end
 end
