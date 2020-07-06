@@ -307,11 +307,12 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 % 22/03/20: (3.04) Workaround for issue #15; alert if ghostscript file not found on Matlab path
 % 10/05/20: (3.05) Fix the generated SVG file, based on Cris Luengo's SVG_FIX_VIEWBOX; don't generate PNG when only SVG is requested
 % 02/07/20: (3.06) Significantly improved performance (speed) and fidelity of bitmap images; return alpha matrix for bitmap images; fixed -update bug (issue #302); added EMF output; added -clipboard formats (image,bitmap,emf,pdf); added hints for exportgraphics/copygraphics usage in certain use-cases; added description of new version features in the update message; fixed issue #306 (yyaxis cropping); fixed EPS/PDF auto-cropping with -transparent
+% 06/07/20: (3.07) Fixed issue #307 (bug in padding of bitmap images); fixed axes transparency in -clipboard:emf with -transparent
 %}
 
     % Check for newer version (not too often)
-    currentVersion = 3.06;
-    checkForNewerVersion(3.06);  % ...(currentVersion) is better but breaks in version 3.05- due to regexp limitation in checkForNewerVersion()
+    currentVersion = 3.07;
+    checkForNewerVersion(3.07);  % ...(currentVersion) is better but breaks in version 3.05- due to regexp limitation in checkForNewerVersion()
 
     if nargout
         [imageData, alpha] = deal([]);
@@ -647,7 +648,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                 %A = A(v(1):v(2),v(3):v(4),:);
                 [A, vA, vB] = crop_borders(A, tcol, options.bb_padding, options.crop_amounts);
                 if ~any(isnan(vB)) % positive padding
-                    B = repmat(uint8(zeros(1,1,size(alpha,3))),size(A));
+                    B = repmat(uint8(zeros(1,1,size(alpha,3))),size(A,[1,2])); % Fix issue #307 %=zeros(size(A,[1,2]),'uint8');
                     B(vB(1):vB(2), vB(3):vB(4), :) = alpha(vA(1):vA(2), vA(3):vA(4), :); % ADDED BY OH
                     alpha = B;
                 else  % negative padding
@@ -1139,8 +1140,16 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
             else  % use one of print()'s builtin clipboard formats
                 % Remove background if requested (EMF format only)
                 if options.transparent && strcmpi(options.clipformat,'meta')
+                    % Set figure bgcolor to none
                     originalBgColor = get(fig, 'Color');
                     set(fig,'Color','none');
+
+                    % Set axes bgcolor to none
+                    hAxes = findall(fig, 'Type','axes');
+                    originalAxColor = get(hAxes, 'Color');
+                    set(hAxes,'Color','none');
+
+                    drawnow;  %repaint before export
                 end
 
                 % Call print() to create the clipboard output
@@ -1151,8 +1160,10 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                 end
                 print(fig, '-clipboard', clipformat, printArgs{:});
 
-                % Restore the figure's original background color
-                try set(fig,'Color',originalBgColor); drawnow; catch, end
+                % Restore the original background color
+                try set(fig,   'Color',originalBgColor); catch, end
+                try set(hAxes, 'Color',originalAxColor); catch, end
+                drawnow; 
             end
         end
 
