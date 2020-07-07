@@ -57,6 +57,7 @@ function [A, bcol, alpha] = print2array(fig, res, renderer, gs_options)
 % 29/09/18: Fixed issue #254: error in print2array>read_tif_img
 % 22/03/20: Alert if ghostscript.m is required but not found on Matlab path
 % 24/05/20: Significant performance speedup; added alpha values (where possible)
+% 07/07/20: Fixed issue #308: bug in R2019a and earlier
 %}
 
     % Generate default input arguments, if needed
@@ -316,7 +317,7 @@ function [imgData, alpha, err, ex] = getPrintImage(fig, res_str, renderer, tmp_n
             % Delete the temporary file
             delete(tmp_nam);
         end
-        imgSize = size(imgData,[1,2]);
+        imgSize = size(imgData); imgSize = imgSize([1,2]);  % Fix issue #308
         alpha = 255 * ones(imgSize, 'uint8');  % =all pixels opaque
     catch ex
         err = true;
