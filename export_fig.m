@@ -309,11 +309,12 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 % 02/07/20: (3.06) Significantly improved performance (speed) and fidelity of bitmap images; return alpha matrix for bitmap images; fixed -update bug (issue #302); added EMF output; added -clipboard formats (image,bitmap,emf,pdf); added hints for exportgraphics/copygraphics usage in certain use-cases; added description of new version features in the update message; fixed issue #306 (yyaxis cropping); fixed EPS/PDF auto-cropping with -transparent
 % 06/07/20: (3.07) Fixed issue #307 (bug in padding of bitmap images); fixed axes transparency in -clipboard:emf with -transparent
 % 07/07/20: (3.08) Fixed issue #308: bug in R2019a and earlier
+% 18/07/20: (3.09) Fixed issue #310 (hopefully): bug with tiny image on HG1; fixed title cropping bug
 %}
 
     % Check for newer version (not too often)
-    currentVersion = 3.08;
-    checkForNewerVersion(3.08);  % ...(currentVersion) is better but breaks in version 3.05- due to regexp limitation in checkForNewerVersion()
+    currentVersion = 3.09;
+    checkForNewerVersion(3.09);  % ...(currentVersion) is better but breaks in version 3.05- due to regexp limitation in checkForNewerVersion()
 
     if nargout
         [imageData, alpha] = deal([]);
@@ -835,6 +836,22 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                     [hXs,hXrs] = fixBlackAxle(hAxes, 'XColor');
                     [hYs,hYrs] = fixBlackAxle(hAxes, 'YColor');
                     [hZs,hZrs] = fixBlackAxle(hAxes, 'ZColor');
+
+                    % Correct black titles to off-black
+                    % https://www.mathworks.com/matlabcentral/answers/567027-matlab-export_fig-crops-title?s_tid=srchtitle
+                    try
+                        hTitle = get(hAxes, 'Title');
+                        for idx = numel(hTitle) : -1 : 1
+                            color = get(hTitle,'Color');
+                            if isequal(color,[0,0,0]) || isequal(color,'k')
+                                set(hTitle(idx), 'Color', [0,0,0.01]); %off-black
+                            else
+                                hTitle(idx) = [];  % remove from list
+                            end
+                        end
+                    catch
+                        hTitle = [];
+                    end
                 end
                 % Generate an eps
                 print2eps(tmp_nam, fig, options, printArgs{:});
@@ -850,6 +867,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                     set(hXrs, 'Color', [0,0,0]);
                     set(hYrs, 'Color', [0,0,0]);
                     set(hZrs, 'Color', [0,0,0]);
+                    set(hTitle,'Color',[0,0,0]);
                 end
                 %}
                 % Restore the figure's previous background color (if modified)
@@ -1183,7 +1201,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                 fprintf(2, 'export_fig error. ');
             end
             fprintf(2, 'Please ensure:\n');
-            fprintf(2, ' * that the function you used (%s.m) is from the expected location\n', mfilename('fullpath'));
+            fprintf(2, ' * that the function you used (%s.m) version %s is from the expected location\n', mfilename('fullpath'), num2str(currentVersion));
             paths = which(mfilename,'-all');
             if iscell(paths) && numel(paths) > 1
                 fprintf(2, '    (you appear to have %s of export_fig installed)\n', hyperlink('matlab:which export_fig -all','multiple versions'));
@@ -1592,7 +1610,7 @@ end
 
 function A = downsize(A, factor)
     % Downsample an image
-    if factor == 1
+    if factor <= 1 || isempty(A) %issue #310
         % Nothing to do
         return
     end
@@ -1609,8 +1627,12 @@ function A = downsize(A, factor)
         filt = single(filt / sum(filt));
         % Filter the image
         padding = floor(numel(filt) / 2);
-        for a = 1:size(A, 3)
-            A(:,:,a) = conv2(filt, filt', single(A([ones(1, padding) 1:end repmat(end, 1, padding)],[ones(1, padding) 1:end repmat(end, 1, padding)],a)), 'valid');
+        if padding < 1 || isempty(A), return, end  %issue #310
+        onesPad = ones(1, padding);
+        for a = 1:size(A,3)
+            A2 = single(A([onesPad 1:end repmat(end,1,padding)], ...
+                          [onesPad 1:end repmat(end,1,padding)], a));
+            A(:,:,a) = conv2(filt, filt', A2, 'valid');
         end
         % Subsample
         A = A(1+floor(mod(end-1, factor)/2):factor:end,1+floor(mod(end-1, factor)/2):factor:end,:);
