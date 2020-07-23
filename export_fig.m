@@ -301,20 +301,21 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 % 12/12/19: Added warning in case user requested anti-aliased output on an aliased HG2 figure (issue #292)
 % 15/12/19: Added promo message
 % 08/01/20: (3.00) Added check for newer version online (initialized to version 3.00)
-% 15/01/20: (3.01) Clarified/fixed error messages; added error IDs; easier -update; various other small fixes
-% 20/01/20: (3.02) Attempted fix for issue #285: unsupported patch transparency in some Ghostscript versions; improved suggested fixes message upon error
+% 15/01/20: (3.01) Clarified/fixed error messages; Added error IDs; easier -update; various other small fixes
+% 20/01/20: (3.02) Attempted fix for issue #285 (unsupported patch transparency in some Ghostscript versions); Improved suggested fixes message upon error
 % 03/03/20: (3.03) Suggest to upload problematic EPS file in case of a Ghostscript error in eps2pdf (& don't delete this file)
-% 22/03/20: (3.04) Workaround for issue #15; alert if ghostscript file not found on Matlab path
-% 10/05/20: (3.05) Fix the generated SVG file, based on Cris Luengo's SVG_FIX_VIEWBOX; don't generate PNG when only SVG is requested
-% 02/07/20: (3.06) Significantly improved performance (speed) and fidelity of bitmap images; return alpha matrix for bitmap images; fixed -update bug (issue #302); added EMF output; added -clipboard formats (image,bitmap,emf,pdf); added hints for exportgraphics/copygraphics usage in certain use-cases; added description of new version features in the update message; fixed issue #306 (yyaxis cropping); fixed EPS/PDF auto-cropping with -transparent
-% 06/07/20: (3.07) Fixed issue #307 (bug in padding of bitmap images); fixed axes transparency in -clipboard:emf with -transparent
-% 07/07/20: (3.08) Fixed issue #308: bug in R2019a and earlier
-% 18/07/20: (3.09) Fixed issue #310 (hopefully): bug with tiny image on HG1; fixed title cropping bug
+% 22/03/20: (3.04) Workaround for issue #15; Alert if ghostscript file not found on Matlab path
+% 10/05/20: (3.05) Fix the generated SVG file, based on Cris Luengo's SVG_FIX_VIEWBOX; Don't generate PNG when only SVG is requested
+% 02/07/20: (3.06) Significantly improved performance (speed) and fidelity of bitmap images; Return alpha matrix for bitmap images; Fixed issue #302 (-update bug); Added EMF output; Added -clipboard formats (image,bitmap,emf,pdf); Added hints for exportgraphics/copygraphics usage in certain use-cases; Added description of new version features in the update message; Fixed issue #306 (yyaxis cropping); Fixed EPS/PDF auto-cropping with -transparent
+% 06/07/20: (3.07) Fixed issue #307 (bug in padding of bitmap images); Fixed axes transparency in -clipboard:emf with -transparent
+% 07/07/20: (3.08) Fixed issue #308 (bug in R2019a and earlier)
+% 18/07/20: (3.09) Fixed issue #310 (bug with tiny image on HG1); Fixed title cropping bug
+% 23/07/20: (3.10) Fixed issues #313,314 (figure position changes if units ~= pixels); Display multiple versions change-log, if relevant; Fixed issue #312 (PNG: only use alpha channel if -transparent was requested)
 %}
 
     % Check for newer version (not too often)
-    currentVersion = 3.09;
-    checkForNewerVersion(3.09);  % ...(currentVersion) is better but breaks in version 3.05- due to regexp limitation in checkForNewerVersion()
+    currentVersion = 3.10;
+    checkForNewerVersion(3.10);  % ...(currentVersion) is better but breaks in version 3.05- due to regexp limitation in checkForNewerVersion()
 
     if nargout
         [imageData, alpha] = deal([]);
@@ -507,11 +508,11 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
     end
 
     % Fix issue #46: Ghostscript crash if figure units <> pixels
+    pos = get(fig, 'Position');  % Fix issues #313, #314
     oldFigUnits = get(fig,'Units');
     set(fig,'Units','pixels');
+    pixelpos = get(fig, 'Position'); %=getpixelposition(fig);
 
-    pixelpos = getpixelposition(fig);
-    pos  = get(fig, 'Position');
     tcol = get(fig, 'Color');
     tcol_orig = tcol;
 
@@ -693,7 +694,10 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                 res = options.magnify * get(0, 'ScreenPixelsPerInch') / 25.4e-3;
                 % Save the png
                 [format_options, bitDepth] = getFormatOptions(options, 'png');  %Issue #269
-                pngOptions = {[options.name '.png'], 'Alpha',double(alpha), 'ResolutionUnit','meter', 'XResolution',res, 'YResolution',res, format_options{:}}; %#ok<CCAT>
+                pngOptions = {[options.name '.png'], 'ResolutionUnit','meter', 'XResolution',res, 'YResolution',res, format_options{:}}; %#ok<CCAT>
+                if options.transparent  % Fix issue #312: only use alpha channel if -transparent was requested
+                    pngOptions = [pngOptions 'Alpha',double(alpha)];
+                end
                 if ~isempty(bitDepth) && bitDepth < 16 && size(A,3) == 3
                     % BitDepth specification requires using a color-map
                     [A, map] = rgb2ind(A, 256);
@@ -838,7 +842,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                     [hZs,hZrs] = fixBlackAxle(hAxes, 'ZColor');
 
                     % Correct black titles to off-black
-                    % https://www.mathworks.com/matlabcentral/answers/567027-matlab-export_fig-crops-title?s_tid=srchtitle
+                    % https://www.mathworks.com/matlabcentral/answers/567027-matlab-export_fig-crops-title
                     try
                         hTitle = get(hAxes, 'Title');
                         for idx = numel(hTitle) : -1 : 1
@@ -1861,12 +1865,24 @@ function isNewerVersionAvailable = checkForNewerVersion(currentVersion)
         url = 'https://raw.githubusercontent.com/altmany/export_fig/master/export_fig.m';
         try
             str = readURL(url);
-            [unused,unused,unused,unused,latestVerStrs] = regexp(str, '\n[^:]+: \(([^)]+)\) ([^%]+)\n%}'); %#ok<ASGLU>
-            latestVersion = str2double(latestVerStrs{1}{1});
-            if nargin < 1, currentVersion = lastVersion; end
-            isNewerVersionAvailable = latestVersion > currentVersion + 1e3*eps;
+            [unused,unused,unused,unused,latestVerStrs] = regexp(str, '\n[^:]+: \(([^)]+)\) ([^%]+)(?=\n)'); %#ok<ASGLU>
+            latestVersion = str2double(latestVerStrs{end}{1});
+            if nargin < 1
+                currentVersion = lastVersion;
+            else
+                currentVersion = currentVersion + 1e3*eps;
+            end
+            isNewerVersionAvailable = latestVersion > currentVersion;
             if isNewerVersionAvailable
-                versionDesc = latestVerStrs{1}{2};
+                try
+                    verStrs = strtrim(reshape([latestVerStrs{:}],2,[]));
+                    verNums = arrayfun(@(c)str2double(c{1}),verStrs(1,:));
+                    isValid = verNums > currentVersion;
+                    versionDesc = strjoin(flip(verStrs(2,isValid)),';');
+                catch
+                    % Something bad happened - only display the latest version description
+                    versionDesc = latestVerStrs{1}{2};
+                end
                 try versionDesc = strjoin(strrep(strcat(' ***', strtrim(strsplit(versionDesc,';'))),'***','* '), char(10)); catch, end %#ok<CHARTEN>
                 msg = sprintf('A newer version of export_fig (%g) is available, which includes the following improvements/fixes:\n%s\nYou can download the new version from GitHub or Matlab File Exchange, or run export_fig(''-update'') to install it directly.', latestVersion, versionDesc);
                 msg = hyperlink('https://github.com/altmany/export_fig', 'GitHub', msg);
