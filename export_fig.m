@@ -311,11 +311,12 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 % 07/07/20: (3.08) Fixed issue #308 (bug in R2019a and earlier)
 % 18/07/20: (3.09) Fixed issue #310 (bug with tiny image on HG1); Fixed title cropping bug
 % 23/07/20: (3.10) Fixed issues #313,314 (figure position changes if units ~= pixels); Display multiple versions change-log, if relevant; Fixed issue #312 (PNG: only use alpha channel if -transparent was requested)
+% 30/07/20: (3.11) Fixed issue #317 (bug when exporting figure with non-pixels units); potential solve also of issue #303 (size change upon export)
 %}
 
     % Check for newer version (not too often)
-    currentVersion = 3.10;
-    checkForNewerVersion(3.10);  % ...(currentVersion) is better but breaks in version 3.05- due to regexp limitation in checkForNewerVersion()
+    currentVersion = 3.11;
+    checkForNewerVersion(3.11);  % ...(currentVersion) is better but breaks in version 3.05- due to regexp limitation in checkForNewerVersion()
 
     if nargout
         [imageData, alpha] = deal([]);
@@ -543,7 +544,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                 error('export_fig:padding','For bitmap output (png,jpg,tif,bmp) the padding value (-p) must be between -1<p<1')
             end
             % Print large version to array
-            [A, tcol, alpha] = getFigImage(fig, magnify, renderer, options, pos);
+            [A, tcol, alpha] = getFigImage(fig, magnify, renderer, options, pixelpos);
             % Get the background colour
             if options.transparent && (options.png || options.alpha)
                 try %options.aa_factor < 4  % default, faster but lines are not anti-aliased
