@@ -58,6 +58,7 @@ function [A, bcol, alpha] = print2array(fig, res, renderer, gs_options)
 % 22/03/20: Alert if ghostscript.m is required but not found on Matlab path
 % 24/05/20: Significant performance speedup; added alpha values (where possible)
 % 07/07/20: Fixed issue #308: bug in R2019a and earlier
+% 07/10/20: Use JavaFrame_I where possible, to avoid evoking a JavaFrame warning
 %}
 
     % Generate default input arguments, if needed
@@ -236,7 +237,11 @@ function [imgData, alpha] = getJavaImage(hFig)
     % Get the figure's underlying Java frame
     oldWarn = warning('off','MATLAB:HandleGraphics:ObsoletedProperty:JavaFrame');
     warning('off','MATLAB:ui:javaframe:PropertyToBeRemoved');
-    jf = get(handle(hFig),'JavaFrame'); %#ok<JAVFM>
+    try
+        jf = get(handle(hFig),'JavaFrame_I');
+    catch
+        jf = get(handle(hFig),'JavaFrame'); %#ok<JAVFM>
+    end
     warning(oldWarn);
 
     % Get the Java frame's root frame handle
