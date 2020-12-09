@@ -31,6 +31,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 %   export_fig ... -preserve_size
 %   export_fig ... -options <optionsStruct>
 %   export_fig ... -silent
+%   export_fig ... -regexprep <pattern> <replace>
 %   export_fig(..., handle)
 %
 % This function saves a figure or single axes to one or more vector and/or
@@ -185,6 +186,10 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 %             options.PNG.BitDepth=4. Valid only for PNG,TIF,JPG output formats.
 %   -silent - option to avoid various warning and informational messages, such
 %             as version update checks, transparency or renderer issues, etc.
+%   -regexprep <old> <new> - replaces all occurances of <old> (a regular expression
+%             string or array of strings; case-sensitive), with the corresponding
+%             <new> string(s), in EPS/PDF files (only). See regexp function's doc.
+%             Warning: invalid replacement can make your EPS/PDF file unreadable!
 %   handle -  The handle of the figure, axes or uipanels (can be an array of
 %             handles, but the objects must be in the same figure) which is
 %             to be saved. Default: gcf (handle of current figure).
@@ -317,6 +322,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 % 30/07/20: (3.11) Fixed issue #317 (bug when exporting figure with non-pixels units); Potential solve also of issue #303 (size change upon export)
 % 14/08/20: (3.12) Fixed some exportgraphics/copygraphics compatibility messages; Added -silent option to suppress non-critical messages; Reduced promo message display rate to once a week; Added progress messages during export_fig('-update')
 % 07/10/20: (3.13) Added version info and change-log links to update message (issue #322); Added -version option to return the current export_fig version; Avoid JavaFrame warning message; Improved exportgraphics/copygraphics infomercial message inc. support of upcoming Matlab R2021a
+% 10/12/20: (3.14) Enabled user-specified regexp replacements in generated EPS/PDF files (issue #324)
 %}
 
     if nargout
@@ -345,14 +351,14 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
     [fig, options] = parse_args(nargout, fig, argNames, varargin{:});
 
     % Check for newer version and exportgraphics/copygraphics compatibility
-    currentVersion = 3.13;
+    currentVersion = 3.14;
     if options.version  % export_fig's version requested - return it and bail out
         imageData = currentVersion;
         return
     end
     if ~options.silent
         % Check for newer version (not too often)
-        checkForNewerVersion(3.13);  % ...(currentVersion) is better but breaks in version 3.05- due to regexp limitation in checkForNewerVersion()
+        checkForNewerVersion(3.14);  % ...(currentVersion) is better but breaks in version 3.05- due to regexp limitation in checkForNewerVersion()
 
         % Hint to users to use exportgraphics/copygraphics in certain cases
         alertForExportOrCopygraphics(options);
@@ -1321,6 +1327,7 @@ function options = default_options()
         'format_options',  struct, ...
         'preserve_size',   false, ...
         'silent',          false, ...
+        'regexprep',       [], ...
         'gs_options',      {{}});
 end
 
@@ -1338,10 +1345,10 @@ function [fig, options] = parse_args(nout, fig, argNames, varargin)
     options.handleName = '';  % default handle name
 
     % Go through the other arguments
-    skipNext = false;
-    for a = 1:nargin-3
-        if skipNext
-            skipNext = false;
+    skipNext = 0;
+    for a = 1:nargin-3  % only process varargin, no other parse_args() arguments
+        if skipNext > 0
+            skipNext = skipNext-1;
             continue;
         end
         if all(ishandle(varargin{a}))
@@ -1415,7 +1422,7 @@ function [fig, options] = parse_args(nout, fig, argNames, varargin)
                         options.fontswap = false;
                     case 'font_space'
                         options.font_space = varargin{a+1};
-                        skipNext = true;
+                        skipNext = 1;
                     case 'linecaps'
                         options.linecaps = true;
                     case 'noinvert'
@@ -1434,9 +1441,12 @@ function [fig, options] = parse_args(nout, fig, argNames, varargin)
                             formatName = regexprep(lower(formats{idx}),{'tiff','jpeg'},{'tif','jpg'});
                             options.format_options.(formatName) = optionsStruct; %=optionsCells(:)';
                         end
-                        skipNext = true;
+                        skipNext = 1;
                     case 'silent'
                         options.silent = true;
+                    case 'regexprep'
+                        options.regexprep = varargin(a+1:a+2);
+                        skipNext = 2;
                     otherwise
                         try
                             wasError = false;
@@ -1449,7 +1459,7 @@ function [fig, options] = parse_args(nout, fig, argNames, varargin)
                                     error('export_fig:BadOptionValue','option ''%s'' cannot be parsed: only image, bitmap, emf and pdf formats are supported',varargin{a});
                                 end
                                 if numel(varargin{a})==2
-                                    skipNext = true;
+                                    skipNext = 1;
                                     vals = str2num(varargin{a+1}); %#ok<ST2NM>
                                 else
                                     vals = str2num(varargin{a}(3:end)); %#ok<ST2NM>
@@ -1466,7 +1476,7 @@ function [fig, options] = parse_args(nout, fig, argNames, varargin)
                                     % Issue #51: improved processing of input args (accept space between param name & value)
                                     val = str2double(varargin{a+1});
                                     if isscalar(val) && ~isnan(val)
-                                        skipNext = true;
+                                        skipNext = 1;
                                     end
                                 end
                                 if ~isscalar(val) || isnan(val)
