@@ -19,8 +19,8 @@ function fh = isolate_axes(ah, vis)
 % OUT:
 %    fh - The handle of the created figure.
 
-% Copyright (C) Oliver Woodford 2011-2013
-
+% Copyright (C) Oliver Woodford 2011-2014, Yair Altman 2015-
+%{
 % Thank you to Rosella Blatt for reporting a bug to do with axes in GUIs
 % 16/03/12: Moved copyfig to its own function. Thanks to Bob Fratantonio
 %           for pointing out that the function is also used in export_fig.m
@@ -30,11 +30,14 @@ function fh = isolate_axes(ah, vis)
 % 21/04/15: Bug fix for exporting uipanels with legend/colorbar on HG1 (reported by Alvaro
 %           on FEX page as a comment on 24-Apr-2014); standardized indentation & help section
 % 22/04/15: Bug fix: legends and colorbars were not exported when exporting axes handle in HG2
+% 02/02/21: Fix axes, figure size to preserve input axes image resolution (thanks @Optecks)
+%}
 
     % Make sure we have an array of handles
     if ~all(ishandle(ah))
         error('ah must be an array of handles');
     end
+    
     % Check that the handles are all for axes or uipanels, and are all in the same figure
     fh = ancestor(ah(1), 'figure');
     nAx = numel(ah);
@@ -46,35 +49,51 @@ function fh = isolate_axes(ah, vis)
             error('Axes must all come from the same figure.');
         end
     end
+    
     % Tag the objects so we can find them in the copy
     old_tag = get(ah, 'Tag');
     if nAx == 1
         old_tag = {old_tag};
     end
     set(ah, 'Tag', 'ObjectToCopy');
+    
     % Create a new figure exactly the same as the old one
     fh = copyfig(fh); %copyobj(fh, 0);
+
+    % Fix Axes & Figure size for image catpuring to have almost exact resolution
+    % of the Input Axes (thanks @Optecks)
+    allaxes = findall(fh, 'type', 'axes');
+    if ~isempty(ah)
+        sz = get(ah(1), 'Position');
+        set(allaxes(1), 'Position', [0 0 sz(3) sz(4)]);
+        set(fh,         'Position', [0 0 sz(3) sz(4)]);
+    end
+
     if nargin < 2 || ~vis
         set(fh, 'Visible', 'off');
     end
+    
     % Reset the object tags
     for a = 1:nAx
         set(ah(a), 'Tag', old_tag{a});
     end
+    
     % Find the objects to save
     ah = findall(fh, 'Tag', 'ObjectToCopy');
     if numel(ah) ~= nAx
         close(fh);
         error('Incorrect number of objects found.');
     end
+    
     % Set the axes tags to what they should be
     for a = 1:nAx
         set(ah(a), 'Tag', old_tag{a});
     end
+    
     % Keep any legends and colorbars which overlap the subplots
     % Note: in HG1 these are axes objects; in HG2 they are separate objects, therefore we
     %       don't test for the type, only the tag (hopefully nobody but Matlab uses them!)
-    lh = findall(fh, 'Tag', 'legend', '-or', 'Tag', 'Colorbar');
+    lh = findall(fh, 'Tag','legend', '-or', 'Tag','Colorbar');
     nLeg = numel(lh);
     if nLeg > 0
         set([ah(:); lh(:)], 'Units', 'normalized');
@@ -104,8 +123,10 @@ function fh = isolate_axes(ah, vis)
             bsxfun(@gt, leg_pos(:,4), ax_pos(:,:,2));
         ah = [ah; lh(any(M, 2))];
     end
+    
     % Get all the objects in the figure
     axs = findall(fh);
+    
     % Delete everything except for the input objects and associated items
     delete(axs(~ismember(axs, [ah; allchildren(ah); allancestors(ah)])));
 end
