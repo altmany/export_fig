@@ -324,6 +324,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 % 07/10/20: (3.13) Added version info and change-log links to update message (issue #322); Added -version option to return the current export_fig version; Avoid JavaFrame warning message; Improved exportgraphics/copygraphics infomercial message inc. support of upcoming Matlab R2021a
 % 10/12/20: (3.14) Enabled user-specified regexp replacements in generated EPS/PDF files (issue #324)
 % 01/07/21: (3.15) Added informative message in case of setopacityalpha error (issue #285)
+% 26/08/21: (3.16) Fixed problem of white elements appearing transparent (issue #330); clarified some error messages
 %}
 
     if nargout
@@ -352,14 +353,14 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
     [fig, options] = parse_args(nargout, fig, argNames, varargin{:});
 
     % Check for newer version and exportgraphics/copygraphics compatibility
-    currentVersion = 3.15;
+    currentVersion = 3.16;
     if options.version  % export_fig's version requested - return it and bail out
         imageData = currentVersion;
         return
     end
     if ~options.silent
         % Check for newer version (not too often)
-        checkForNewerVersion(3.15);  % ...(currentVersion) is better but breaks in version 3.05- due to regexp limitation in checkForNewerVersion()
+        checkForNewerVersion(3.16);  % ...(currentVersion) is better but breaks in version 3.05- due to regexp limitation in checkForNewerVersion()
 
         % Hint to users to use exportgraphics/copygraphics in certain cases
         alertForExportOrCopygraphics(options);
@@ -575,7 +576,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                                 A(:,:,2) == tcol(2) & ...
                                 A(:,:,3) == tcol(3);
                     % Set the bgcolor pixels to be fully-transparent
-                    A(repmat(isBgColor,[1,1,3])) = 255; %=white % TODO: more memory efficient without repmat
+                    A(repmat(isBgColor,[1,1,3])) = 254; %=off-white % TODO: more memory efficient without repmat
                     alpha(isBgColor) = 0;
                 catch  % older logic - much slower and causes figure flicker
                     if true  % to fold the code below...
@@ -809,17 +810,12 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                 fwrite(fid,1);
                 fclose(fid);
                 delete(tmp_nam);
-                isTempDirOk = true;
+                pdf_nam_tmp = [tempname '.pdf'];
             catch
                 % Temp dir is not writable, so use the user-specified folder
                 [dummy,fname,fext] = fileparts(tmp_nam); %#ok<ASGLU>
                 fpath = fileparts(options.name);
                 tmp_nam = fullfile(fpath,[fname fext]);
-                isTempDirOk = false;
-            end
-            if isTempDirOk
-                pdf_nam_tmp = [tempname '.pdf'];
-            else
                 pdf_nam_tmp = fullfile(fpath,[fname '.pdf']);
             end
             if options.pdf
@@ -883,7 +879,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                     end
                 end
                 % Generate an eps
-                print2eps(tmp_nam, fig, options, printArgs{:});
+                print2eps(tmp_nam, fig, options, printArgs{:}); %winopen(tmp_nam)
                 % {
                 % Remove the background, if desired
                 if options.transparent %&& ~isequal(get(fig, 'Color'), 'none')
@@ -926,7 +922,12 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                 catch
                     % Alert in case of error creating output PDF/EPS file (issue #179)
                     if exist(pdf_nam_tmp, 'file')
-                        errMsg = ['Could not create ' pdf_nam ' - perhaps the folder does not exist, or you do not have write permissions, or the file is open in another application'];
+                        fpath = fileparts(pdf_nam);
+                        if ~isempty(fpath) && exist(fpath,'dir')==0
+                            errMsg = ['Could not create ' pdf_nam ' - folder "' fpath '" does not exist'];
+                        else  % output folder exists
+                            errMsg = ['Could not create ' pdf_nam ' - perhaps you do not have write permissions, or the file is open in another application'];
+                        end
                         error('export_fig:PDF:create',errMsg);
                     else
                         error('export_fig:NoEPS','Could not generate the intermediary EPS file.');
@@ -1760,7 +1761,8 @@ end
 function [A, tcol, alpha] = getFigImage(fig, magnify, renderer, options, pos)
     if options.transparent
         % MATLAB "feature": figure size can change when changing color in -nodisplay mode
-        set(fig, 'Color', 'w', 'Position', pos);
+        % Note: figure background is set to off-white, not 'w', to handle common white elements (issue #330)
+        set(fig, 'Color',254/255*[1,1,1], 'Position',pos);
         drawnow;  % repaint figure, otherwise Java screencapture will see black bgcolor
     end
     % Print large version to array
@@ -1774,7 +1776,7 @@ function [A, tcol, alpha] = getFigImage(fig, magnify, renderer, options, pos)
     % In transparent mode, set the bgcolor to white
     if options.transparent
         % Note: tcol should already be [255,255,255] here, but just in case it's not...
-        tcol = uint8([255,255,255]);  %=white
+        tcol = uint8(254*[1,1,1]);  %=off-white
     end
 end
 
