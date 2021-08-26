@@ -61,6 +61,7 @@ function [A, bcol, alpha] = print2array(fig, res, renderer, gs_options)
 % 07/10/20: Use JavaFrame_I where possible, to avoid evoking a JavaFrame warning
 % 07/03/21: Fixed edge-case in case a non-figure handle was provided as input arg
 % 10/03/21: Forced a repaint at top of function to ensure accurate image snapshot (issue #211)
+% 26/08/21: Added a short pause to avoid unintended image cropping (issue #318)
 %}
 
     % Generate default input arguments, if needed
@@ -280,6 +281,7 @@ function [imgData, alpha] = getJavaImage(hFig)
     try TYPE_INT_RGB = BufferedImage.TYPE_INT_RGB; catch, TYPE_INT_RGB = 1; end
     jImage = BufferedImage(w, h, TYPE_INT_RGB);
     jPanel.paint(jImage.createGraphics);
+    pause(0.01);  % required to avoid unintended cropping (issue #318)
     jPanel.paint(jOriginalGraphics);  % repaint original figure to avoid a blank window
 
     % Extract the RGB pixels from the BufferedImage (see screencapture.m)
