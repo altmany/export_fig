@@ -77,6 +77,8 @@ function [A, bcol, alpha] = print2array(fig, res, renderer, gs_options)
     px = get(fig, 'Position');
     set(fig, 'Units', old_mode);
 
+    pause(0.02);  % add a short pause to avoid unintended cropping (issue #318)
+
     % Retrieve the background colour
     bcol = get(fig, 'Color');
     try
@@ -281,7 +283,6 @@ function [imgData, alpha] = getJavaImage(hFig)
     try TYPE_INT_RGB = BufferedImage.TYPE_INT_RGB; catch, TYPE_INT_RGB = 1; end
     jImage = BufferedImage(w, h, TYPE_INT_RGB);
     jPanel.paint(jImage.createGraphics);
-    pause(0.01);  % required to avoid unintended cropping (issue #318)
     jPanel.paint(jOriginalGraphics);  % repaint original figure to avoid a blank window
 
     % Extract the RGB pixels from the BufferedImage (see screencapture.m)
