@@ -15,8 +15,8 @@ function eps2pdf(source, dest, crop, append, gray, quality, gs_options)
 % page on the end of the eps file. The level of bitmap compression can also
 % optionally be set.
 %
-% This function requires that you have ghostscript installed on your
-% system. Ghostscript can be downloaded from: http://www.ghostscript.com
+% This function requires that you have ghostscript installed on your system.
+% Ghostscript can be downloaded from: http://www.ghostscript.com
 %
 % Inputs:
 %   source  - filename of the source eps file to convert. The filename is
@@ -59,6 +59,7 @@ function eps2pdf(source, dest, crop, append, gray, quality, gs_options)
 % 15/01/20: Added information about the GS/destination filepath in case of error (issue #294)
 % 20/01/20: Attempted fix for issue #285: unsupported patch transparency in some Ghostscript versions
 % 12/02/20: Improved fix for issue #285: add -dNOSAFER and -dALLOWPSTRANSPARENCY (thanks @linasstonys)
+% 26/08/21: Added GS version to error message; fixed some problems with PDF append (issue #339)
 
     % Intialise the options string for ghostscript
     options = ['-q -dNOPAUSE -dBATCH -sDEVICE=pdfwrite -dPDFSETTINGS=/prepress -sOutputFile="' dest '"'];
@@ -110,6 +111,13 @@ function eps2pdf(source, dest, crop, append, gray, quality, gs_options)
 
     % Check if the output file exists
     if nargin > 3 && append && exist(dest, 'file') == 2
+        % Store the original filesize for later use below
+        try
+            file_info = dir(dest);
+            orig_bytes = file_info.bytes;
+        catch
+            orig_bytes = [];
+        end
         % File exists - append current figure to the end
         tmp_nam = [tempname '.pdf'];
         [fpath,fname,fext] = fileparts(tmp_nam);
@@ -124,28 +132,45 @@ function eps2pdf(source, dest, crop, append, gray, quality, gs_options)
             fpath = fileparts(dest);
             tmp_nam = fullfile(fpath,[fname fext]);
         end
-        % Copy the existing (dest) pdf file to temporary folder
+        % Copy the original (dest) pdf file to temporary folder
         copyfile(dest, tmp_nam);
         % Produce an interim pdf of the source eps, rather than adding the eps directly (issue #233)
+        % this will override the original (dest) pdf file
+        orig_options = options;
         ghostscript([options ' -f "' source '"']);
         [~,fname] = fileparts(tempname);
         tmp_nam2 = fullfile(fpath,[fname fext]); % ensure using a writable folder (not necessarily tempdir)
         copyfile(dest, tmp_nam2);
-        % Add the existing pdf and interim pdf as inputs to ghostscript
+        % Add the original pdf (tmp_nam) and interim pdf (dest=>tmp_nam2) as inputs to ghostscript
         %options = [options ' -f "' tmp_nam '" "' source '"'];  % append the source eps to dest pdf
         options = [options ' -f "' tmp_nam '" "' tmp_nam2 '"']; % append the interim pdf to dest pdf
         try
             % Convert to pdf using ghostscript
             [status, message] = ghostscript(options);
+            % The output pdf should now be in dest
+
+            % If the returned message is non-empty, a possible error may have
+            % occured, so check the file size to ensure whether the file grew
+            if ~isempty(message) && ~isempty(orig_bytes)
+                file_info = dir(dest);
+                new_bytes = file_info.bytes;
+                if new_bytes < orig_bytes + 100
+                    % Looks like nothing substantial (if anything) was appended to
+                    % the original pdf, so try adding the eps file directly (issue #339)
+                    options = [orig_options ' -f "' tmp_nam '" "' source '"'];  % append the source eps to dest pdf
+                    [status, message] = ghostscript(options);
+                end
+            end
+
+            % Delete the intermediate (temporary) files
+            delete(tmp_nam);
+            delete(tmp_nam2);
         catch me
             % Delete the intermediate files and rethrow the error
             delete(tmp_nam);
             delete(tmp_nam2);
             rethrow(me);
         end
-        % Delete the intermediate (temporary) files
-        delete(tmp_nam);
-        delete(tmp_nam2);
     else
         % File doesn't exist or should be over-written
         % Add the source eps file as input to ghostscript
@@ -222,8 +247,10 @@ function eps2pdf(source, dest, crop, append, gray, quality, gs_options)
                 fprintf(2,'%s',msg);
             end
             fprintf(2, '\n * perhaps %s is open by another application\n', dest);
+            try gs_version = str2num(evalc('ghostscript(''--version'');')); catch, gs_version = ''; end %#ok<ST2NM>
+            if ~isempty(gs_version), gs_version = [' ' num2str(gs_version)]; end
             if ~isempty(gs_options)
-                fprintf(2, ' * or maybe your Ghostscript version does not accept the extra "%s" option(s) that you requested\n', gs_options);
+                fprintf(2, ' * or maybe your Ghostscript version%s does not accept the extra "%s" option(s) that you requested\n', gs_version, gs_options);
             end
             fprintf(2, ' * or maybe you have another gs executable in your system''s path\n\n');
             fprintf(2, 'Ghostscript path: %s\n', user_string('ghostscript'));
