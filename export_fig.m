@@ -80,9 +80,9 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 % When exporting to EPS it additionally requires pdftops, from the Xpdf
 % suite of functions. You can download this from: http://xpdfreader.com
 %
-% SVG output uses the fig2svg (https://github.com/kupiqu/fig2svg) or plot2svg
-% (https://github.com/jschwizer99/plot2svg) utilities, or Matlab's built-in
-% SVG export if neither of these utilities are available on Matlab's path.
+% SVG output uses Matlab's built-in SVG export if available, or otherwise the
+% fig2svg (https://github.com/kupiqu/fig2svg) or plot2svg 
+% (https://github.com/jschwizer99/plot2svg) utilities, if available.
 % Note: cropping/padding are not supported in export_fig's SVG and EMF output.
 %
 % Inputs:
@@ -325,6 +325,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 % 10/12/20: (3.14) Enabled user-specified regexp replacements in generated EPS/PDF files (issue #324)
 % 01/07/21: (3.15) Added informative message in case of setopacityalpha error (issue #285)
 % 26/08/21: (3.16) Fixed problem of white elements appearing transparent (issue #330); clarified some error messages
+% 27/09/21: (3.17) Made Matlab's builtin export the default for SVG, rather than fig2svg/plot2svg (issue #316); updated transparency error message (issues #285, #343); reduced promo message frequency
 %}
 
     if nargout
@@ -336,9 +337,9 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
     drawnow;
     pause(0.02);  % this solves timing issues with Java Swing's EDT (http://undocumentedmatlab.com/blog/solving-a-matlab-hang-problem)
 
-    % Display promo (just once a week!)
+    % Display promo (just once every 10 days!)
     try promo_time = getpref('export_fig','promo_time'); catch, promo_time=-inf; end
-    if abs(now-promo_time) > 7 && ~isdeployed
+    if abs(now-promo_time) > 10 && ~isdeployed
         programsCrossCheck;
         msg = char('Gps!qspgfttjpobm!Nbumbc!bttjtubodf-!qmfbtf!dpoubdu!=%?'-1);
         url = char('iuuqt;00VoepdvnfoufeNbumbc/dpn0dpotvmujoh'-1);
@@ -353,14 +354,14 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
     [fig, options] = parse_args(nargout, fig, argNames, varargin{:});
 
     % Check for newer version and exportgraphics/copygraphics compatibility
-    currentVersion = 3.16;
+    currentVersion = 3.17;
     if options.version  % export_fig's version requested - return it and bail out
         imageData = currentVersion;
         return
     end
     if ~options.silent
         % Check for newer version (not too often)
-        checkForNewerVersion(3.16);  % ...(currentVersion) is better but breaks in version 3.05- due to regexp limitation in checkForNewerVersion()
+        checkForNewerVersion(3.17);  % ...(currentVersion) is better but breaks in version 3.05- due to regexp limitation in checkForNewerVersion()
 
         % Hint to users to use exportgraphics/copygraphics in certain cases
         alertForExportOrCopygraphics(options);
@@ -991,29 +992,36 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
         if options.svg
             filename = [options.name '.svg'];
             % Adapted from Dan Joshea's https://github.com/djoshea/matlab-save-figure :
-            try %if verLessThan('matlab', '8.4')
+            try %if ~verLessThan('matlab', '8.4')
+                % Try Matlab's built-in svg engine (from Batik Graphics2D for java)
+                set(fig,'Units','pixels');   % All data in the svg-file is saved in pixels
+                printArgs = {renderer};
+                if ~isempty(options.resolution)
+                    printArgs{end+1} = sprintf('-r%d', options.resolution);
+                end
+                try
+                    print(fig, '-dsvg', printArgs{:}, filename);
+                catch
+                    % built-in print() failed, try saveas()
+                    % Note: saveas() currently just calls print(fig,filename,'-dsvg')
+                    % so since print() failed, saveas() will probably also fail
+                    saveas(fig, filename);
+                end
+                if ~options.silent
+                    warning('export_fig:SVG:print', 'export_fig used Matlab''s built-in SVG output engine. Better results may be gotten via the fig2svg utility (https://github.com/kupiqu/fig2svg).');
+                end
+            catch %else  % built-in print()/saveas() failed - maybe an old Matlab release (no -dsvg)
                 % Try using the fig2svg/plot2svg utilities
                 try
-                    fig2svg(filename, fig);  %https://github.com/kupiqu/fig2svg
-                catch
-                    plot2svg(filename, fig); %https://github.com/jschwizer99/plot2svg
-                    if ~options.silent
-                        warning('export_fig:SVG:plot2svg', 'export_fig used the plot2svg utility for SVG output. Better results may be gotten via the fig2svg utility (https://github.com/kupiqu/fig2svg).');
+                    try
+                        fig2svg(filename, fig);  %https://github.com/kupiqu/fig2svg
+                    catch
+                        plot2svg(filename, fig); %https://github.com/jschwizer99/plot2svg
+                        if ~options.silent
+                            warning('export_fig:SVG:plot2svg', 'export_fig used the plot2svg utility for SVG output. Better results may be gotten via the fig2svg utility (https://github.com/kupiqu/fig2svg).');
+                        end
                     end
-                end
-            catch %else  % (neither fig2svg nor plot2svg are available)
-                % Try Matlab's built-in svg engine (from Batik Graphics2D for java)
-                try
-                    set(fig,'Units','pixels');   % All data in the svg-file is saved in pixels
-                    printArgs = {renderer};
-                    if ~isempty(options.resolution)
-                        printArgs{end+1} = sprintf('-r%d', options.resolution);
-                    end
-                    print(fig, '-dsvg', printArgs{:}, filename);
-                    if ~options.silent
-                        warning('export_fig:SVG:print', 'export_fig used Matlab''s built-in SVG output engine. Better results may be gotten via the fig2svg utility (https://github.com/kupiqu/fig2svg).');
-                    end
-                catch err  % built-in print() failed - maybe an old Matlab release (no -dsvg)
+                catch err
                     filename = strrep(filename,'export_fig_out','filename');
                     msg = ['SVG output is not supported for your figure: ' err.message '\n' ...
                         'Try one of the following alternatives:\n' ...
@@ -1250,7 +1258,9 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
             end
             url = 'https://github.com/altmany/export_fig/issues/285#issuecomment-815008561';
             urlStr = hyperlink(url,'details');
-            fprintf(2,'Export_fig transparancy is not supported by your Ghostscript version%s. \nInstall GS version 9.28 or earlier to use transparency (%s).\n', verStr, urlStr);
+            errMsg = sprintf('Transparancy is not supported by your export_fig (%s) and Ghostscript%s versions. \nInstall GS version 9.28 or earlier to use transparency (%s).', num2str(currentVersion), verStr, urlStr);
+            %fprintf(2,'%s\n',errMsg);
+            error('export_fig:setopacityalpha',errMsg) %#ok<SPERR>
         elseif displaySuggestedWorkarounds && ~strcmpi(err.message,'export_fig error')
             isNewerVersionAvailable = checkForNewerVersion(currentVersion);  % alert if a newer version exists
             if isempty(regexpi(err.message,'Ghostscript')) %#ok<RGXPI>
