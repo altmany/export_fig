@@ -326,6 +326,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 % 01/07/21: (3.15) Added informative message in case of setopacityalpha error (issue #285)
 % 26/08/21: (3.16) Fixed problem of white elements appearing transparent (issue #330); clarified some error messages
 % 27/09/21: (3.17) Made Matlab's builtin export the default for SVG, rather than fig2svg/plot2svg (issue #316); updated transparency error message (issues #285, #343); reduced promo message frequency
+% 03/10/21: (3.18) Fixed warning about invalid escaped character when the output folder does not exist (issue #345)
 %}
 
     if nargout
@@ -354,14 +355,14 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
     [fig, options] = parse_args(nargout, fig, argNames, varargin{:});
 
     % Check for newer version and exportgraphics/copygraphics compatibility
-    currentVersion = 3.17;
+    currentVersion = 3.18;
     if options.version  % export_fig's version requested - return it and bail out
         imageData = currentVersion;
         return
     end
     if ~options.silent
         % Check for newer version (not too often)
-        checkForNewerVersion(3.17);  % ...(currentVersion) is better but breaks in version 3.05- due to regexp limitation in checkForNewerVersion()
+        checkForNewerVersion(3.18);  % ...(currentVersion) is better but breaks in version 3.05- due to regexp limitation in checkForNewerVersion()
 
         % Hint to users to use exportgraphics/copygraphics in certain cases
         alertForExportOrCopygraphics(options);
@@ -1540,7 +1541,7 @@ function [fig, options] = parse_args(nout, fig, argNames, varargin)
                 [p, options.name, ext] = fileparts(varargin{a});
                 if ~isempty(p)
                     % Issue #221: alert if the requested folder does not exist
-                    if ~exist(p,'dir'),  error('export_fig:BadPath',['Folder ' p ' does not exist!']);  end
+                    if ~exist(p,'dir'),  error('export_fig:BadPath','Folder %s does not exist!',p);  end
                     options.name = [p filesep options.name];
                 end
                 switch lower(ext)
