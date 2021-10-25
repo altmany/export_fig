@@ -327,6 +327,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 % 26/08/21: (3.16) Fixed problem of white elements appearing transparent (issue #330); clarified some error messages
 % 27/09/21: (3.17) Made Matlab's builtin export the default for SVG, rather than fig2svg/plot2svg (issue #316); updated transparency error message (issues #285, #343); reduced promo message frequency
 % 03/10/21: (3.18) Fixed warning about invalid escaped character when the output folder does not exist (issue #345)
+% 25/10/21: (3.19) Fixed print error when exporting a specific subplot (issue #347); avoid duplicate error messages
 %}
 
     if nargout
@@ -355,14 +356,14 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
     [fig, options] = parse_args(nargout, fig, argNames, varargin{:});
 
     % Check for newer version and exportgraphics/copygraphics compatibility
-    currentVersion = 3.18;
+    currentVersion = 3.19;
     if options.version  % export_fig's version requested - return it and bail out
         imageData = currentVersion;
         return
     end
     if ~options.silent
         % Check for newer version (not too often)
-        checkForNewerVersion(3.18);  % ...(currentVersion) is better but breaks in version 3.05- due to regexp limitation in checkForNewerVersion()
+        checkForNewerVersion(3.19);  % ...(currentVersion) is better but breaks in version 3.05- due to regexp limitation in checkForNewerVersion()
 
         % Hint to users to use exportgraphics/copygraphics in certain cases
         alertForExportOrCopygraphics(options);
@@ -1782,7 +1783,7 @@ function [A, tcol, alpha] = getFigImage(fig, magnify, renderer, options, pos)
         [A, tcol, alpha] = print2array(fig, magnify, renderer);
     catch
         % This is more conservative in memory, but perhaps kills transparency(?)
-        [A, tcol, alpha] = print2array(fig, magnify/options.aa_factor, renderer);
+        [A, tcol, alpha] = print2array(fig, magnify/options.aa_factor, renderer, 'retry');
     end
     % In transparent mode, set the bgcolor to white
     if options.transparent

@@ -31,6 +31,7 @@ function fh = isolate_axes(ah, vis)
 %           on FEX page as a comment on 24-Apr-2014); standardized indentation & help section
 % 22/04/15: Bug fix: legends and colorbars were not exported when exporting axes handle in HG2
 % 02/02/21: Fix axes, figure size to preserve input axes image resolution (thanks @Optecks)
+% 25/10/21: Bug fix: subplots were not isolated properly leading to print error (issue #347)
 %}
 
     % Make sure we have an array of handles
@@ -64,9 +65,12 @@ function fh = isolate_axes(ah, vis)
     % of the Input Axes (thanks @Optecks)
     allaxes = findall(fh, 'type', 'axes');
     if ~isempty(ah)
-        sz = get(ah(1), 'Position');
-        set(allaxes(1), 'Position', [0 0 sz(3) sz(4)]);
-        set(fh,         'Position', [0 0 sz(3) sz(4)]);
+        sz = get(ah(1), 'OuterPosition');
+        un = get(ah(1), 'Units');
+        set(allaxes(1), 'Units',un, 'OuterPosition', [0 0 sz(3) sz(4)]);
+        set(allaxes(1), 'Units','pixels');
+        sz = get(allaxes(1), 'OuterPosition');
+        set(fh, 'Units','pixels', 'Position',[0 0 sz(3) sz(4)]+1);
     end
 
     if nargin < 2 || ~vis
@@ -111,7 +115,7 @@ function fh = isolate_axes(ah, vis)
         catch
             leg_pos = get(lh, 'Position');  % No OuterPosition in HG2, only in HG1
         end
-        if nLeg > 1;
+        if nLeg > 1
             leg_pos = cell2mat(leg_pos);
         end
         leg_pos(:,3:4) = leg_pos(:,3:4) + leg_pos(:,1:2);
@@ -144,7 +148,7 @@ function ph = allancestors(ah)
     for a = 1:numel(ah)
         h = get(ah(a), 'parent');
         while h ~= 0
-            ph = [ph; h];
+            ph = [ph; h]; %#ok<AGROW>
             h = get(h, 'parent');
         end
     end

@@ -62,6 +62,7 @@ function [A, bcol, alpha] = print2array(fig, res, renderer, gs_options)
 % 07/03/21: Fixed edge-case in case a non-figure handle was provided as input arg
 % 10/03/21: Forced a repaint at top of function to ensure accurate image snapshot (issue #211)
 % 26/08/21: Added a short pause to avoid unintended image cropping (issue #318)
+% 25/10/21: Avoid duplicate error message when retrying print2array with different resolution; display internal print error message
 %}
 
     % Generate default input arguments, if needed
@@ -115,8 +116,12 @@ function [A, bcol, alpha] = print2array(fig, res, renderer, gs_options)
             isTempDirOk = false;
         end
         % Enable users to specify optional ghostscript options (issue #36)
+        isRetry = false;
         if nargin > 3 && ~isempty(gs_options)
-            if iscell(gs_options)
+            if isequal(gs_options,'retry')
+                isRetry = true;
+                gs_options = '';
+            elseif iscell(gs_options)
                 gs_options = sprintf(' %s',gs_options{:});
             elseif ~ischar(gs_options)
                 error('gs_options input argument must be a string or cell-array of strings');
@@ -177,7 +182,9 @@ function [A, bcol, alpha] = print2array(fig, res, renderer, gs_options)
             % Throw any error that occurred
             if err
                 % Display suggested workarounds to internal print() error (issue #16)
-                fprintf(2, 'An error occured with Matlab''s builtin print function.\nTry setting the figure Renderer to ''painters'' or use opengl(''software'').\n\n');
+                if ~isRetry
+                    fprintf(2, 'An error occured in Matlab''s builtin print function:\n%s\nTry setting the figure Renderer to ''painters'' or use opengl(''software'').\n\n', ex.message);
+                end
                 rethrow(ex);
             end
         end
