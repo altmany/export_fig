@@ -332,6 +332,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 % 03/10/21: (3.18) Fixed warning about invalid escaped character when the output folder does not exist (issue #345)
 % 25/10/21: (3.19) Fixed print error when exporting a specific subplot (issue #347); avoid duplicate error messages
 % 11/12/21: (3.20) Added GIF support, including animated & transparent-background; accept format options as cell-array, not just nested struct
+% 20/12/21: (3.21) Speedups; fixed exporting non-current figure (hopefully fixes issue #318); fixed warning when appending to animated GIF
 %}
 
     if nargout
@@ -344,12 +345,16 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
     pause(0.02);  % this solves timing issues with Java Swing's EDT (http://undocumentedmatlab.com/blog/solving-a-matlab-hang-problem)
 
     % Display promo (just once every 10 days!)
-    try promo_time = getpref('export_fig','promo_time'); catch, promo_time=-inf; end
+    persistent promo_time
+    if isempty(promo_time)
+        try promo_time = getpref('export_fig','promo_time'); catch, promo_time=-inf; end
+    end
     if abs(now-promo_time) > 10 && ~isdeployed
         programsCrossCheck;
         msg = char('Gps!qspgfttjpobm!Nbumbc!bttjtubodf-!qmfbtf!dpoubdu!=%?'-1);
         url = char('iuuqt;00VoepdvnfoufeNbumbc/dpn0dpotvmujoh'-1);
         displayPromoMsg(msg, url);
+        promo_time = now;
         setpref('export_fig','promo_time',now)
     end
 
@@ -360,14 +365,14 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
     [fig, options] = parse_args(nargout, fig, argNames, varargin{:});
 
     % Check for newer version and exportgraphics/copygraphics compatibility
-    currentVersion = 3.20;
+    currentVersion = 3.21;
     if options.version  % export_fig's version requested - return it and bail out
         imageData = currentVersion;
         return
     end
     if ~options.silent
         % Check for newer version (not too often)
-        checkForNewerVersion(3.20);  % ...(currentVersion) is better but breaks in version 3.05- due to regexp limitation in checkForNewerVersion()
+        checkForNewerVersion(3.21);  % ...(currentVersion) is better but breaks in version 3.05- due to regexp limitation in checkForNewerVersion()
 
         % Hint to users to use exportgraphics/copygraphics in certain cases
         alertForExportOrCopygraphics(options);
@@ -779,7 +784,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                 % Handle the case of trying to append to non-existing GIF file
                 % (imwrite() croaks when asked to append to a non-existing file)
                 filename = [options.name '.gif'];
-                options.append = options.append && exist(filename,'file');
+                options.append = options.append && existFile(filename);
                 % Set the default GIF options for imwrite()
                 append_mode = {'overwrite', 'append'};
                 writeMode = append_mode{options.append+1};
@@ -792,14 +797,14 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                     if isempty(alphaIdx) || alphaIdx <= 0, alphaIdx = 1; end
                     % GIF color index of uint8/logical images starts at 0, not 1
                     if ~isfloat(img), alphaIdx = alphaIdx - 1; end
-                    gifOptions = [gifOptions, 'BackgroundColor',alphaIdx, ...
-                                              'TransparentColor',alphaIdx, ...
+                    gifOptions = [gifOptions, 'TransparentColor',alphaIdx, ...
                                               'DisposalMethod','restoreBG'];
                 end
                 if ~options.append
-                    % LoopCount can only be specified in the 1st frame (not in append mode)
+                    % LoopCount and BackgroundColor can only be specified in the
+                    % 1st GIF frame (not in append mode)
                     % Set default LoopCount=65535 to enable looping within MS Office
-                    gifOptions = [gifOptions, 'LoopCount',65535];
+                    gifOptions = [gifOptions, 'LoopCount',65535, 'BackgroundColor',alphaIdx];
                 end
                 % Set GIF-specific options specified by the user (if any)
                 format_options = getFormatOptions(options, 'gif');
@@ -964,7 +969,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                     end
                 catch
                     % Alert in case of error creating output PDF/EPS file (issue #179)
-                    if exist(pdf_nam_tmp, 'file')
+                    if existFile(pdf_nam_tmp)
                         fpath = fileparts(pdf_nam);
                         if ~isempty(fpath) && exist(fpath,'dir')==0
                             errMsg = ['Could not create ' pdf_nam ' - folder "' fpath '" does not exist'];
@@ -1350,7 +1355,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                 % ignore - maybe an old MAtlab release
             end
             fprintf(2, '\nIf the problem persists, then please %s.\n', hyperlink('https://github.com/altmany/export_fig/issues','report a new issue'));
-            if exist(tmp_nam,'file')
+            if existFile(tmp_nam)
                 fprintf(2, 'In your report, please upload the problematic EPS file: %s (you can then delete this file).\n', tmp_nam);
             end
             fprintf(2, '\n');
@@ -1827,7 +1832,9 @@ function [A, tcol, alpha] = getFigImage(fig, magnify, renderer, options, pos)
         % MATLAB "feature": figure size can change when changing color in -nodisplay mode
         % Note: figure background is set to off-white, not 'w', to handle common white elements (issue #330)
         set(fig, 'Color',254/255*[1,1,1], 'Position',pos);
-        drawnow;  % repaint figure, otherwise Java screencapture will see black bgcolor
+        % repaint figure, otherwise Java screencapture will see black bgcolor
+        % Yair 19/12/21 - unnecessary: drawnow is called at top of print2array
+        %drawnow;
     end
     % Print large version to array
     try
@@ -2322,5 +2329,15 @@ function alertForExportOrCopygraphics(options)
                 setpref('export_fig',funcName,params);
             end
         end
+    end
+end
+
+% Does a file exist?
+function flag = existFile(filename)
+    try
+        % isfile() is faster than exist(), but does not report files on path
+        flag = isfile(filename);
+    catch
+        flag = exist(filename,'file') ~= 0;
     end
 end
