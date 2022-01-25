@@ -1,7 +1,7 @@
 function append_pdfs(varargin)
 %APPEND_PDFS Appends/concatenates multiple PDF files
 %
-% Example:
+% Usage example:
 %   append_pdfs(outputFilename, inputFilename1, inputFilename2, ...)
 %   append_pdfs(outputFilename, inputFilenames_list{:})
 %   append_pdfs(outputFilename, inputFilenames_cell_or_string_array)
@@ -13,10 +13,10 @@ function append_pdfs(varargin)
 % This function requires that you have ghostscript installed on your
 % system. Ghostscript can be downloaded from: http://www.ghostscript.com
 %
-% IN:
-%    output - string of output file name (including the extension, .pdf).
+% Inputs:
+%    output - output file name (including the .pdf extension).
 %             If it exists it is appended to; if not, it is created.
-%    input1 - string of an input file name (including the extension, .pdf).
+%    input1 - input file name(s) (including the .pdf extension).
 %             All input files are appended in order.
 %    input_list - cell array list of input file name strings. All input
 %                 files are appended in order.
@@ -40,6 +40,7 @@ function append_pdfs(varargin)
 % 06/12/18: Avoid an "invalid escape-char" warning upon error
 % 22/03/20: Alert if ghostscript.m is not found on Matlab path
 % 29/03/20: Accept a cell-array of input files (issue #299); accept both "strings", 'chars'
+% 25/01/22: Improved handling of missing input files & folder with non-ASCII chars (issue #349)
 %}
 
     if nargin < 2,  return;  end  % sanity check
@@ -52,16 +53,27 @@ function append_pdfs(varargin)
         varargin = {varargin{1} varargin{2}{:}}; %#ok<CCAT>
     end
 
+    % Handle special cases of input args
+    numArgs = numel(varargin);
+    if numArgs < 2
+        error('export_fig:append_pdfs:NoInputs', 'append_pdfs: Missing input filenames')
+    end
+
     % Ensure that ghostscript() exists on the Matlab path
     if ~exist('ghostscript','file')
         error('export_fig:append_pdfs:ghostscript', 'The ghostscript.m function is required by append_pdf.m. Install the complete export_fig package from https://www.mathworks.com/matlabcentral/fileexchange/23629-export_fig or https://github.com/altmany/export_fig')
     end
 
-    % Are we appending or creating a new file
+    % Are we appending or creating a new file?
     append = exist(varargin{1}, 'file') == 2;
+    if ~append && numArgs == 2  % only 1 input file - copy it directly to output
+        copyfile(varargin{2}, varargin{1});
+        return
+    end
+
+    % Ensure that the temp dir is writable (Javier Paredes 26/2/15)
     output = [tempname '.pdf'];
     try
-        % Ensure that the temp dir is writable (Javier Paredes 26/2/15)
         fid = fopen(output,'w');
         fwrite(fid,1);
         fclose(fid);
@@ -77,6 +89,14 @@ function append_pdfs(varargin)
     if ~append
         output = varargin{1};
         varargin = varargin(2:end);
+    end
+
+    % Ensure that all input files exist
+    for fileIdx = 2 : numel(varargin)
+        filename = varargin{fileIdx};
+        if ~exist(filename,'file')
+            error('export_fig:append_pdf:MissingFile','Input file %s does not exist',filename);
+        end
     end
 
     % Create the command file
@@ -108,7 +128,7 @@ function append_pdfs(varargin)
     % Check for ghostscript execution errors
     if status
         errMsg = strrep(errMsg,'\','\\');  % Avoid an "invalid escape-char" warning
-        error('YMA:export_fig:append_pdf',errMsg);
+        error('export_fig:append_pdf:ghostscriptError',errMsg);
     end
 
     % Rename the file if needed
@@ -130,8 +150,9 @@ function pathStr = normalizePath(pathStr)
     [fpath,fname,fext] = fileparts(pathStr);
     if isempty(fpath) || strcmpi(fpath,pathStr), return, end
     dirOutput = evalc(['system(''dir /X /AD "' pathStr '*"'')']);
-    shortName = strtrim(regexprep(dirOutput,{'.*> *',[fname fext '.*']},''));
-    if isempty(shortName)
+    regexpStr = ['.*\s(\S+)\s*' fname fext '.*'];
+    shortName = regexprep(dirOutput,regexpStr,'$1');
+    if isempty(shortName) || isequal(shortName,dirOutput)
         shortName = [fname fext];
     end
     fpath = normalizePath(fpath);  %recursive until entire fpath is processed
