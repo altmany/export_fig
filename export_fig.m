@@ -32,6 +32,8 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 %   export_fig ... -options <optionsStruct>
 %   export_fig ... -silent
 %   export_fig ... -regexprep <pattern> <replace>
+%   export_fig ... -toolbar
+%   export_fig ... -menubar
 %   export_fig(..., handle)
 %
 % This function saves a figure or single axes to one or more vector and/or
@@ -193,6 +195,8 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 %             string or array of strings; case-sensitive), with the corresponding
 %             <new> string(s), in EPS/PDF files (only). See regexp function's doc.
 %             Warning: invalid replacement can make your EPS/PDF file unreadable!
+%   -toolbar - adds an interactive export button to the figure's toolbar
+%   -menubar - adds an interactive export menu to the figure's menubar
 %   handle -  The handle of the figure, axes or uipanels (can be an array of
 %             handles, but the objects must be in the same figure) which is
 %             to be saved. Default: gcf (handle of current figure).
@@ -334,6 +338,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 % 11/12/21: (3.20) Added GIF support, including animated & transparent-background; accept format options as cell-array, not just nested struct
 % 20/12/21: (3.21) Speedups; fixed exporting non-current figure (hopefully fixes issue #318); fixed warning when appending to animated GIF
 % 02/03/22: (3.22) Fixed small potential memory leak during screen-capture; expanded exportgraphics message for vector exports; fixed rotated tick labels on R2021a+
+% 02/03/22: (3.23) Added -toolbar and -menubar options to add figure toolbar/menubar items for interactive figure export (issue #73); fixed edge-case bug with GIF export
 %}
 
     if nargout
@@ -366,14 +371,14 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
     [fig, options] = parse_args(nargout, fig, argNames, varargin{:});
 
     % Check for newer version and exportgraphics/copygraphics compatibility
-    currentVersion = 3.22;
+    currentVersion = 3.23;
     if options.version  % export_fig's version requested - return it and bail out
         imageData = currentVersion;
         return
     end
     if ~options.silent
         % Check for newer version (not too often)
-        checkForNewerVersion(3.22);  % ...(currentVersion) is better but breaks in version 3.05- due to regexp limitation in checkForNewerVersion()
+        checkForNewerVersion(3.23);  % ...(currentVersion) is better but breaks in version 3.05- due to regexp limitation in checkForNewerVersion()
 
         % Hint to users to use exportgraphics/copygraphics in certain cases
         alertForExportOrCopygraphics(options);
@@ -388,8 +393,8 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
     else
         oldWarn = warning('off','MATLAB:HandleGraphics:ObsoletedProperty:JavaFrame');
         warning off MATLAB:ui:javaframe:PropertyToBeRemoved
-        uifig = handle(ancestor(fig,'figure'));
-        try jf = get(uifig,'JavaFrame_I'); catch, try jf = get(uifig,'JavaFrame'); catch, jf=1; end, end %#ok<JAVFM>
+        hFig = handle(ancestor(fig,'figure'));
+        try jf = get(hFig,'JavaFrame_I'); catch, try jf = get(hFig,'JavaFrame'); catch, jf=1; end, end %#ok<JAVFM>
         warning(oldWarn);
         if isempty(jf)  % this is a uifigure
             %error('export_fig:uifigures','Figures created using the uifigure command or App Designer are not supported by export_fig. See %s for details.', hyperlink('https://github.com/altmany/export_fig/issues/261','issue #261'));
@@ -408,10 +413,10 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
             end
             try
                 % Create an invisible legacy figure at the same position/size as the uifigure
-                hNewFig = figure('Units',uifig.Units, 'Position',uifig.Position, 'MenuBar','none', 'ToolBar','none', 'Visible','off');
+                hNewFig = figure('Units',hFig.Units, 'Position',hFig.Position, 'MenuBar','none', 'ToolBar','none', 'Visible','off');
                 % Copy the uifigure contents onto the new invisible legacy figure
                 try
-                    hChildren = allchild(uifig); %=uifig.Children;
+                    hChildren = allchild(hFig); %=uifig.Children;
                     copyobj(hChildren,hNewFig);
                 catch
                     if ~options.silent
@@ -443,6 +448,16 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                 rethrow(err)
             end
         end
+    end
+
+    % If toolbar button was requested, add it to the specified figure(s)
+    if options.toolbar
+        addToolbarButton(hFig, options);
+    end
+
+    % If menubar menu was requested, add it to the specified figure(s)
+    if options.menubar
+        addMenubarMenu(hFig, options);
     end
 
     % Isolate the subplot, if it is one
@@ -804,6 +819,8 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                     if ~isfloat(img), alphaIdx = alphaIdx - 1; end
                     gifOptions = [gifOptions, 'TransparentColor',alphaIdx, ...
                                               'DisposalMethod','restoreBG'];
+                else
+                    alphaIdx = 1;
                 end
                 if ~options.append
                     % LoopCount and BackgroundColor can only be specified in the
@@ -1189,22 +1206,6 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 
         % Output to clipboard (if requested)
         if options.clipboard
-            % Delete the output file if unchanged from the default name ('export_fig_out.png')
-            if strcmpi(options.name,'export_fig_out')
-                try
-                    fileInfo = dir('export_fig_out.png');
-                    if ~isempty(fileInfo)
-                        timediff = now - fileInfo.datenum;
-                        ONE_SEC = 1/24/60/60;
-                        if timediff < ONE_SEC
-                            delete('export_fig_out.png');
-                        end
-                    end
-                catch
-                    % never mind...
-                end
-            end
-
             % Use Java clipboard by default
             if strcmpi(options.clipformat,'image')
                 % Save the image in the system clipboard
@@ -1215,7 +1216,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                     if ~options.silent
                         warning('export_fig:clipboardJava', 'export_fig -clipboard output failed: requires Java to work');
                     end
-                    return;
+                    return
                 end
                 try
                     % Import necessary Java classes
@@ -1291,6 +1292,25 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                 try set(fig,   'Color',originalBgColor); catch, end
                 try set(hAxes, 'Color',originalAxColor); catch, end
                 drawnow; 
+            end
+        end
+
+        % Delete the output file if unchanged from the default name ('export_fig_out.png')
+        % and clipboard, toolbar, and/or menubar were requested
+        if options.clipboard || options.toolbar || options.menubar
+            if strcmpi(options.name,'export_fig_out')
+                try
+                    fileInfo = dir('export_fig_out.png');
+                    if ~isempty(fileInfo)
+                        timediff = now - fileInfo.datenum;
+                        ONE_SEC = 1/24/60/60;
+                        if timediff < ONE_SEC
+                            delete('export_fig_out.png');
+                        end
+                    end
+                catch
+                    % never mind...
+                end
             end
         end
 
@@ -1416,6 +1436,8 @@ function options = default_options()
         'preserve_size',   false, ...
         'silent',          false, ...
         'regexprep',       [], ...
+        'toolbar',         false, ...
+        'menubar',         false, ...
         'gs_options',      {{}});
 end
 
@@ -1543,6 +1565,10 @@ function [fig, options] = parse_args(nout, fig, argNames, varargin)
                     case 'regexprep'
                         options.regexprep = varargin(a+1:a+2);
                         skipNext = 2;
+                    case 'toolbar'
+                        options.toolbar = true;
+                    case 'menubar'
+                        options.menubar = true;
                     otherwise
                         try
                             wasError = false;
@@ -2365,5 +2391,195 @@ function flag = existFile(filename)
         flag = isfile(filename);
     catch
         flag = exist(filename,'file') ~= 0;
+    end
+end
+
+% Add interactive export button to the figure's toolbar
+function addToolbarButton(hFig, options)
+    % Ensure we have a valid toolbar handle
+    if isempty(hFig)
+        if options.silent
+            return
+        else
+            error('export_fig:noFigure','not a valid GUI handle');
+        end
+    end
+    set(hFig,'ToolBar','figure');
+    hToolbar = findall(hFig, 'type','uitoolbar', '-depth',1);
+    if isempty(hToolbar)
+        if ~options.silent
+            warning('export_fig:noToolbar','cannot add toolbar button to the specified figure');
+        end
+    end
+    hToolbar = hToolbar(1);  % just in case there are several toolbars... - use only the first
+
+    % Bail out silently if the export_fig button already exists
+    hButton = findall(hToolbar, 'Tag','export_fig');
+    if ~isempty(hButton)
+        return
+    end
+
+    % Prepare the camera icon
+    icon = ['3333333333333333'; ...
+            '3333333333333333'; ...
+            '3333300000333333'; ...
+            '3333065556033333'; ...
+            '3000000000000033'; ...
+            '3022222222222033'; ...
+            '3022220002222033'; ...
+            '3022203110222033'; ...
+            '3022201110222033'; ...
+            '3022204440222033'; ...
+            '3022220002222033'; ...
+            '3022222222222033'; ...
+            '3000000000000033'; ...
+            '3333333333333333'; ...
+            '3333333333333333'; ...
+            '3333333333333333'];
+    cm = [   0      0      0; ...  % black
+             0   0.60      1; ...  % light blue
+          0.53   0.53   0.53; ...  % light gray
+           NaN    NaN    NaN; ...  % transparent
+             0   0.73      0; ...  % light green
+          0.27   0.27   0.27; ...  % gray
+          0.13   0.13   0.13];     % dark gray
+    cdata = ind2rgb(uint8(icon-'0'),cm);
+
+    % If the button does not already exit
+    tooltip = 'Export this figure';
+
+    % Add the button with the icon to the figure's toolbar
+    props = {'Parent',hToolbar, 'CData',cdata, 'Tag','export_fig', ...
+             'Tooltip',tooltip, 'ClickedCallback',@interactiveExport};
+    try
+        hButton = [];  % just in case we croak below
+
+        % Create a new split-button with the open-file button's data
+        oldWarn = warning('off','MATLAB:uisplittool:DeprecatedFunction');
+        hButton = uisplittool(props{:});
+        warning(oldWarn);
+
+        % Add the split-button's menu items
+        drawnow; pause(0.01);  % allow the buttom time to render
+        jButton = get(hButton,'JavaContainer'); %#ok<JAVCT> 
+        jButtonMenu = jButton.getMenuComponent;
+
+        tooltip = [tooltip ' (specify filename/format)'];
+        try jButtonMenu.setToolTipText(tooltip); catch, end
+        try jButton.getComponentPeer.getComponent(1).setToolTipText(tooltip); catch, end
+
+        defaultFname = get(hFig,'Name');
+        if isempty(defaultFname), defaultFname = 'figure'; end
+        imFormats = {'pdf','eps','emf','svg','png','tif','jpg','bmp','gif'};
+        for idx = 1 : numel(imFormats)
+            thisFormat = imFormats{idx};
+            filename = [defaultFname '.' thisFormat];
+            label = [upper(thisFormat) ' image file (' filename ')'];
+            jMenuItem = handle(jButtonMenu.add(label),'CallbackProperties');
+            set(jMenuItem,'ActionPerformedCallback',@(h,e)export_fig(hFig,filename));
+        end
+        jButtonMenu.addSeparator();
+        cbFormats = {'image','bitmap','meta','pdf'};
+        for idx = 1 : numel(cbFormats)
+            thisFormat = cbFormats{idx};
+            exFormat = ['-clipboard:' thisFormat];
+            label = ['Clipboard (' thisFormat ' format)'];
+            jMenuItem = handle(jButtonMenu.add(label),'CallbackProperties');
+            set(jMenuItem,'ActionPerformedCallback',@(h,e)export_fig(hFig,exFormat));
+        end
+        jButtonMenu.addSeparator();
+        jMenuItem = handle(jButtonMenu.add('Select filename and format'),'CallbackProperties');
+        set(jMenuItem,'ActionPerformedCallback',@(h,e)interactiveExport(hFig));
+    catch % revert to a simple documented toolbar pushbutton
+        warning(oldWarn);
+        if isempty(hButton) %avoid duplicate toolbar buttons (keep the splittool)
+            hButton = uipushtool(props{:}); %#ok<NASGU>
+        end
+    end
+end
+
+% Add interactive export menu to the figure's menubar
+function addMenubarMenu(hFig, options)
+    % Ensure we have a valid figure handle
+    if isempty(hFig)
+        if options.silent
+            return
+        else
+            error('export_fig:noFigure','not a valid GUI handle');
+        end
+    end
+    set(hFig,'MenuBar','figure');
+
+    % Bail out silently if the export_fig menu already exists
+    hMainMenu = findall(hFig, '-depth',1, 'type','uimenu', 'Tag','export_fig');
+    if ~isempty(hMainMenu)
+        return
+    end
+
+    % Add the export_fig menu to the figure's menubar
+    hMainMenu = uimenu(hFig, 'Text','E&xport', 'Tag','export_fig');
+    defaultFname = get(hFig,'Name');
+    if isempty(defaultFname), defaultFname = 'figure'; end
+    imFormats = {'pdf','eps','emf','svg','png','tif','jpg','bmp','gif'};
+    for idx = 1 : numel(imFormats)
+        thisFormat = imFormats{idx};
+        filename = [defaultFname '.' thisFormat];
+        label = [upper(thisFormat) ' image file (' filename ')'];
+        uimenu(hMainMenu, 'Text',label, 'MenuSelectedFcn',@(h,e)export_fig(hFig,filename));
+    end
+    cbFormats = {'image','bitmap','meta','pdf'};
+    for idx = 1 : numel(cbFormats)
+        thisFormat = cbFormats{idx};
+        exFormat = ['-clipboard:' thisFormat];
+        label = ['Clipboard (' thisFormat ' format)'];
+        sep = 'off'; if idx==1, sep = 'on'; end
+        uimenu(hMainMenu, 'Text',label, 'Separator',sep, ...
+                          'MenuSelectedFcn',@(h,e)export_fig(hFig,exFormat));
+    end
+    uimenu(hMainMenu, 'Text','Select filename and format', 'Separator','on', ...
+                      'MenuSelectedFcn',@interactiveExport);
+end
+
+% Callback functions for toolbar/menubar actions
+function interactiveExport(hObject, varargin)
+    % Get the exported figure handle
+    hFig = gcbf;
+    if isempty(hFig)
+        hFig = ancestor(hObject, 'figure');
+    end
+    if isempty(hFig)
+        return  % bail out silently if no figure is available
+    end
+
+    % Display a Save-as dialog to let the user select the export name & type
+    defaultFname = get(hFig,'Name');
+    if isempty(defaultFname), defaultFname = 'figure'; end
+    %formats = imformats;
+    formats = {'pdf','eps','emf','svg','png','tif','jpg','bmp','gif', ...
+               'clipboard:image','clipboard:bitmap','clipboard:meta','clipboard:pdf'};
+    for idx = 1 : numel(formats)
+        thisFormat = formats{idx};
+        ext = sprintf('*.%s',thisFormat);
+        if ~any(thisFormat==':')  % image file format
+            description = [upper(thisFormat) ' image file (' ext ')'];
+            format(idx,1:2) = {ext, description}; %#ok<AGROW>
+        else  % clipboard format
+            description = [strrep(thisFormat,':',' (') ' format)'];
+            format(idx,1:2) = {'*.*', description}; %#ok<AGROW>
+        end
+    end
+    %format
+    [filename,pathname,idx] = uiputfile(format,'Save figure export as',defaultFname);
+    drawnow; pause(0.01);  % prevent a Matlab hang
+    if ~isequal(filename,0)
+        thisFormat = formats{idx};
+        if ~any(thisFormat==':')  % export to image file
+            filename = fullfile(pathname,filename);
+            export_fig(hFig, filename);
+        else  % export to clipboard
+            export_fig(hFig, ['-' thisFormat]);
+        end
+    else
+        % User canceled the dialog - bail out silently
     end
 end
