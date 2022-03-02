@@ -64,6 +64,7 @@ function [A, bcol, alpha] = print2array(fig, res, renderer, gs_options)
 % 26/08/21: Added a short pause to avoid unintended image cropping (issue #318)
 % 25/10/21: Avoid duplicate error message when retrying print2array with different resolution; display internal print error message
 % 19/12/21: Speedups; fixed exporting non-current figure (hopefully fixes issue #318)
+% 22/12/21: Avoid memory leak during screen-capture
 %}
 
     % Generate default input arguments, if needed
@@ -290,7 +291,8 @@ function [imgData, alpha] = getJavaImage(hFig)
     import java.awt.image.BufferedImage
     try TYPE_INT_RGB = BufferedImage.TYPE_INT_RGB; catch, TYPE_INT_RGB = 1; end
     jImage = BufferedImage(w, h, TYPE_INT_RGB);
-    jPanel.paint(jImage.createGraphics);
+    jGraphics = jImage.createGraphics;
+    jPanel.paint(jGraphics);
     jPanel.paint(jOriginalGraphics);  % repaint original figure to avoid a blank window
 
     % Extract the RGB pixels from the BufferedImage (see screencapture.m)
@@ -302,6 +304,9 @@ function [imgData, alpha] = getJavaImage(hFig)
 
     % And now also the alpha channel (if available)
     alpha   =     transpose(reshape(pixelsData(4, :, :), w, h));
+
+    % Avoid memory leaks (see \toolbox\matlab\toolstrip\+matlab\+ui\+internal\+toolstrip\Icon.m>localFromImgToURL)
+    jGraphics.dispose();
 
     % Ensure that the results are the expected size, otherwise raise an error
     figSize = getpixelposition(hFig);

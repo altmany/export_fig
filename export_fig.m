@@ -333,6 +333,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 % 25/10/21: (3.19) Fixed print error when exporting a specific subplot (issue #347); avoid duplicate error messages
 % 11/12/21: (3.20) Added GIF support, including animated & transparent-background; accept format options as cell-array, not just nested struct
 % 20/12/21: (3.21) Speedups; fixed exporting non-current figure (hopefully fixes issue #318); fixed warning when appending to animated GIF
+% 02/03/22: (3.22) Fixed small potential memory leak during screen-capture; expanded exportgraphics message for vector exports; fixed rotated tick labels on R2021a+
 %}
 
     if nargout
@@ -365,14 +366,14 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
     [fig, options] = parse_args(nargout, fig, argNames, varargin{:});
 
     % Check for newer version and exportgraphics/copygraphics compatibility
-    currentVersion = 3.21;
+    currentVersion = 3.22;
     if options.version  % export_fig's version requested - return it and bail out
         imageData = currentVersion;
         return
     end
     if ~options.silent
         % Check for newer version (not too often)
-        checkForNewerVersion(3.21);  % ...(currentVersion) is better but breaks in version 3.05- due to regexp limitation in checkForNewerVersion()
+        checkForNewerVersion(3.22);  % ...(currentVersion) is better but breaks in version 3.05- due to regexp limitation in checkForNewerVersion()
 
         % Hint to users to use exportgraphics/copygraphics in certain cases
         alertForExportOrCopygraphics(options);
@@ -482,25 +483,29 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
         Hlims = findall(fig, 'Type', 'axes');
         if ~cls
             % Record the old axes limit and tick modes
-            Xlims = make_cell(get(Hlims, 'XLimMode'));
-            Ylims = make_cell(get(Hlims, 'YLimMode'));
-            Zlims = make_cell(get(Hlims, 'ZLimMode'));
-            Xtick = make_cell(get(Hlims, 'XTickMode'));
-            Ytick = make_cell(get(Hlims, 'YTickMode'));
-            Ztick = make_cell(get(Hlims, 'ZTickMode'));
-            Xlabel = make_cell(get(Hlims, 'XTickLabelMode')); 
-            Ylabel = make_cell(get(Hlims, 'YTickLabelMode')); 
-            Zlabel = make_cell(get(Hlims, 'ZTickLabelMode')); 
+            Xlims  = make_cell(get(Hlims, 'XLimMode'));
+            Ylims  = make_cell(get(Hlims, 'YLimMode'));
+            Zlims  = make_cell(get(Hlims, 'ZLimMode'));
+            Xtick  = make_cell(get(Hlims, 'XTickMode'));
+            Ytick  = make_cell(get(Hlims, 'YTickMode'));
+            Ztick  = make_cell(get(Hlims, 'ZTickMode'));
+            Xlabel = make_cell(get(Hlims, 'XTickLabelMode'));
+            Ylabel = make_cell(get(Hlims, 'YTickLabelMode'));
+            Zlabel = make_cell(get(Hlims, 'ZTickLabelMode'));
+            try  % XTickLabelRotation etc. was added in R2021a
+                Xtkrot = make_cell(get(Hlims, 'XTickLabelRotationMode'));
+                Ytkrot = make_cell(get(Hlims, 'YTickLabelRotationMode'));
+                Ztkrot = make_cell(get(Hlims, 'ZTickLabelRotationMode'));
+            catch
+            end % only in R2021a+
         end
 
         % Set all axes limit and tick modes to manual, so the limits and ticks can't change
         % Fix Matlab R2014b bug (issue #34): plot markers are not displayed when ZLimMode='manual'
-        set(Hlims, 'XLimMode', 'manual', 'YLimMode', 'manual');
-        set_tick_mode(Hlims, 'X');
-        set_tick_mode(Hlims, 'Y');
+        set_manual_axes_modes(Hlims, 'X');
+        set_manual_axes_modes(Hlims, 'Y');
         if ~using_hg2(fig)
-            set(Hlims,'ZLimMode', 'manual');
-            set_tick_mode(Hlims, 'Z');
+            set_manual_axes_modes(Hlims, 'Z');
         end
     catch
         % ignore - fix issue #4 (using HG2 on R2014a and earlier)
@@ -1155,7 +1160,14 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                 try
                     set(Hlims(a), 'XLimMode',       Xlims{a},  'YLimMode',       Ylims{a},  'ZLimMode',       Zlims{a},... 
                                   'XTickMode',      Xtick{a},  'YTickMode',      Ytick{a},  'ZTickMode',      Ztick{a},...
-                                  'XTickLabelMode', Xlabel{a}, 'YTickLabelMode', Ylabel{a}, 'ZTickLabelMode', Zlabel{a}); 
+                                  'XTickLabelMode', Xlabel{a}, 'YTickLabelMode', Ylabel{a}, 'ZTickLabelMode', Zlabel{a});
+                  try  % only in R2021a+
+                    set(Hlims(a), 'XTickLabelRotationMode', Xtkrot{a}, ...
+                                  'YTickLabelRotationMode', Ytkrot{a}, ...
+                                  'ZTickLabelRotationMode', Ztkrot{a}); 
+                  catch
+                      % ignore - possibly R2020b or earlier
+                  end
                 catch
                     % ignore - fix issue #4 (using HG2 on R2014a and earlier)
                 end
@@ -1891,7 +1903,10 @@ function add_bookmark(fname, bookmark_text)
     fclose(fh);
 end
 
-function set_tick_mode(Hlims, ax)
+function set_manual_axes_modes(Hlims, ax)
+    % Set the axes limits mode to manual
+    set(Hlims, [ax 'LimMode'], 'manual');
+
     % Set the tick mode of linear axes to manual
     % Leave log axes alone as these are tricky
     M = get(Hlims, [ax 'Scale']);
@@ -1909,6 +1924,14 @@ function set_tick_mode(Hlims, ax)
             props = {[ax 'TickMode'],'manual', [ax 'TickLabelMode'],'manual'};
             tickVals = get(hAxes,[ax 'Tick']);
             tickStrs = get(hAxes,[ax 'TickLabel']);
+            try % TickLabelRotation is available since R2021a
+                propName = [ax,'TickLabelRotationMode'];
+                if ~isempty(get(hAxes,propName)) %this will croak in R2020b-
+                    props = [props, propName,'manual']; %#ok<AGROW>
+                end
+            catch
+                % ignore - probably R2020b or older
+            end
             try % Fix issue #236
                 exponents = [hAxes.([ax 'Axis']).SecondaryLabel];
             catch
@@ -2323,6 +2346,9 @@ function alertForExportOrCopygraphics(options)
                     handleName = 'hFigure';
                 end
                 msg = ['In Matlab R2020a+ you can also use ' funcName '(' handleName filenameParam params ') for simple ' type ' export'];
+                if ~isempty(strfind(params,'''vector''')) %#ok<STREMP> 
+                    msg = [msg ', which could also improve image vectorization, solving rasterization/pixelization problems.'];
+                end
                 oldWarn = warning('on','verbose');
                 warning(['export_fig:' funcName], msg);
                 warning(oldWarn);
