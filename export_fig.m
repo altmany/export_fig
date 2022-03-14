@@ -35,6 +35,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 %   export_fig ... -toolbar
 %   export_fig ... -menubar
 %   export_fig(..., handle)
+%   export_fig(..., figName)
 %
 % This function saves a figure or single axes to one or more vector and/or
 % bitmap file formats, and/or outputs a rasterized version to the workspace,
@@ -197,9 +198,11 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 %             Warning: invalid replacement can make your EPS/PDF file unreadable!
 %   -toolbar - adds an interactive export button to the figure's toolbar
 %   -menubar - adds an interactive export menu to the figure's menubar
-%   handle -  The handle of the figure, axes or uipanels (can be an array of
-%             handles, but the objects must be in the same figure) which is
-%             to be saved. Default: gcf (handle of current figure).
+%   handle -  handle of the figure, axes or uipanels (can be an array of handles
+%             but all the objects must be in the same figure) to be exported.
+%             Default: gcf (handle of current figure).
+%   figName - name (title) of the figure to export (e.g. 'Figure 1' or 'My fig').
+%             Overriden by handle (if specified); Default: current figure
 %
 % Outputs:
 %   imageData - MxNxC uint8 image array of the exported image.
@@ -339,6 +342,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 % 20/12/21: (3.21) Speedups; fixed exporting non-current figure (hopefully fixes issue #318); fixed warning when appending to animated GIF
 % 02/03/22: (3.22) Fixed small potential memory leak during screen-capture; expanded exportgraphics message for vector exports; fixed rotated tick labels on R2021a+
 % 02/03/22: (3.23) Added -toolbar and -menubar options to add figure toolbar/menubar items for interactive figure export (issue #73); fixed edge-case bug with GIF export
+% 14/03/22: (3.24) Added support for specifying figure name in addition to handle; added warning when trying to export TIF/JPG/BMP with transparency; use current figure as default handle even when its HandleVisibility is not 'on'
 %}
 
     if nargout
@@ -364,21 +368,26 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
         setpref('export_fig','promo_time',now)
     end
 
-    % Parse the input arguments
+    % Use the current figure as the default figure handle
+    % temporarily set ShowHiddenHandles='on' to access figure with HandleVisibility='off'
+    try oldValue = get(0,'ShowHiddenHandles'); set(0,'ShowHiddenHandles','on'); catch, end
     fig = get(0, 'CurrentFigure');
+    try set(0,'ShowHiddenHandles',oldValue); catch, end
+
+    % Parse the input arguments
     argNames = {};
     for idx = nargin:-1:1, argNames{idx} = inputname(idx); end
     [fig, options] = parse_args(nargout, fig, argNames, varargin{:});
 
     % Check for newer version and exportgraphics/copygraphics compatibility
-    currentVersion = 3.23;
+    currentVersion = 3.24;
     if options.version  % export_fig's version requested - return it and bail out
         imageData = currentVersion;
         return
     end
     if ~options.silent
         % Check for newer version (not too often)
-        checkForNewerVersion(3.23);  % ...(currentVersion) is better but breaks in version 3.05- due to regexp limitation in checkForNewerVersion()
+        checkForNewerVersion(3.24);  % ...(currentVersion) is better but breaks in version 3.05- due to regexp limitation in checkForNewerVersion()
 
         % Hint to users to use exportgraphics/copygraphics in certain cases
         alertForExportOrCopygraphics(options);
@@ -601,101 +610,105 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
             % Print large version to array
             [A, tcol, alpha] = getFigImage(fig, magnify, renderer, options, pixelpos);
             % Get the background colour
-            if options.transparent && (options.png || options.alpha || options.gif)
-                try %options.aa_factor < 4  % default, faster but lines are not anti-aliased
-                    % If all pixels are indicated as opaque (i.e. something went wrong with the Java screen-capture)
-                    isBgColor = A(:,:,1) == tcol(1) & ...
-                                A(:,:,2) == tcol(2) & ...
-                                A(:,:,3) == tcol(3);
-                    % Set the bgcolor pixels to be fully-transparent
-                    A(repmat(isBgColor,[1,1,3])) = 254; %=off-white % TODO: more memory efficient without repmat
-                    alpha(isBgColor) = 0;
-                catch  % older logic - much slower and causes figure flicker
-                    if true  % to fold the code below...
-                    % Get out an alpha channel
-                    % MATLAB "feature": black colorbar axes can change to white and vice versa!
-                    hCB = findall(fig, 'Type','axes', 'Tag','Colorbar');
-                    if isempty(hCB)
-                        yCol = [];
-                        xCol = [];
-                    else
-                        yCol = get(hCB, 'YColor');
-                        xCol = get(hCB, 'XColor');
-                        if iscell(yCol)
-                            yCol = cell2mat(yCol);
-                            xCol = cell2mat(xCol);
-                        end
-                        yCol = sum(yCol, 2);
-                        xCol = sum(xCol, 2);
-                    end
-                    % MATLAB "feature": apparently figure size can change when changing
-                    % colour in -nodisplay mode
-                    % Set the background colour to black, and set size in case it was
-                    % changed internally
-                    set(fig, 'Color', 'k', 'Position', pos);
-                    % Correct the colorbar axes colours
-                    set(hCB(yCol==0), 'YColor', [0 0 0]);
-                    set(hCB(xCol==0), 'XColor', [0 0 0]);
-                    % Correct black axes color to off-black (issue #249)
-                    hAxes = findall(fig, 'Type','axes');
-                    [hXs,hXrs] = fixBlackAxle(hAxes, 'XColor');
-                    [hYs,hYrs] = fixBlackAxle(hAxes, 'YColor');
-                    [hZs,hZrs] = fixBlackAxle(hAxes, 'ZColor');
+            if options.transparent
+                if (options.png || options.alpha || options.gif)
+                    try %options.aa_factor < 4  % default, faster but lines are not anti-aliased
+                        % If all pixels are indicated as opaque (i.e. something went wrong with the Java screen-capture)
+                        isBgColor = A(:,:,1) == tcol(1) & ...
+                            A(:,:,2) == tcol(2) & ...
+                            A(:,:,3) == tcol(3);
+                        % Set the bgcolor pixels to be fully-transparent
+                        A(repmat(isBgColor,[1,1,3])) = 254; %=off-white % TODO: more memory efficient without repmat
+                        alpha(isBgColor) = 0;
+                    catch  % older logic - much slower and causes figure flicker
+                        if true  % to fold the code below...
+                            % Get out an alpha channel
+                            % MATLAB "feature": black colorbar axes can change to white and vice versa!
+                            hCB = findall(fig, 'Type','axes', 'Tag','Colorbar');
+                            if isempty(hCB)
+                                yCol = [];
+                                xCol = [];
+                            else
+                                yCol = get(hCB, 'YColor');
+                                xCol = get(hCB, 'XColor');
+                                if iscell(yCol)
+                                    yCol = cell2mat(yCol);
+                                    xCol = cell2mat(xCol);
+                                end
+                                yCol = sum(yCol, 2);
+                                xCol = sum(xCol, 2);
+                            end
+                            % MATLAB "feature": apparently figure size can change when changing
+                            % colour in -nodisplay mode
+                            % Set the background colour to black, and set size in case it was
+                            % changed internally
+                            set(fig, 'Color', 'k', 'Position', pos);
+                            % Correct the colorbar axes colours
+                            set(hCB(yCol==0), 'YColor', [0 0 0]);
+                            set(hCB(xCol==0), 'XColor', [0 0 0]);
+                            % Correct black axes color to off-black (issue #249)
+                            hAxes = findall(fig, 'Type','axes');
+                            [hXs,hXrs] = fixBlackAxle(hAxes, 'XColor');
+                            [hYs,hYrs] = fixBlackAxle(hAxes, 'YColor');
+                            [hZs,hZrs] = fixBlackAxle(hAxes, 'ZColor');
 
-                    % The following code might cause out-of-memory errors
-                    try
-                        % Print large version to array
-                        B = print2array(fig, magnify, renderer);
-                        % Downscale the image
-                        B = downsize(single(B), options.aa_factor);
-                    catch
-                        % This is more conservative in memory, but kills transparency (issue #58)
-                        B = single(print2array(fig, magnify/options.aa_factor, renderer));
-                    end
+                            % The following code might cause out-of-memory errors
+                            try
+                                % Print large version to array
+                                B = print2array(fig, magnify, renderer);
+                                % Downscale the image
+                                B = downsize(single(B), options.aa_factor);
+                            catch
+                                % This is more conservative in memory, but kills transparency (issue #58)
+                                B = single(print2array(fig, magnify/options.aa_factor, renderer));
+                            end
 
-                    % Set background to white (and set size)
-                    set(fig, 'Color', 'w', 'Position', pos);
-                    % Correct the colorbar axes colours
-                    set(hCB(yCol==3), 'YColor', [1 1 1]);
-                    set(hCB(xCol==3), 'XColor', [1 1 1]);
-                    % Revert the black axes colors
-                    set(hXs, 'XColor', [0,0,0]);
-                    set(hYs, 'YColor', [0,0,0]);
-                    set(hZs, 'ZColor', [0,0,0]);
-                    set(hXrs, 'Color', [0,0,0]);
-                    set(hYrs, 'Color', [0,0,0]);
-                    set(hZrs, 'Color', [0,0,0]);
+                            % Set background to white (and set size)
+                            set(fig, 'Color', 'w', 'Position', pos);
+                            % Correct the colorbar axes colours
+                            set(hCB(yCol==3), 'YColor', [1 1 1]);
+                            set(hCB(xCol==3), 'XColor', [1 1 1]);
+                            % Revert the black axes colors
+                            set(hXs, 'XColor', [0,0,0]);
+                            set(hYs, 'YColor', [0,0,0]);
+                            set(hZs, 'ZColor', [0,0,0]);
+                            set(hXrs, 'Color', [0,0,0]);
+                            set(hYrs, 'Color', [0,0,0]);
+                            set(hZrs, 'Color', [0,0,0]);
 
-                    % The following code might cause out-of-memory errors
-                    try
-                        % Print large version to array
-                        A = print2array(fig, magnify, renderer);
-                        % Downscale the image
-                        A = downsize(single(A), options.aa_factor);
-                    catch
-                        % This is more conservative in memory, but kills transparency (issue #58)
-                        A = single(print2array(fig, magnify/options.aa_factor, renderer));
-                    end
+                            % The following code might cause out-of-memory errors
+                            try
+                                % Print large version to array
+                                A = print2array(fig, magnify, renderer);
+                                % Downscale the image
+                                A = downsize(single(A), options.aa_factor);
+                            catch
+                                % This is more conservative in memory, but kills transparency (issue #58)
+                                A = single(print2array(fig, magnify/options.aa_factor, renderer));
+                            end
 
-                    % Workaround for issue #15
-                    szA = size(A);
-                    szB = size(B);
-                    if ~isequal(szA,szB)
-                        A = A(1:min(szA(1),szB(1)), 1:min(szA(2),szB(2)), :);
-                        B = B(1:min(szA(1),szB(1)), 1:min(szA(2),szB(2)), :);
-                        if ~options.silent
-                            warning('export_fig:bitmap:sizeMismatch','Problem detected by export_fig generation of a bitmap image; the generated export may look bad. Try to reduce the figure size to fit the screen, or avoid using export_fig''s -transparent option.')
-                        end
+                            % Workaround for issue #15
+                            szA = size(A);
+                            szB = size(B);
+                            if ~isequal(szA,szB)
+                                A = A(1:min(szA(1),szB(1)), 1:min(szA(2),szB(2)), :);
+                                B = B(1:min(szA(1),szB(1)), 1:min(szA(2),szB(2)), :);
+                                if ~options.silent
+                                    warning('export_fig:bitmap:sizeMismatch','Problem detected by export_fig generation of a bitmap image; the generated export may look bad. Try to reduce the figure size to fit the screen, or avoid using export_fig''s -transparent option.')
+                                end
+                            end
+                            % Compute the alpha map
+                            alpha = round(sum(B - A, 3)) / (255 * 3) + 1;
+                            A = alpha;
+                            A(A==0) = 1;
+                            A = B ./ A(:,:,[1 1 1]);
+                            clear B
+                        end %folded code...
                     end
-                    % Compute the alpha map
-                    alpha = round(sum(B - A, 3)) / (255 * 3) + 1;
-                    A = alpha;
-                    A(A==0) = 1;
-                    A = B ./ A(:,:,[1 1 1]);
-                    clear B
-                    end %folded code...
+                    %A = uint8(A);
+                else  % TIF,JPG,BMP
+                    warning('export_fig:unsupported:background','Matlab cannot set transparency when exporting TIF/JPG/BMP image files (see imwrite function documentation)')
                 end
-                %A = uint8(A);
             end
             % Downscale the image if its size was increased (for anti-aliasing)
             if size(A,1) > 1.1 * options.magnify * pixelpos(4) %1.1 to avoid edge-cases
@@ -1449,7 +1462,8 @@ function [fig, options] = parse_args(nout, fig, argNames, varargin)
 
     % Set the defaults
     native = false; % Set resolution to native of an image
-    options = default_options();
+    defaultOptions = default_options();
+    options = defaultOptions;
     options.im =    (nout == 1);  % user requested imageData output
     options.alpha = (nout == 2);  % user requested alpha output
     options.handleName = '';  % default handle name
@@ -1461,12 +1475,13 @@ function [fig, options] = parse_args(nout, fig, argNames, varargin)
             skipNext = skipNext-1;
             continue;
         end
-        if all(ishandle(varargin{a}))
-            fig = varargin{a};
+        thisArg = varargin{a};
+        if all(ishandle(thisArg))
+            fig = thisArg;
             options.handleName = argNames{a};
-        elseif ischar(varargin{a}) && ~isempty(varargin{a})
-            if varargin{a}(1) == '-'
-                switch lower(varargin{a}(2:end))
+        elseif ischar(thisArg) && ~isempty(thisArg)
+            if thisArg(1) == '-'
+                switch lower(thisArg(2:end))
                     case 'nocrop'
                         options.crop = false;
                         options.crop_amounts = [0,0,0,0];
@@ -1501,7 +1516,7 @@ function [fig, options] = parse_args(nout, fig, argNames, varargin)
                     case {'gray', 'grey'}
                         options.colourspace = 2;
                     case {'a1', 'a2', 'a3', 'a4'}
-                        options.aa_factor = str2double(varargin{a}(3));
+                        options.aa_factor = str2double(thisArg(3));
                     case 'append'
                         options.append = true;
                     case 'bookmark'
@@ -1572,19 +1587,19 @@ function [fig, options] = parse_args(nout, fig, argNames, varargin)
                     otherwise
                         try
                             wasError = false;
-                            if strcmpi(varargin{a}(1:2),'-d')
-                                varargin{a}(2) = 'd';  % ensure lowercase 'd'
-                                options.gs_options{end+1} = varargin{a};
-                            elseif strcmpi(varargin{a}(1:2),'-c')
-                                if strncmpi(varargin{a},'-clipboard:',11)
+                            if strcmpi(thisArg(1:2),'-d')
+                                thisArg(2) = 'd';  % ensure lowercase 'd'
+                                options.gs_options{end+1} = thisArg;
+                            elseif strcmpi(thisArg(1:2),'-c')
+                                if strncmpi(thisArg,'-clipboard:',11)
                                     wasError = true;
-                                    error('export_fig:BadOptionValue','option ''%s'' cannot be parsed: only image, bitmap, emf and pdf formats are supported',varargin{a});
+                                    error('export_fig:BadOptionValue','option ''%s'' cannot be parsed: only image, bitmap, emf and pdf formats are supported',thisArg);
                                 end
-                                if numel(varargin{a})==2
+                                if numel(thisArg)==2
                                     skipNext = 1;
                                     vals = str2num(varargin{a+1}); %#ok<ST2NM>
                                 else
-                                    vals = str2num(varargin{a}(3:end)); %#ok<ST2NM>
+                                    vals = str2num(thisArg(3:end)); %#ok<ST2NM>
                                 end
                                 if numel(vals)~=4
                                     wasError = true;
@@ -1593,7 +1608,7 @@ function [fig, options] = parse_args(nout, fig, argNames, varargin)
                                 options.crop_amounts = vals;
                                 options.crop = true;
                             else  % scalar parameter value
-                                val = str2double(regexp(varargin{a}, '(?<=-(m|M|r|R|q|Q|p|P))-?\d*.?\d+', 'match'));
+                                val = str2double(regexp(thisArg, '(?<=-(m|M|r|R|q|Q|p|P))-?\d*.?\d+', 'match'));
                                 if isempty(val) || isnan(val)
                                     % Issue #51: improved processing of input args (accept space between param name & value)
                                     val = str2double(varargin{a+1});
@@ -1603,9 +1618,9 @@ function [fig, options] = parse_args(nout, fig, argNames, varargin)
                                 end
                                 if ~isscalar(val) || isnan(val)
                                     wasError = true;
-                                    error('export_fig:BadOptionValue','option %s is not recognised or cannot be parsed', varargin{a});
+                                    error('export_fig:BadOptionValue','option %s is not recognised or cannot be parsed', thisArg);
                                 end
-                                switch lower(varargin{a}(2))
+                                switch lower(thisArg(2))
                                     case 'm'
                                         % Magnification may never be negative
                                         if val <= 0
@@ -1626,16 +1641,50 @@ function [fig, options] = parse_args(nout, fig, argNames, varargin)
                             if wasError  % intentional raise
                                 rethrow(err)
                             else  % unintentional
-                                error('export_fig:BadOption',['Unrecognized export_fig input option: ''' varargin{a} '''']);
+                                error('export_fig:BadOption',['Unrecognized export_fig input option: ''' thisArg '''']);
                             end
                         end
                 end
             else
-                [p, options.name, ext] = fileparts(varargin{a});
-                if ~isempty(p)
+                % test for case of figure name rather than export filename
+                isFigName = false;
+                if isempty(options.handleName)
+                    try
+                        if strncmpi(thisArg,'Figure',6)
+                            [~,~,~,~,e] = regexp(thisArg,'figure\s*(\d+)\s*(:\s*(.*))?','ignorecase');
+                            figNumber = str2double(e{1}{1});
+                            figName = regexprep(e{1}{2},':\s*','');
+                            findProps = {'Number',figNumber};
+                            if ~isempty(figName)
+                                findProps = [findProps,'Name',figName]; %#ok<AGROW>
+                            end
+                        else
+                            findProps = {'Name',thisArg};
+                        end
+                        possibleFig = findall(0,'-depth',1,'Type','figure',findProps{:});
+                        if ~isempty(possibleFig)
+                            fig = possibleFig(1);  % return the 1st figure found
+                            if ~strcmpi(options.name, defaultOptions.name)
+                                continue  % export fname was already specified
+                            else
+                                isFigName = true; %use figure name as export fname
+                            end
+                        end
+                    catch
+                        % ignore - treat as export filename, not figure name
+                    end
+                end
+                % parse the input as a filename, alert if requested folder does not exist
+                [p, options.name, ext] = fileparts(thisArg);
+                if ~isempty(p)  % export folder name/path was specified
                     % Issue #221: alert if the requested folder does not exist
-                    if ~exist(p,'dir'),  error('export_fig:BadPath','Folder %s does not exist!',p);  end
-                    options.name = [p filesep options.name];
+                    if exist(p,'dir')
+                        options.name = fullfile(p, options.name);
+                    elseif ~isFigName
+                        error('export_fig:BadPath','Folder %s does not exist, nor is it the name of any active figure!',p);
+                    else  % isFigName
+                        % specified a figure name so ignore the bad folder part
+                    end
                 end
                 switch lower(ext)
                     case {'.tif', '.tiff'}
@@ -1654,10 +1703,10 @@ function [fig, options] = parse_args(nout, fig, argNames, varargin)
                         options.pdf = true;
                     case '.fig'
                         % If no open figure, then load the specified .fig file and continue
-                        figFilename = varargin{a};
+                        figFilename = thisArg;
                         if isempty(fig)
                             fig = openfig(figFilename,'invisible');
-                            varargin{a} = fig;
+                            %varargin{a} = fig;
                             options.closeFig = true;
                             options.handleName = ['openfig(''' figFilename ''')'];
                         else
@@ -1671,7 +1720,7 @@ function [fig, options] = parse_args(nout, fig, argNames, varargin)
                     case '.gif'
                         options.gif = true;
                     otherwise
-                        options.name = varargin{a};
+                        options.name = thisArg;
                 end
             end
         end
@@ -2564,7 +2613,7 @@ function interactiveExport(hObject, varargin)
             description = [upper(thisFormat) ' image file (' ext ')'];
             format(idx,1:2) = {ext, description}; %#ok<AGROW>
         else  % clipboard format
-            description = [strrep(thisFormat,':',' (') ' format)'];
+            description = [strrep(thisFormat,':',' (') ' format *.)'];
             format(idx,1:2) = {'*.*', description}; %#ok<AGROW>
         end
     end
