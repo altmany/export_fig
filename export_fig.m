@@ -343,6 +343,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 % 02/03/22: (3.22) Fixed small potential memory leak during screen-capture; expanded exportgraphics message for vector exports; fixed rotated tick labels on R2021a+
 % 02/03/22: (3.23) Added -toolbar and -menubar options to add figure toolbar/menubar items for interactive figure export (issue #73); fixed edge-case bug with GIF export
 % 14/03/22: (3.24) Added support for specifying figure name in addition to handle; added warning when trying to export TIF/JPG/BMP with transparency; use current figure as default handle even when its HandleVisibility is not 'on'
+% 16/03/22: (3.25) Fixed occasional empty files due to excessive cropping (issues #318, #350, #351)
 %}
 
     if nargout
@@ -352,7 +353,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 
     % Ensure the figure is rendered correctly _now_ so that properties like axes limits are up-to-date
     drawnow;
-    pause(0.02);  % this solves timing issues with Java Swing's EDT (http://undocumentedmatlab.com/blog/solving-a-matlab-hang-problem)
+    pause(0.05);  % this solves timing issues with Java Swing's EDT (http://undocumentedmatlab.com/blog/solving-a-matlab-hang-problem)
 
     % Display promo (just once every 10 days!)
     persistent promo_time
@@ -380,14 +381,14 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
     [fig, options] = parse_args(nargout, fig, argNames, varargin{:});
 
     % Check for newer version and exportgraphics/copygraphics compatibility
-    currentVersion = 3.24;
+    currentVersion = 3.25;
     if options.version  % export_fig's version requested - return it and bail out
         imageData = currentVersion;
         return
     end
     if ~options.silent
         % Check for newer version (not too often)
-        checkForNewerVersion(3.24);  % ...(currentVersion) is better but breaks in version 3.05- due to regexp limitation in checkForNewerVersion()
+        checkForNewerVersion(3.25);  % ...(currentVersion) is better but breaks in version 3.05- due to regexp limitation in checkForNewerVersion()
 
         % Hint to users to use exportgraphics/copygraphics in certain cases
         alertForExportOrCopygraphics(options);
@@ -812,6 +813,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                 imwrite(img, [options.name '.tif'], 'Resolution',options.magnify*get(0,'ScreenPixelsPerInch'), 'WriteMode',append_mode{options.append+1}, format_options{:});
             end
             if options.gif
+                % TODO - merge contents with im2gif.m
                 % Convert to color-map image required by GIF specification
                 [img, map] = rgb2ind(A, 256);
                 % Handle the case of trying to append to non-existing GIF file
@@ -918,7 +920,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
             end
             if ~options.crop
                 % Issue #56: due to internal bugs in Matlab's print() function, we can't use its internal cropping mechanism,
-                % therefore we always use '-loose' (in print2eps.m) and do our own cropping (in crop_borders)
+                % therefore we always use '-loose' (in print2eps.m) and do our own cropping (with crop_borders.m)
                 %printArgs{end+1} = '-loose';
             end
             if any(strcmpi(varargin,'-depsc'))
