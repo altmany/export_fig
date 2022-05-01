@@ -344,6 +344,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 % 02/03/22: (3.23) Added -toolbar and -menubar options to add figure toolbar/menubar items for interactive figure export (issue #73); fixed edge-case bug with GIF export
 % 14/03/22: (3.24) Added support for specifying figure name in addition to handle; added warning when trying to export TIF/JPG/BMP with transparency; use current figure as default handle even when its HandleVisibility is not 'on'
 % 16/03/22: (3.25) Fixed occasional empty files due to excessive cropping (issues #318, #350, #351)
+% 01/05/22: (3.26) Added -transparency option for TIFF files
 %}
 
     if nargout
@@ -381,14 +382,14 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
     [fig, options] = parse_args(nargout, fig, argNames, varargin{:});
 
     % Check for newer version and exportgraphics/copygraphics compatibility
-    currentVersion = 3.25;
+    currentVersion = 3.26;
     if options.version  % export_fig's version requested - return it and bail out
         imageData = currentVersion;
         return
     end
     if ~options.silent
         % Check for newer version (not too often)
-        checkForNewerVersion(3.25);  % ...(currentVersion) is better but breaks in version 3.05- due to regexp limitation in checkForNewerVersion()
+        checkForNewerVersion(currentVersion);  % this breaks in version 3.05- due to regexp limitation in checkForNewerVersion()
 
         % Hint to users to use exportgraphics/copygraphics in certain cases
         alertForExportOrCopygraphics(options);
@@ -612,12 +613,12 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
             [A, tcol, alpha] = getFigImage(fig, magnify, renderer, options, pixelpos);
             % Get the background colour
             if options.transparent
-                if (options.png || options.alpha || options.gif)
+                if (options.png || options.alpha || options.gif || options.tif)
                     try %options.aa_factor < 4  % default, faster but lines are not anti-aliased
                         % If all pixels are indicated as opaque (i.e. something went wrong with the Java screen-capture)
                         isBgColor = A(:,:,1) == tcol(1) & ...
-                            A(:,:,2) == tcol(2) & ...
-                            A(:,:,3) == tcol(3);
+                                    A(:,:,2) == tcol(2) & ...
+                                    A(:,:,3) == tcol(3);
                         % Set the bgcolor pixels to be fully-transparent
                         A(repmat(isBgColor,[1,1,3])) = 254; %=off-white % TODO: more memory efficient without repmat
                         alpha(isBgColor) = 0;
@@ -707,8 +708,8 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                         end %folded code...
                     end
                     %A = uint8(A);
-                else  % TIF,JPG,BMP
-                    warning('export_fig:unsupported:background','Matlab cannot set transparency when exporting TIF/JPG/BMP image files (see imwrite function documentation)')
+                else  % JPG,BMP
+                    warning('export_fig:unsupported:background','Matlab cannot set transparency when exporting JPG/BMP image files (see imwrite function documentation)')
                 end
             end
             % Downscale the image if its size was increased (for anti-aliasing)
@@ -808,9 +809,36 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                 else
                     img = A;
                 end
-                append_mode = {'overwrite', 'append'};
-                format_options = getFormatOptions(options, 'tif');  %Issue #269
-                imwrite(img, [options.name '.tif'], 'Resolution',options.magnify*get(0,'ScreenPixelsPerInch'), 'WriteMode',append_mode{options.append+1}, format_options{:});
+                resolution = options.magnify * get(0,'ScreenPixelsPerInch');
+                filename = [options.name '.tif'];
+                if options.transparent && any(alpha(:) < 1) && any(isBgColor(:))
+                    % Need to use low-level Tiff library since imwrite/writetif doesn't support alpha channel
+                    alpha8 = uint8(alpha*255);
+                    tag = ['Matlab ' version ' export_fig v' num2str(currentVersion)];
+                    mode = 'w'; if options.append, mode = 'a'; end
+                    t = Tiff(filename,mode); %R2009a or newer
+                    %See https://www.awaresystems.be/imaging/tiff/tifftags/baseline.html
+                    t.setTag('ImageLength',    size(img,1));
+                    t.setTag('ImageWidth',     size(img,2)); 
+                    t.setTag('Photometric',         Tiff.Photometric.RGB);
+                    t.setTag('Compression',         Tiff.Compression.Deflate); 
+                    t.setTag('PlanarConfiguration', Tiff.PlanarConfiguration.Chunky);
+                    t.setTag('ExtraSamples',        Tiff.ExtraSamples.AssociatedAlpha);
+                    t.setTag('ResolutionUnit',      Tiff.ResolutionUnit.Inch);
+                    t.setTag('BitsPerSample',  8);
+                    t.setTag('SamplesPerPixel',size(img,3)+1); %+1=alpha channel
+                    t.setTag('XResolution',    resolution);
+                    t.setTag('YResolution',    resolution);
+                    t.setTag('Software', tag);
+                    t.write(cat(3,img,alpha8));
+                    t.close;
+                else
+                    % Use the builtin imwrite/writetif function
+                    append_mode = {'overwrite', 'append'};
+                    mode = append_mode{options.append+1};
+                    format_options = getFormatOptions(options, 'tif');  %Issue #269
+                    imwrite(img, filename, 'Resolution',resolution, 'WriteMode',mode, format_options{:});
+                end
             end
             if options.gif
                 % TODO - merge contents with im2gif.m
