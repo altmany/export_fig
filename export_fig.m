@@ -345,6 +345,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 % 14/03/22: (3.24) Added support for specifying figure name in addition to handle; added warning when trying to export TIF/JPG/BMP with transparency; use current figure as default handle even when its HandleVisibility is not 'on'
 % 16/03/22: (3.25) Fixed occasional empty files due to excessive cropping (issues #318, #350, #351)
 % 01/05/22: (3.26) Added -transparency option for TIFF files
+% 15/05/22: (3.27) Fixed EPS bounding box (issue #356)
 %}
 
     if nargout
@@ -382,7 +383,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
     [fig, options] = parse_args(nargout, fig, argNames, varargin{:});
 
     % Check for newer version and exportgraphics/copygraphics compatibility
-    currentVersion = 3.26;
+    currentVersion = 3.27;
     if options.version  % export_fig's version requested - return it and bail out
         imageData = currentVersion;
         return

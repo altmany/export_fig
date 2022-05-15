@@ -113,6 +113,7 @@ function print2eps(name, fig, export_options, varargin)
 % 21/07/21: Fixed misleading warning message about regexprep field when it's empty (issue #338)
 % 26/08/21: Added a short pause to avoid unintended image cropping (issue #318)
 % 16/03/22: Fixed occasional empty files due to excessive cropping (issues #350, #351)
+% 15/05/22: Fixed EPS bounding box (issue #356)
 %}
 
     options = {'-loose'};
@@ -549,8 +550,8 @@ function print2eps(name, fig, export_options, varargin)
             [A, bcol] = print2array(fig, 1, renderer);
             [aa, aa, aa, bb_rel] = crop_borders(A, bcol, bb_padding, crop_amounts); %#ok<ASGLU>
         end
-        bb_rel(bb_rel>1)  = 1;  % ignore invalid values
-        bb_rel(bb_rel<=0) = 1;  % ignore invalid values
+        bb_rel(bb_rel>1) = 1;  % ignore invalid values
+        bb_rel(bb_rel<0) = 1;  % ignore invalid values (fix issue #356)
 
         try set(hTitles,'Color','k'); catch, end
 

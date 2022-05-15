@@ -24,6 +24,7 @@ function [A, vA, vB, bb_rel] = crop_borders(A, bcol, padding, crop_amounts)
 % 21/02/16: Enabled specifying non-automated crop amounts
 % 04/04/16: Fix per Luiz Carvalho for old Matlab releases
 % 23/10/16: Fixed issue #175: there used to be a 1px minimal padding in case of crop, now removed
+% 15/05/22: Fixed EPS bounding box (issue #356)
 %}
 
     if nargin < 3
@@ -149,7 +150,10 @@ function [A, vA, vB, bb_rel] = crop_borders(A, bcol, padding, crop_amounts)
     end
 
     % For EPS cropping, determine the relative BoundingBox - bb_rel
-    bb_rel = [l-1 h-b-1 r+1 h-t+1]./[w h w h];
+    bb_pixels = [l-1 h-b-1 r+1 h-t+1];  %[LowerLeftXY, UpperRightXY]
+    bb_pixels(bb_pixels<0) = 0;
+    bb_pixels = min(bb_pixels, [w h w h]);
+    bb_rel = bb_pixels ./ [w h w h];
 end
 
 function A = col(A)
