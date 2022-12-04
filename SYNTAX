@@ -17,6 +17,7 @@ Examples:
   export_fig ... -p<val>
   export_fig ... -d<gs_option>
   export_fig ... -depsc
+  export_fig ... -metadata <metaDataInfo>
   export_fig ... -<renderer>
   export_fig ... -<colorspace>
   export_fig ... -append
@@ -161,7 +162,6 @@ Inputs:
             image (default), bitmap, emf, or pdf.
             Notes: Only -clipboard (or -clipboard:image, which is the same)
                    applies export_fig parameters such as cropping, padding etc.
-                   Only the emf format supports -transparent background
             -clipboard:image  create a bitmap image using export_fig processing
             -clipboard:bitmap create a bitmap image as-is (no auto-cropping etc.)
             -clipboard:emf is vector format without auto-cropping; Windows-only
@@ -171,6 +171,10 @@ Inputs:
   -depsc -  option to use EPS level-3 rather than the default level-2 print
             device. This solves some bugs with Matlab's default -depsc2 device
             such as discolored subplot lines on images (vector formats only).
+  -metadata <metaDataInfo> - adds the specified meta-data information to the
+            exported file (PDF format only). metaDataInfo must be either a struct
+            or a cell array with pairs of values: {'fieldName',fieldValue, ...}.
+            Common metadata fields: Title,Author,Creator,Producer,Subject,Keywords
   -update - option to download and install the latest version of export_fig
   -version - return the current export_fig version, without any figure export
   -nofontswap - option to avoid font swapping. Font swapping is automatically

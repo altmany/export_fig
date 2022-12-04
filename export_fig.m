@@ -17,6 +17,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 %   export_fig ... -p<val>
 %   export_fig ... -d<gs_option>
 %   export_fig ... -depsc
+%   export_fig ... -metadata <metaDataInfo>
 %   export_fig ... -<renderer>
 %   export_fig ... -<colorspace>
 %   export_fig ... -append
@@ -41,7 +42,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 % bitmap file formats, and/or outputs a rasterized version to the workspace,
 % with the following properties:
 %   - Figure/axes reproduced as it appears on screen
-%   - Cropped borders (optional)
+%   - Cropped/padded borders (optional)
 %   - Embedded fonts (vector formats)
 %   - Improved line and grid line styles
 %   - Anti-aliased graphics (bitmap formats)
@@ -160,7 +161,6 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 %             image (default), bitmap, emf, or pdf.
 %             Notes: Only -clipboard (or -clipboard:image, which is the same)
 %                    applies export_fig parameters such as cropping, padding etc.
-%                    Only the emf format supports -transparent background
 %             -clipboard:image  create a bitmap image using export_fig processing
 %             -clipboard:bitmap create a bitmap image as-is (no auto-cropping etc.)
 %             -clipboard:emf is vector format without auto-cropping; Windows-only
@@ -170,6 +170,10 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 %   -depsc -  option to use EPS level-3 rather than the default level-2 print
 %             device. This solves some bugs with Matlab's default -depsc2 device
 %             such as discolored subplot lines on images (vector formats only).
+%   -metadata <metaDataInfo> - adds the specified meta-data information to the
+%             exported file (PDF format only). metaDataInfo must be either a struct
+%             or a cell array with pairs of values: {'fieldName',fieldValue, ...}.
+%             Common metadata fields: Title,Author,Creator,Producer,Subject,Keywords
 %   -update - option to download and install the latest version of export_fig
 %   -version - return the current export_fig version, without any figure export
 %   -nofontswap - option to avoid font swapping. Font swapping is automatically
@@ -346,6 +350,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 % 16/03/22: (3.25) Fixed occasional empty files due to excessive cropping (issues #318, #350, #351)
 % 01/05/22: (3.26) Added -transparency option for TIFF files
 % 15/05/22: (3.27) Fixed EPS bounding box (issue #356)
+% 04/12/22: (3.28) Added custom metadata information to PDF files; fixed clipboard export (transparency and gray-scale images; deployed apps; old Matlabs)
 %}
 
     if nargout
@@ -362,7 +367,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
     if isempty(promo_time)
         try promo_time = getpref('export_fig','promo_time'); catch, promo_time=-inf; end
     end
-    if abs(now-promo_time) > 10 && ~isdeployed
+    if abs(now-promo_time) > 10 && ~isdeployed %#ok<*TNOW1>
         programsCrossCheck;
         msg = char('Gps!qspgfttjpobm!Nbumbc!bttjtubodf-!qmfbtf!dpoubdu!=%?'-1);
         url = char('iuuqt;00VoepdvnfoufeNbumbc/dpn0dpotvmujoh'-1);
@@ -383,7 +388,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
     [fig, options] = parse_args(nargout, fig, argNames, varargin{:});
 
     % Check for newer version and exportgraphics/copygraphics compatibility
-    currentVersion = 3.27;
+    currentVersion = 3.28;
     if options.version  % export_fig's version requested - return it and bail out
         imageData = currentVersion;
         return
@@ -1269,11 +1274,19 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                     import java.awt.datatransfer.DataFlavor %#ok<SIMPT>
 
                     % Get System Clipboard object (java.awt.Toolkit)
-                    cb = Toolkit.getDefaultToolkit.getSystemClipboard();
+                    cb = Toolkit.getDefaultToolkit.getSystemClipboard; % can't use () in ML6!
 
                     % Add java class (ImageSelection) to the path
                     if ~exist('ImageSelection', 'class')
-                        javaaddpath(fileparts(which(mfilename)), '-end');
+                        % Obtain the directory of the executable (or of the M-file if not deployed)
+                        %javaaddpath(fileparts(which(mfilename)), '-end');
+                        if isdeployed % Stand-alone mode
+                            [status, result] = system('path');  %#ok<ASGLU>
+                            MatLabFilePath = char(regexpi(result, 'Path=(.*?);', 'tokens', 'once'));
+                        else % MATLAB mode.
+                            MatLabFilePath = fileparts(mfilename('fullpath'));
+                        end
+                        javaaddpath(MatLabFilePath, '-end');
                     end
 
                     % Get image size
@@ -1296,7 +1309,11 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                     imageData2 = cat(1, imageData2, alphaData2);
 
                     % Create image buffer
-                    imBuffer = BufferedImage(wd, ht, BufferedImage.TYPE_INT_RGB);
+                    % Note: contrary to print2array & screencapture, which convert
+                    % ^^^^  a Java screencaptured BufferedImage into RGBA and must
+                    %       use TYPE_INT_RGB for this, here we do the reverse and
+                    %       must use TYPE_INT_ARGB to preserve the alpha channel.
+                    imBuffer = BufferedImage(wd, ht, BufferedImage.TYPE_INT_ARGB);
                     imBuffer.setRGB(0, 0, wd, ht, typecast(imageData2(:), 'int32'), 0, wd);
 
                     % Create ImageSelection object from the image buffer
@@ -1615,6 +1632,19 @@ function [fig, options] = parse_args(nout, fig, argNames, varargin)
                         options.toolbar = true;
                     case 'menubar'
                         options.menubar = true;
+                    case 'metadata'
+                        % https://unix.stackexchange.com/questions/489230/where-is-metadata-for-pdf-files-can-i-insert-metadata-into-any-pdf-file
+                        % https://www.sejda.com/edit-pdf-metadata
+                        metadata = varargin{a+1};
+                        if isstruct(metadata)
+                            metadata = [fieldnames(metadata),struct2cell(metadata)]';
+                        elseif ~iscell(metadata) || ~ischar(metadata{1}) || mod(length(metadata),2)==1
+                            error('export_fig:BadOptionValue','export_fig metadata must be a struct or cell-array of name-value pairs');
+                        end
+                        metadata = cellfun(@num2str,metadata(:)','uniform',0);
+                        str = sprintf(' /%s (%s)', metadata{:});
+                        options.gs_options{end+1} = ['-c "[' str ' /DOCINFO pdfmark"'];
+                        skipNext = 1;
                     otherwise
                         try
                             wasError = false;
