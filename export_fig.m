@@ -1,4 +1,4 @@
-function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
+function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
 %EXPORT_FIG  Exports figures in a publication-quality format
 %
 % Examples:
@@ -350,7 +350,8 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
 % 16/03/22: (3.25) Fixed occasional empty files due to excessive cropping (issues #318, #350, #351)
 % 01/05/22: (3.26) Added -transparency option for TIFF files
 % 15/05/22: (3.27) Fixed EPS bounding box (issue #356)
-% 04/12/22: (3.28) Added custom metadata information to PDF files; fixed clipboard export (transparency and gray-scale images; deployed apps; old Matlabs)
+% 04/12/22: (3.28) Added -metadata option to add custom info to PDF files; fixed -clipboard export (transparent and gray-scale images; deployed apps; old Matlabs)
+% 03/01/23: (3.29) Use silent mode by default in deployed apps; suggest installing ghostscript/pdftops if required yet missing; fixed invalid chars in export filename; reuse existing figure toolbar if available
 %}
 
     if nargout
@@ -367,7 +368,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
     if isempty(promo_time)
         try promo_time = getpref('export_fig','promo_time'); catch, promo_time=-inf; end
     end
-    if abs(now-promo_time) > 10 && ~isdeployed %#ok<*TNOW1>
+    if abs(now-promo_time) > 10 && ~isdeployed
         programsCrossCheck;
         msg = char('Gps!qspgfttjpobm!Nbumbc!bttjtubodf-!qmfbtf!dpoubdu!=%?'-1);
         url = char('iuuqt;00VoepdvnfoufeNbumbc/dpn0dpotvmujoh'-1);
@@ -388,7 +389,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
     [fig, options] = parse_args(nargout, fig, argNames, varargin{:});
 
     % Check for newer version and exportgraphics/copygraphics compatibility
-    currentVersion = 3.28;
+    currentVersion = 3.29;
     if options.version  % export_fig's version requested - return it and bail out
         imageData = currentVersion;
         return
@@ -1407,18 +1408,20 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                 fprintf(2, 'export_fig error. ');
             end
             fprintf(2, 'Please ensure:\n');
-            fprintf(2, ' * that the function you used (%s.m) version %s is from the expected location\n', mfilename('fullpath'), num2str(currentVersion));
-            paths = which(mfilename,'-all');
-            if iscell(paths) && numel(paths) > 1
-                fprintf(2, '    (you appear to have %s of export_fig installed)\n', hyperlink('matlab:which export_fig -all','multiple versions'));
-            end
+            %if ~isdeployed
+                fprintf(2, ' * that the function you used (%s.m) version %s is from the expected location\n', mfilename('fullpath'), num2str(currentVersion));
+                paths = which(mfilename,'-all');
+                if iscell(paths) && numel(paths) > 1
+                    fprintf(2, '    (you appear to have %s of export_fig installed)\n', hyperlink('matlab:which export_fig -all','multiple versions'));
+                end
+            %end
             if isNewerVersionAvailable
                 fprintf(2, ' * and that you are using the %s of export_fig (you are not: run %s to update it)\n', ...
                         hyperlink('https://github.com/altmany/export_fig/archive/master.zip','latest version'), ...
                         hyperlink('matlab:export_fig(''-update'')','export_fig(''-update'')'));
             end
             fprintf(2, ' * and that you did not made a mistake in export_fig''s %s\n', hyperlink('matlab:help export_fig','expected input arguments'));
-            if isvector(options)
+            if isvector(options)  % EPS/PDF require ghostscipt
                 if ismac
                     url = 'http://pages.uoregon.edu/koch';
                 else
@@ -1428,13 +1431,22 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
                 fprintf(2, ' * and that %s is properly installed in %s\n', ...
                         hyperlink(url,'ghostscript'), ...
                         hyperlink(['matlab:winopen(''' fileparts(fpath) ''')'], fpath));
+                if isempty(fpath)
+                    selectUtilityPath('Ghostscript',url,'Exporting to vector format (EPS, PDF etc.)');
+                    return
+                end
             end
-            try
+            try  % EPS require pdftops
                 if options.eps
+                    url = 'http://xpdfreader.com/download.html';
                     fpath = user_string('pdftops');
                     fprintf(2, ' * and that %s is properly installed in %s\n', ...
-                            hyperlink('http://xpdfreader.com/download.html','pdftops'), ...
+                            hyperlink(url,'pdftops'), ...
                             hyperlink(['matlab:winopen(''' fileparts(fpath) ''')'], fpath));
+                    if isempty(fpath)
+                        selectUtilityPath('pdftops',url,'Exporting to EPS format');
+                        return
+                    end
                 end
             catch
                 % ignore - probably an error in parse_args
@@ -1454,6 +1466,26 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1>
             fprintf(2, '\n');
         end
         rethrow(err)
+    end
+end
+
+function isOk = selectUtilityPath(utilName,url,msg)
+    isOk = false;
+    msg = [msg ' requires the ' utilName ' utility from ' url];
+    while ~isOk
+        answer = questdlg(msg,utilName,'Use local installation','Go to website','Cancel','Cancel');
+        drawnow; pause(0.01);  % avoid Matlab hang
+        switch strtok(char(answer))
+            case 'Go',  web(url,'-browser');
+            case 'Use'
+                filter = {'*.*','Executable files'};
+                title  = ['Specify the ' utilName ' executable'];
+                [fPath,fName,fExt] = uigetfile(filter,title);
+                if ~ischar(fPath), return, end
+                fName = fullfile(fPath,[fName,fExt]);
+                isOk = exist(fName,'file') && user_string('ghostscript',fName);
+            otherwise, return
+        end
     end
 end
 
@@ -1495,7 +1527,7 @@ function options = default_options()
         'invert_hardcopy', true, ...
         'format_options',  struct, ...
         'preserve_size',   false, ...
-        'silent',          false, ...
+        'silent',          isdeployed, ... %use silent mode by default in deployed
         'regexprep',       [], ...
         'toolbar',         false, ...
         'menubar',         false, ...
@@ -2162,6 +2194,7 @@ end
 function isNewerVersionAvailable = checkForNewerVersion(currentVersion)
     persistent lastCheckTime lastVersion
     isNewerVersionAvailable = false;
+    if isdeployed, return, end
     if nargin < 1 || isempty(lastCheckTime) || now - lastCheckTime > 1
         url = 'https://raw.githubusercontent.com/altmany/export_fig/master/export_fig.m';
         try
@@ -2514,8 +2547,11 @@ function addToolbarButton(hFig, options)
             error('export_fig:noFigure','not a valid GUI handle');
         end
     end
-    set(hFig,'ToolBar','figure');
-    hToolbar = findall(hFig, 'type','uitoolbar', '-depth',1);
+    hToolbar = findall(hFig,'tag','uitoolbar','-or','tag','FigureToolBar','-depth',1);
+    if isempty(hToolbar)
+        set(hFig,'ToolBar','figure');
+        hToolbar = findall(hFig,'tag','uitoolbar','-or','tag','FigureToolBar','-depth',1);
+    end
     if isempty(hToolbar)
         if ~options.silent
             warning('export_fig:noToolbar','cannot add toolbar button to the specified figure');
@@ -2579,6 +2615,7 @@ function addToolbarButton(hFig, options)
         try jButton.getComponentPeer.getComponent(1).setToolTipText(tooltip); catch, end
 
         defaultFname = get(hFig,'Name');
+        defaultFname = regexprep(defaultFname,{'[*?"<>|:/\\]'},'-');
         if isempty(defaultFname), defaultFname = 'figure'; end
         imFormats = {'pdf','eps','emf','svg','png','tif','jpg','bmp','gif'};
         for idx = 1 : numel(imFormats)
@@ -2629,6 +2666,7 @@ function addMenubarMenu(hFig, options)
     % Add the export_fig menu to the figure's menubar
     hMainMenu = uimenu(hFig, 'Text','E&xport', 'Tag','export_fig');
     defaultFname = get(hFig,'Name');
+    defaultFname = regexprep(defaultFname,{'[*?"<>|:/\\]'},'-');
     if isempty(defaultFname), defaultFname = 'figure'; end
     imFormats = {'pdf','eps','emf','svg','png','tif','jpg','bmp','gif'};
     for idx = 1 : numel(imFormats)
@@ -2663,6 +2701,7 @@ function interactiveExport(hObject, varargin)
 
     % Display a Save-as dialog to let the user select the export name & type
     defaultFname = get(hFig,'Name');
+    defaultFname = regexprep(defaultFname,{'[*?"<>|:/\\]'},'-');
     if isempty(defaultFname), defaultFname = 'figure'; end
     %formats = imformats;
     formats = {'pdf','eps','emf','svg','png','tif','jpg','bmp','gif', ...
