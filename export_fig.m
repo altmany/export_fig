@@ -35,6 +35,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
 %   export_fig ... -regexprep <pattern> <replace>
 %   export_fig ... -toolbar
 %   export_fig ... -menubar
+%   export_fig ... -contextmenu
 %   export_fig(..., handle)
 %   export_fig(..., figName)
 %
@@ -202,6 +203,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
 %             Warning: invalid replacement can make your EPS/PDF file unreadable!
 %   -toolbar - adds an interactive export button to the figure's toolbar
 %   -menubar - adds an interactive export menu to the figure's menubar
+%   -contextmenu - adds interactive export menu to figure context-menu (right-click)
 %   handle -  handle of the figure, axes or uipanels (can be an array of handles
 %             but all the objects must be in the same figure) to be exported.
 %             Default: gcf (handle of current figure).
@@ -352,6 +354,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
 % 15/05/22: (3.27) Fixed EPS bounding box (issue #356)
 % 04/12/22: (3.28) Added -metadata option to add custom info to PDF files; fixed -clipboard export (transparent and gray-scale images; deployed apps; old Matlabs)
 % 03/01/23: (3.29) Use silent mode by default in deployed apps; suggest installing ghostscript/pdftops if required yet missing; fixed invalid chars in export filename; reuse existing figure toolbar if available
+% 03/02/23: (3.30) Added -contextmenu option to add interactive context-menu items; fixed: -menubar,-toolbar created the full default figure menubar/toolbar if not shown; enlarged toolbar icon; support adding export_fig icon to custom toolbars; alert if specifying multiple or invalid handle(s)
 %}
 
     if nargout
@@ -389,7 +392,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
     [fig, options] = parse_args(nargout, fig, argNames, varargin{:});
 
     % Check for newer version and exportgraphics/copygraphics compatibility
-    currentVersion = 3.29;
+    currentVersion = 3.30;
     if options.version  % export_fig's version requested - return it and bail out
         imageData = currentVersion;
         return
@@ -403,11 +406,15 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
         %return
     end
 
-    % Ensure that we have a figure handle
+    % Ensure that we have a scalar valid figure handle
     if isequal(fig,-1)
         return  % silent bail-out
     elseif isempty(fig)
         error('export_fig:NoFigure','No figure found');
+    elseif numel(fig) > 1
+        error('export_fig:MultipleFigures','export_fig can only process one figure at a time');
+    elseif ~ishandle(fig)
+        error('export_fig:InvalidHandle','invalid figure handle specified to export_fig');
     else
         oldWarn = warning('off','MATLAB:HandleGraphics:ObsoletedProperty:JavaFrame');
         warning off MATLAB:ui:javaframe:PropertyToBeRemoved
@@ -476,6 +483,11 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
     % If menubar menu was requested, add it to the specified figure(s)
     if options.menubar
         addMenubarMenu(hFig, options);
+    end
+
+    % If context-menu was requested, add it to the specified handle(s)
+    if options.contextmenu
+        addContextMenu(hFig, options);
     end
 
     % Isolate the subplot, if it is one
@@ -1358,8 +1370,8 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
         end
 
         % Delete the output file if unchanged from the default name ('export_fig_out.png')
-        % and clipboard, toolbar, and/or menubar were requested
-        if options.clipboard || options.toolbar || options.menubar
+        % and clipboard/toolbar/menubar/contextmenu were requested
+        if options.clipboard || options.toolbar || options.menubar || options.contextmenu
             if strcmpi(options.name,'export_fig_out')
                 try
                     fileInfo = dir('export_fig_out.png');
@@ -1531,6 +1543,7 @@ function options = default_options()
         'regexprep',       [], ...
         'toolbar',         false, ...
         'menubar',         false, ...
+        'contextmenu',     false, ...
         'gs_options',      {{}});
 end
 
@@ -1556,10 +1569,16 @@ function [fig, options] = parse_args(nout, fig, argNames, varargin)
             continue;
         end
         thisArg = varargin{a};
-        if all(ishandle(thisArg))
-            fig = thisArg;
-            options.handleName = argNames{a};
-        elseif ischar(thisArg) && ~isempty(thisArg)
+        if isempty(thisArg)  % skip empty args
+            continue
+        elseif ~ischar(thisArg)
+            if ~all(ishandle(thisArg))
+                error('export_fig:InvalidHandle','invalid figure handle specified to export_fig');
+            else
+                fig = thisArg;
+                options.handleName = argNames{a};
+            end
+        else %if ischar(thisArg) && ~isempty(thisArg)
             if thisArg(1) == '-'
                 switch lower(thisArg(2:end))
                     case 'nocrop'
@@ -1664,6 +1683,8 @@ function [fig, options] = parse_args(nout, fig, argNames, varargin)
                         options.toolbar = true;
                     case 'menubar'
                         options.menubar = true;
+                    case 'contextmenu'
+                        options.contextmenu = true;
                     case 'metadata'
                         % https://unix.stackexchange.com/questions/489230/where-is-metadata-for-pdf-files-can-i-insert-metadata-into-any-pdf-file
                         % https://www.sejda.com/edit-pdf-metadata
@@ -2540,24 +2561,29 @@ end
 % Add interactive export button to the figure's toolbar
 function addToolbarButton(hFig, options)
     % Ensure we have a valid toolbar handle
-    if isempty(hFig)
+    if isempty(hFig) || ~ishandle(hFig)
         if options.silent
             return
         else
             error('export_fig:noFigure','not a valid GUI handle');
         end
     end
-    hToolbar = findall(hFig,'tag','uitoolbar','-or','tag','FigureToolBar','-depth',1);
+    hToolbar = findall(hFig,'type','uifigure','-or','tag','uitoolbar','-or','tag','FigureToolBar','-depth',1);
+    % Don't create the figure toolbar - perhaps there's a custom user toolbar
+    % If there isn't any toolbar, uisplittool() below will create a new one
     if isempty(hToolbar)
+        %{
         set(hFig,'ToolBar','figure');
         hToolbar = findall(hFig,'tag','uitoolbar','-or','tag','FigureToolBar','-depth',1);
-    end
-    if isempty(hToolbar)
-        if ~options.silent
-            warning('export_fig:noToolbar','cannot add toolbar button to the specified figure');
+        if isempty(hToolbar)
+            if ~options.silent
+                warning('export_fig:noToolbar','cannot add toolbar button to the specified figure');
+            end
         end
+        %}
+    else
+        hToolbar = hToolbar(1);  % just in case there are several toolbars... - use only the first
     end
-    hToolbar = hToolbar(1);  % just in case there are several toolbars... - use only the first
 
     % Bail out silently if the export_fig button already exists
     hButton = findall(hToolbar, 'Tag','export_fig');
@@ -2567,19 +2593,19 @@ function addToolbarButton(hFig, options)
 
     % Prepare the camera icon
     icon = ['3333333333333333'; ...
-            '3333333333333333'; ...
-            '3333300000333333'; ...
-            '3333065556033333'; ...
-            '3000000000000033'; ...
-            '3022222222222033'; ...
-            '3022220002222033'; ...
-            '3022203110222033'; ...
-            '3022201110222033'; ...
-            '3022204440222033'; ...
-            '3022220002222033'; ...
-            '3022222222222033'; ...
-            '3000000000000033'; ...
-            '3333333333333333'; ...
+            '3333300000033333'; ...
+            '3333065555603333'; ...
+            '3000000000000003'; ...
+            '3022222222222203'; ...
+            '3022222222222203'; ...
+            '3022220000222203'; ...
+            '3022203113022203'; ...
+            '3022201111022203'; ...
+            '3022204444022203'; ...
+            '3022220000222203'; ...
+            '3022222222222203'; ...
+            '3022222222222203'; ...
+            '3000000000000003'; ...
             '3333333333333333'; ...
             '3333333333333333'];
     cm = [   0      0      0; ...  % black
@@ -2592,11 +2618,14 @@ function addToolbarButton(hFig, options)
     cdata = ind2rgb(uint8(icon-'0'),cm);
 
     % If the button does not already exit
-    tooltip = 'Export this figure';
+    tooltip = 'Export this figure to a pdf or image file';
 
     % Add the button with the icon to the figure's toolbar
-    props = {'Parent',hToolbar, 'CData',cdata, 'Tag','export_fig', ...
+    props = {'CData',cdata, 'Tag','export_fig', ...
              'Tooltip',tooltip, 'ClickedCallback',@interactiveExport};
+    if ~isempty(hToolbar)
+        props = {props{:}, 'Parent',hToolbar}; %#ok<CCAT> %[props,...] cause a runtime-error! (internal Matlab bug)
+    end
     try
         hButton = [];  % just in case we croak below
 
@@ -2648,14 +2677,14 @@ end
 % Add interactive export menu to the figure's menubar
 function addMenubarMenu(hFig, options)
     % Ensure we have a valid figure handle
-    if isempty(hFig)
+    if isempty(hFig) || ~ishandle(hFig)
         if options.silent
             return
         else
             error('export_fig:noFigure','not a valid GUI handle');
         end
     end
-    set(hFig,'MenuBar','figure');
+    %set(hFig,'MenuBar','figure'); % Don't create the default figure menubar!
 
     % Bail out silently if the export_fig menu already exists
     hMainMenu = findall(hFig, '-depth',1, 'type','uimenu', 'Tag','export_fig');
@@ -2665,6 +2694,11 @@ function addMenubarMenu(hFig, options)
 
     % Add the export_fig menu to the figure's menubar
     hMainMenu = uimenu(hFig, 'Text','E&xport', 'Tag','export_fig');
+    addMenuItems(hMainMenu, hFig);
+end
+
+% Add export_fig menu item to a parent menu
+function addMenuItems(hMainMenu, hFig)
     defaultFname = get(hFig,'Name');
     defaultFname = regexprep(defaultFname,{'[*?"<>|:/\\]'},'-');
     if isempty(defaultFname), defaultFname = 'figure'; end
@@ -2682,10 +2716,54 @@ function addMenubarMenu(hFig, options)
         label = ['Clipboard (' thisFormat ' format)'];
         sep = 'off'; if idx==1, sep = 'on'; end
         uimenu(hMainMenu, 'Text',label, 'Separator',sep, ...
-                          'MenuSelectedFcn',@(h,e)export_fig(hFig,exFormat));
+                        'MenuSelectedFcn',@(h,e)export_fig(hFig,exFormat));
     end
     uimenu(hMainMenu, 'Text','Select filename and format', 'Separator','on', ...
-                      'MenuSelectedFcn',@interactiveExport);
+                    'MenuSelectedFcn',@interactiveExport);
+end
+
+% Add interactive export context-menu to the specified figure
+function addContextMenu(hFig, options)
+    % Ensure we have a valid figure handle
+    if isempty(hFig) || ~ishandle(hFig)
+        if options.silent
+            return
+        else
+            error('export_fig:noHandle','not a valid GUI handle');
+        end
+    end
+
+    % Get the figure's current context-menu (if defined)
+    % Note: The UIContextMenu property name changed sometime in the late 2010s
+    try
+        propName = 'ContextMenu';
+        cm = get(hFig,propName);
+    catch
+        propName = 'UIContextMenu';
+        cm = get(hFig,propName);
+    end
+
+    % If no context menu is defined, attach the basic export_fig one
+    if isempty(cm)
+        % Get the standard export_fig context menu for this figure
+        std_cm = findall(hFig, '-depth',1, 'type','uicontextmenu', 'Tag','export_fig');
+        if isempty(std_cm)
+            % Basic export_fig context-menu not yet defined - create it
+            std_cm = uicontextmenu(hFig,'Tag','export_fig');
+            hMenu = uimenu(std_cm, 'Text','Export', 'Tag','export_fig');
+            addMenuItems(hMenu, hFig);
+        end
+        %Attach the standard export_fig context menu to this figure
+        set(hFig,propName,std_cm);
+    else  % a context-menu is already defined for this figure
+        % Ensure that the context-menu doesn't already have an export_fig sub-menu
+        hMenu = findall(cm,'tag','export_fig');
+        if isempty(hMenu)
+            % Attach the export_fig sub-menu to the figure's context-menu
+            hMenu = uimenu(cm, 'Text','Export', 'Tag','export_fig');
+            addMenuItems(hMenu, hFig);
+        end
+    end
 end
 
 % Callback functions for toolbar/menubar actions
