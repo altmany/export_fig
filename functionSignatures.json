@@ -3,8 +3,8 @@
 {
   "inputs":
   [
-    {"name":"figure",   "kind":"ordered", "type":[["@ishandle"],["char"]], "purpose":"figure handle or name"},
-    {"name":"filename", "kind":"ordered", "type":[["char"],["string"]],    "purpose":"output filename"},
+    {"name":"figure",          "kind":"ordered", "type":[["@ishandle"],["char"]], "purpose":"figure handle or name"},
+    {"name":"filename",        "kind":"ordered", "type":[["char"],["string"]],    "purpose":"output filename"},
 	{"tuple":
 	[
 		{"name":"actions",     "kind":"ordered", "type":["choices={'-pdf','-eps','-emf','-svg','-png','-tif','-jpg','-bmp','-transparent','-nocrop','-c','-p','-m','-r','-native','-a1','-a2','-a3','-a4','-painters','-opengl','-RGB','-CMYK','-gray','-q','-append','-bookmark','-d','-depsc','-update','-version','-nofontswap','-linecaps','-noinvert','-preserve_size','-silent','-regexprep','-toolbar','-menubar','-contextmenu','-clipboard','-clipboard:image','-clipboard:bitmap','-clipboard:emf','-clipboard:pdf'}"], "purpose":"export actions"},
@@ -18,5 +18,200 @@
     {"name":"imageData"},
     {"name":"alpha"}
   ]
+},
+"eps2pdf":
+{
+  "inputs":
+  [
+    {"name":"source",      "kind":"required", "type":"file=*.eps",     "purpose":"source filename (*.eps)"},
+    {"name":"destination", "kind":"required", "type":"file=*.pdf",     "purpose":"destination filename (*.pdf)"},
+    {"name":"crop",        "kind":"ordered",  "type":"logical",        "purpose":"crop borders? (default=true)"},
+    {"name":"append",      "kind":"ordered",  "type":"logical",        "purpose":"append to PDF? (default=false)"},
+    {"name":"gray",        "kind":"ordered",  "type":"logical",        "purpose":"output grayscale? (default=false)"},
+    {"name":"quality",     "kind":"ordered",  "type":["numeric",">0"], "purpose":"image quality (>100=lossless)"},
+    {"name":"gs_options",  "kind":"ordered",  "type":["char","cell"],  "purpose":"ghostscript options"}
+  ]
+},
+"pdf2eps":
+{
+  "inputs":
+  [
+    {"name":"source",      "kind":"required", "type":"file=*.pdf",     "purpose":"source filename (*.pdf)"},
+    {"name":"destination", "kind":"required", "type":"file=*.eps",     "purpose":"destination filename (*.eps)"}
+  ]
+},
+"append_pdfs":
+{
+  "inputs":
+  [
+    {"name":"destination", "kind":"required", "type":"file=*.pdf",     "purpose":"destination filename (*.pdf)"},
+    {"name":"source",      "kind":"required", "type":"file=*.pdf",     "purpose":"source filename (*.pdf)",       "repeating":true}
+  ]
+},
+"copyfig":
+{
+  "inputs":
+  [
+    {"name":"figure",      "kind":"required", "type":"@ishandle",      "purpose":"handle of figure to copy"}
+  ],
+  "outputs":
+  [
+    {"name":"new_figure",  "purpose":"handle of the new figure"}
+  ]
+},
+"crop_borders":
+{
+  "inputs":
+  [
+    {"name":"image",       "kind":"required", "type":"numeric",        "purpose":"HxWxCxN array of image data"},
+    {"name":"bgcolor",     "kind":"required", "type":"numeric",        "purpose":"background color"},
+    {"name":"padding",     "kind":"ordered",  "type":["numeric",">=0","<=1"], "purpose":"padding amount (0-1, default=0)"},
+    {"name":"crop",        "kind":"required", "type":"numeric",        "purpose":"crop amounts [top,right,bottom,left]; NaN=auto-crop"}
+  ],
+  "outputs":
+  [
+    {"name":"A",           "purpose":"cropped array of images"},
+    {"name":"vA",          "purpose":"coordinates in A that contain the cropped image"},
+    {"name":"vB",          "purpose":"coordinates in B that contain the cropped image"},
+    {"name":"bb_rel",      "purpose":"relative bounding box (used for EPS crop)"}
+  ]
+},
+"isolate_axes":
+{
+  "inputs":
+  [
+    {"name":"handles",     "kind":"required", "type":"@ishandle",      "purpose":"handles of axes or uipanel"},
+    {"name":"visible",     "kind":"ordered",  "type":"logical",        "purpose":"make new figure visible? (default=false)"}
+  ],
+  "outputs":
+  [
+    {"name":"new_figure",  "purpose":"handle of the new figure"}
+  ]
+},
+"pdftops":
+{
+  "inputs":
+  [
+    {"name":"command",     "kind":"ordered",  "type":"char",  "purpose":"pdftops command"}
+  ],
+  "outputs":
+  [
+    {"name":"status",      "purpose":"result status (0=ok, ~0=error)"},
+    {"name":"results",     "purpose":"pdftops command results", "repeating":true}
+  ]
+},
+"ghostscript":
+{
+  "inputs":
+  [
+    {"name":"command",     "kind":"ordered",  "type":"char",  "purpose":"ghostscript command"}
+  ],
+  "outputs":
+  [
+    {"name":"status",      "purpose":"result status (0=ok, ~0=error)"},
+    {"name":"results",     "purpose":"ghostscript command results", "repeating":true}
+  ]
+},
+"using_hg2":
+{
+  "inputs":
+  [
+    {"name":"figure",      "kind":"required", "type":"@ishandle",      "purpose":"figure handle"}
+  ],
+  "outputs":
+  [
+    {"name":"flag",  "purpose":"logical flag (true=HG2, false=HG1)"}
+  ]
+},
+"print2array":
+{
+  "inputs":
+  [
+    {"name":"figure",      "kind":"ordered", "type":"@ishandle",                         "purpose":"figure handle"},
+    {"name":"resolution",  "kind":"ordered", "type":["numeric",">0"],                    "purpose":"output resolution (default=1)"},
+    {"name":"renderer",    "kind":"ordered", "type":["choices={'-opengl','-painters'}"], "purpose":"output renderer (default='-opengl')"},
+    {"name":"gs_options",  "kind":"ordered", "type":["char","cell"],                     "purpose":"ghostscript options"}
+ ],
+  "outputs":
+  [
+    {"name":"image",       "purpose":"MxNx3 bitmap figure screenshot"},
+    {"name":"bgcolor",     "purpose":"auto-detected figure background color"},
+    {"name":"alpha",       "purpose":"MxN array of 0-1 alpha values (0=transparent, 1=opaque)"}
+  ]
+},
+"print2eps":
+{
+  "inputs":
+  [
+    {"name":"filename",       "kind":"required", "type":"char",              "purpose":"output filename (*.eps)"},
+    {"name":"figure",         "kind":"ordered", "type":"@ishandle",          "purpose":"figure handle"},
+    {"name":"export_options", "kind":"ordered", "type":["numeric","struct"], "purpose":"export options"},
+    {"name":"print_options",  "kind":"ordered", "type":["char","cell"],      "purpose":"print() options"}
+  ]
+},
+"read_write_entire_textfile":
+{
+  "inputs":
+  [
+    {"name":"filename",    "kind":"required", "type":"file",                 "purpose":"input text filename"},
+    {"name":"text",        "kind":"ordered",  "type":"char",                 "purpose":"text string to write in file"}
+ ],
+  "outputs":
+  [
+    {"name":"text",        "purpose":"text string read from file"}
+  ]
+},
+"user_string":
+{
+  "inputs":
+  [
+    {"name":"name",        "kind":"required", "type":"char",                 "purpose":"parameter name"},
+    {"name":"text",        "kind":"ordered",  "type":"char",                 "purpose":"text string to store in parameter"}
+ ],
+  "outputs":
+  [
+    {"name":"text",        "purpose":"text string stored in parameter"},
+    {"name":"filename",    "purpose":"filename containing the parameter"}
+  ]
+},
+"eps2pdf":
+{
+  "inputs":
+  [
+    {"name":"source",      "kind":"required", "type":[["file=*.eps"],["char"]], "purpose":"source filename (*.eps) or text"},
+    {"name":"destination", "kind":"ordered",  "type":"file=*.pdf",              "purpose":"destination filename (*.eps)"}
+  ],
+  "outputs":
+  [
+    {"name":"text",        "purpose":"modified text string in file"}
+  ]
+},
+"hyperlink":
+{
+  "inputs":
+  [
+    {"name":"url",         "kind":"required", "type":"char",                 "purpose":"hyperlink url"},
+    {"name":"label",       "kind":"ordered",  "type":"char",                 "purpose":"text label (default=<url>)"},
+    {"name":"msg",         "kind":"ordered",  "type":"char",                 "purpose":"string instances to hyperlink"}
+  ],
+  "outputs":
+  [
+    {"name":"text",        "purpose":"modified text"}
+  ]
+},
+"im2gif":
+{
+  "inputs":
+  [
+    {"name":"image",       "kind":"required", "type":[["file"],["numeric"]], "purpose":"input images array or filename"},
+ 	{"tuple":
+	[
+		{"name":"outfile",  "kind":"ordered",   "type":"char",                              "purpose":"output filename (*.gif)"},
+		{"name":"actions",  "kind":"ordered",   "type":["choices={'-nocrop','-nodither'}"], "purpose":"export actions"},
+		{"name":"-ncolors", "kind":"namevalue", "type":["numeric",">1"],                    "purpose":"max number of colors (default=256)"},
+		{"name":"-loops",   "kind":"namevalue", "type":["numeric",">0"],                    "purpose":"number of playback loops (default=65536)"},
+		{"name":"-delay",   "kind":"namevalue", "type":["numeric",">0"],                    "purpose":"delay [secs] between frames (default=1/15)"}
+	], "repeating":true}
+ ]
 }
 }
