@@ -5,7 +5,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
 %   imageData = export_fig
 %   [imageData, alpha] = export_fig
 %   export_fig filename
-%   export_fig filename -format1 -format2
+%   export_fig ... -<format>
 %   export_fig ... -nocrop
 %   export_fig ... -c[<val>,<val>,<val>,<val>]
 %   export_fig ... -transparent
@@ -93,13 +93,14 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
 % Inputs:
 %   filename - string containing the name (optionally including full or
 %             relative path) of the file the figure is to be saved as. If
-%             a path is not specified, the figure is saved in the current
-%             directory. If no name and no output arguments are specified,
-%             the default name, 'export_fig_out', is used. If neither a
-%             file extension nor a format are specified, a ".png" is added
-%             and the figure saved in that format.
+%             no path is specified, the figure is saved in the current folder.
+%             If no name and no output arguments are specified, the figure's
+%             FileName property is used. If this property is empty, then the
+%             default name 'export_fig_out' is used. If neither file extension
+%             nor a format parameter are specified, a ".png" is added to the
+%             filename and the figure saved in PNG format.
 %   -<format> - string(s) containing the output file extension(s). Options:
-%             '-pdf', '-eps', 'emf', '-svg', '-png', '-tif', '-jpg' and '-bmp'.
+%             '-pdf','-eps','emf','-svg','-png','-tif','-jpg','-gif' and '-bmp'.
 %             Multiple formats can be specified, without restriction.
 %             For example: export_fig('-jpg', '-pdf', '-png', ...)
 %             Note: '-tif','-tiff' are equivalent, and so are '-jpg','-jpeg'.
@@ -355,6 +356,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
 % 04/12/22: (3.28) Added -metadata option to add custom info to PDF files; fixed -clipboard export (transparent and gray-scale images; deployed apps; old Matlabs)
 % 03/01/23: (3.29) Use silent mode by default in deployed apps; suggest installing ghostscript/pdftops if required yet missing; fixed invalid chars in export filename; reuse existing figure toolbar if available
 % 03/02/23: (3.30) Added -contextmenu option to add interactive context-menu items; fixed: -menubar,-toolbar created the full default figure menubar/toolbar if not shown; enlarged toolbar icon; support adding export_fig icon to custom toolbars; alert if specifying multiple or invalid handle(s)
+% 20/02/23: (3.31) Fixed PDF quality issues as suggested by @scholnik (issues #285, #368); minor fixes for MacOS/Linux; use figure's FileName property (if available) as the default export filename; added -gif optional format parameter
 %}
 
     if nargout
@@ -392,7 +394,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
     [fig, options] = parse_args(nargout, fig, argNames, varargin{:});
 
     % Check for newer version and exportgraphics/copygraphics compatibility
-    currentVersion = 3.30;
+    currentVersion = 3.31;
     if options.version  % export_fig's version requested - return it and bail out
         imageData = currentVersion;
         return
@@ -1440,10 +1442,13 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
                     url = 'http://ghostscript.com';
                 end
                 fpath = user_string('ghostscript');
+                fpath_link = fpath;
+                if ispc  % winopen only works on Windows
+                    fpath_link = hyperlink(['matlab:winopen(''' fileparts(fpath) ''')'], fpath);
+                end
                 fprintf(2, ' * and that %s is properly installed in %s\n', ...
-                        hyperlink(url,'ghostscript'), ...
-                        hyperlink(['matlab:winopen(''' fileparts(fpath) ''')'], fpath));
-                if isempty(fpath)
+                        hyperlink(url,'ghostscript'), fpath_link);
+                if isempty(strtrim(char(fpath)))
                     selectUtilityPath('Ghostscript',url,'Exporting to vector format (EPS, PDF etc.)');
                     return
                 end
@@ -1452,9 +1457,12 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
                 if options.eps
                     url = 'http://xpdfreader.com/download.html';
                     fpath = user_string('pdftops');
+                    fpath_link = fpath;
+                    if ispc  % winopen only works on Windows
+                        fpath_link = hyperlink(['matlab:winopen(''' fileparts(fpath) ''')'], fpath);
+                    end
                     fprintf(2, ' * and that %s is properly installed in %s\n', ...
-                            hyperlink(url,'pdftops'), ...
-                            hyperlink(['matlab:winopen(''' fileparts(fpath) ''')'], fpath));
+                            hyperlink(url,'pdftops'), fpath_link);
                     if isempty(fpath)
                         selectUtilityPath('pdftops',url,'Exporting to EPS format');
                         return
@@ -1484,6 +1492,7 @@ end
 function isOk = selectUtilityPath(utilName,url,msg)
     isOk = false;
     msg = [msg ' requires the ' utilName ' utility from ' url];
+    fprintf(2,'\n%s\n',msg);
     while ~isOk
         answer = questdlg(msg,utilName,'Use local installation','Go to website','Cancel','Cancel');
         drawnow; pause(0.01);  % avoid Matlab hang
@@ -1504,7 +1513,7 @@ end
 function options = default_options()
     % Default options used by export_fig
     options = struct(...
-        'name',            'export_fig_out', ...
+        'name',            '', ...
         'crop',            true, ...
         'crop_amounts',    nan(1,4), ...  % auto-crop all 4 image sides
         'transparent',     false, ...
@@ -1608,6 +1617,8 @@ function [fig, options] = parse_args(nout, fig, argNames, varargin)
                         options.jpg = true;
                     case 'bmp'
                         options.bmp = true;
+                    case 'gif'
+                        options.gif = true;
                     case 'rgb'
                         options.colourspace = 0;
                     case 'cmyk'
@@ -1793,28 +1804,16 @@ function [fig, options] = parse_args(nout, fig, argNames, varargin)
                 if ~isempty(p)  % export folder name/path was specified
                     % Issue #221: alert if the requested folder does not exist
                     if exist(p,'dir')
-                        options.name = fullfile(p, options.name);
+                        options.name = fullfile(p, options.name); %without ext
                     elseif ~isFigName
                         error('export_fig:BadPath','Folder %s does not exist, nor is it the name of any active figure!',p);
                     else  % isFigName
                         % specified a figure name so ignore the bad folder part
                     end
                 end
-                switch lower(ext)
-                    case {'.tif', '.tiff'}
-                        options.tif = true;
-                    case {'.jpg', '.jpeg'}
-                        options.jpg = true;
-                    case '.png'
-                        options.png = true;
-                    case '.bmp'
-                        options.bmp = true;
-                    case '.eps'
-                        options.eps = true;
-                    case '.emf'
-                        options.emf = true;
-                    case '.pdf'
-                        options.pdf = true;
+                switch lower(ext(2:end))
+                    case {'tif', 'tiff','jpg', 'jpeg','png','bmp','eps','emf','pdf','svg','gif'}
+                        options = setOptionsFormat(options, ext);
                     case '.fig'
                         % If no open figure, then load the specified .fig file and continue
                         figFilename = thisArg;
@@ -1829,10 +1828,6 @@ function [fig, options] = parse_args(nout, fig, argNames, varargin)
                             fig = -1;
                             return
                         end
-                    case '.svg'
-                        options.svg = true;
-                    case '.gif'
-                        options.gif = true;
                     otherwise
                         options.name = thisArg;
                 end
@@ -1861,6 +1856,27 @@ function [fig, options] = parse_args(nout, fig, argNames, varargin)
     end
     if options.aa_factor > 1 && ~isAA && using_hg2(fig) && ~options.silent
         warning('export_fig:AntiAliasing','You requested anti-aliased export_fig output of an aliased figure (''GraphicsSmoothing''=''off''). You will see better results if you set your figure''s GraphicsSmoothing property to ''on'' before calling export_fig.')
+    end
+
+    % Use the figure's FileName property as the default export filename
+    if isempty(options.name)
+        options.name = get(fig,'FileName');
+        options.name = regexprep(options.name,'[*?"<>|:]+','-'); %remove illegal filename chars, but not folder seperators!
+        if isempty(options.name)
+            % No FileName property specified for the figure, use 'export_fig_out'
+            options.name = 'export_fig_out';
+        else
+            % Ensure the filepath is valid
+            [p, options.name, ext] = fileparts(options.name);
+            options = setOptionsFormat(options, ext);
+            if ~isempty(p)  % export folder name/path was specified
+                if exist(p,'dir')
+                    options.name = fullfile(p, options.name); %without ext
+                else  % only warn, don't error
+                    warning('export_fig:BadPath','Folder %s does not exist - exporting %s%s to current folder',p,options.name,ext);
+                end
+            end
+        end
     end
 
     % Convert user dir '~' to full path
@@ -1937,6 +1953,20 @@ function [fig, options] = parse_args(nout, fig, argNames, varargin)
         elseif options.resolution == 864  % don't use -r864 in vector mode if user asked for -native
             options.resolution = []; % issue #241 (internal Matlab bug produces black lines with -r864)
         end
+    end
+end
+function options = setOptionsFormat(options, ext)
+    switch lower(ext(2:end))
+        case {'tif', 'tiff'},  options.tif = true;
+        case {'jpg', 'jpeg'},  options.jpg = true;
+        case 'png',            options.png = true;
+        case 'bmp',            options.bmp = true;
+        case 'eps',            options.eps = true;
+        case 'emf',            options.emf = true;
+        case 'pdf',            options.pdf = true;
+        case 'svg',            options.svg = true;
+        case 'gif',            options.gif = true;
+        otherwise   % do nothing
     end
 end
 
@@ -2268,10 +2298,12 @@ function updateInstalledVersion()
     fprintf('Downloading latest version of %s from %s...\n', mfilename, zipFileName);
     folderName = fileparts(which(mfilename('fullpath')));
     targetFileName = fullfile(folderName, datestr(now,'yyyy-mm-dd.zip'));
-    try
-        folder = hyperlink(['matlab:winopen(''' folderName ''')'], folderName);
-    catch  % hyperlink.m is not properly installed
-        folder = folderName;
+    folder = folderName;
+    if ispc  % winopen only works on Windows
+        try
+            folder = hyperlink(['matlab:winopen(''' folderName ''')'], folderName);
+        catch  % hyperlink.m is not properly installed
+        end
     end
     try
         urlwrite(zipFileName,targetFileName); %#ok<URLWR>
@@ -2643,9 +2675,16 @@ function addToolbarButton(hFig, options)
         try jButtonMenu.setToolTipText(tooltip); catch, end
         try jButton.getComponentPeer.getComponent(1).setToolTipText(tooltip); catch, end
 
-        defaultFname = get(hFig,'Name');
-        defaultFname = regexprep(defaultFname,{'[*?"<>|:/\\]'},'-');
+        [folder,defaultFname] = fileparts(get(hFig,'FileName'));
+        if ~isempty(folder) && exist(folder,'dir')
+            folder = regexprep(folder,'[/\]$','');
+        else
+            folder = pwd;
+        end
+        if isempty(defaultFname), defaultFname = get(hFig,'Name'); end
+        defaultFname = regexprep(defaultFname,'[*?"<>|:/\\]','-'); %remove illegal filename chars
         if isempty(defaultFname), defaultFname = 'figure'; end
+        defaultFname = fullfile(folder,defaultFname);
         imFormats = {'pdf','eps','emf','svg','png','tif','jpg','bmp','gif'};
         for idx = 1 : numel(imFormats)
             thisFormat = imFormats{idx};
@@ -2655,6 +2694,12 @@ function addToolbarButton(hFig, options)
             set(jMenuItem,'ActionPerformedCallback',@(h,e)export_fig(hFig,filename));
         end
         jButtonMenu.addSeparator();
+        if ispc  % winopen only works on Windows
+            label = ['Open export folder: ' folder];
+            jMenuItem = handle(jButtonMenu.add(label),'CallbackProperties');
+            set(jMenuItem,'ActionPerformedCallback',@(h,e)winopen(folder));
+            jButtonMenu.addSeparator();
+        end
         cbFormats = {'image','bitmap','meta','pdf'};
         for idx = 1 : numel(cbFormats)
             thisFormat = cbFormats{idx};
@@ -2664,7 +2709,7 @@ function addToolbarButton(hFig, options)
             set(jMenuItem,'ActionPerformedCallback',@(h,e)export_fig(hFig,exFormat));
         end
         jButtonMenu.addSeparator();
-        jMenuItem = handle(jButtonMenu.add('Select filename and format'),'CallbackProperties');
+        jMenuItem = handle(jButtonMenu.add('Select file name, location and format'),'CallbackProperties');
         set(jMenuItem,'ActionPerformedCallback',@(h,e)interactiveExport(hFig));
     catch % revert to a simple documented toolbar pushbutton
         warning(oldWarn);
@@ -2699,15 +2744,26 @@ end
 
 % Add export_fig menu item to a parent menu
 function addMenuItems(hMainMenu, hFig)
-    defaultFname = get(hFig,'Name');
-    defaultFname = regexprep(defaultFname,{'[*?"<>|:/\\]'},'-');
+    [folder,defaultFname] = fileparts(get(hFig,'FileName'));
+    if ~isempty(folder) && exist(folder,'dir')
+        folder = regexprep(folder,'[/\]$','');
+    else
+        folder = pwd;
+    end
+    if isempty(defaultFname), defaultFname = get(hFig,'Name'); end
+    defaultFname = regexprep(defaultFname,'[*?"<>|:/\\]','-'); %remove illegal filename chars
     if isempty(defaultFname), defaultFname = 'figure'; end
+    defaultFname = fullfile(folder,defaultFname);
     imFormats = {'pdf','eps','emf','svg','png','tif','jpg','bmp','gif'};
     for idx = 1 : numel(imFormats)
         thisFormat = imFormats{idx};
         filename = [defaultFname '.' thisFormat];
         label = [upper(thisFormat) ' image file (' filename ')'];
         uimenu(hMainMenu, 'Text',label, 'MenuSelectedFcn',@(h,e)export_fig(hFig,filename));
+    end
+    if ispc  % winopen only works on Windows
+        uimenu(hMainMenu, 'Text',['Open export folder: ' folder], 'Separator','on', ...
+                          'MenuSelectedFcn',@(h,e)winopen(folder));
     end
     cbFormats = {'image','bitmap','meta','pdf'};
     for idx = 1 : numel(cbFormats)
@@ -2718,7 +2774,7 @@ function addMenuItems(hMainMenu, hFig)
         uimenu(hMainMenu, 'Text',label, 'Separator',sep, ...
                         'MenuSelectedFcn',@(h,e)export_fig(hFig,exFormat));
     end
-    uimenu(hMainMenu, 'Text','Select filename and format', 'Separator','on', ...
+    uimenu(hMainMenu, 'Text','Select file name, location and format', 'Separator','on', ...
                     'MenuSelectedFcn',@interactiveExport);
 end
 
@@ -2778,9 +2834,16 @@ function interactiveExport(hObject, varargin)
     end
 
     % Display a Save-as dialog to let the user select the export name & type
-    defaultFname = get(hFig,'Name');
-    defaultFname = regexprep(defaultFname,{'[*?"<>|:/\\]'},'-');
+    [folder,defaultFname] = fileparts(get(hFig,'FileName'));
+    if ~isempty(folder) && exist(folder,'dir')
+        folder = regexprep(folder,'[/\]$','');
+    else
+        folder = pwd;
+    end
+    if isempty(defaultFname), defaultFname = get(hFig,'Name'); end
+    defaultFname = regexprep(defaultFname,'[*?"<>|:/\\]+','-'); %remove illegal filename chars
     if isempty(defaultFname), defaultFname = 'figure'; end
+    defaultFname = fullfile(folder,defaultFname);
     %formats = imformats;
     formats = {'pdf','eps','emf','svg','png','tif','jpg','bmp','gif', ...
                'clipboard:image','clipboard:bitmap','clipboard:meta','clipboard:pdf'};
