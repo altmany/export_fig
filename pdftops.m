@@ -33,6 +33,7 @@ function varargout = pdftops(cmd)
 % 03/02/2019 - Fixed one-off 'pdftops not found' error after install (Mac/Linux) (issue #266)
 % 15/01/2020 - Fixed reported path of pdftops.txt file in case of error; added warning ID
 % 23/07/2020 - Fixed issue #311 (confusion regarding Xpdf-tools download/installation); silent check of pdftops installation in case no input arg specified
+% 21/02/2023 - Don't display error dialog popup and fix messages in deployed apps
 
     % If no command parameter specified, just check pdftops installation and bail out
     if nargin < 1
@@ -78,33 +79,41 @@ function path_ = xpdf_path
     % Ask the user to enter the path
     errMsg1 = 'Pdftops utility not found. Please locate the program, or install xpdf-tools from ';
     url1 = 'http://xpdfreader.com/download.html'; %='http://foolabs.com/xpdf';
-    fprintf(2, '%s%s ("Xpdf command line tools" section)\n', errMsg1, hyperlink(url1));
+    errMsg2 = '"Xpdf command line tools" section';
+    fprintf(2, '%s%s (%s)\n', errMsg1, hyperlink(url1), errMsg2);
     errMsg1 = [errMsg1 url1];
     %if strncmp(computer,'MAC',3) % Is a Mac
     %    % Give separate warning as the MacOS uigetdir dialogue box doesn't have a title
     %    uiwait(warndlg(errMsg1))
     %end
 
-    % Provide an alternative possible explanation as per issue #137
-    errMsg2 = 'If pdftops is installed, maybe Matlab is shaddowing it, as described in ';
-    url2 = 'https://github.com/altmany/export_fig/issues/137';
-    fprintf(2, '%s%s\n', errMsg2, hyperlink(url2,'issue #137'));
-    errMsg2 = [errMsg2 url2];
+    if isdeployed
+        errMsg2 = ['(' errMsg2 '. Ensure to install xpdf-tools, not XpdfReader)'];
+        errMsg = {errMsg1,errMsg2};
+    else
+        % Provide an alternative possible explanation as per issue #137
+        errMsg2 = 'If pdftops is installed, maybe Matlab is shaddowing it, as described in ';
+        url2 = 'https://github.com/altmany/export_fig/issues/137';
+        fprintf(2, '%s%s\n', errMsg2, hyperlink(url2,'issue #137'));
+        errMsg2 = [errMsg2 url2];
 
-    % Provide an alternative possible explanation as per issue #311
-    errMsg3 = 'Or perhaps you installed XpdfReader but not xpdf-tools, as described in ';
-    url3 = 'https://github.com/altmany/export_fig/issues/311';
-    fprintf(2, '%s%s\n', errMsg3, hyperlink(url3,'issue #311'));
-    errMsg3 = [errMsg3 url3];
+        % Provide an alternative possible explanation as per issue #311
+        errMsg3 = 'Or perhaps you installed XpdfReader but not xpdf-tools, as described in ';
+        url3 = 'https://github.com/altmany/export_fig/issues/311';
+        fprintf(2, '%s%s\n', errMsg3, hyperlink(url3,'issue #311'));
+        errMsg3 = [errMsg3 url3];
+
+        errMsg = {errMsg1,'',errMsg2,'',errMsg3};
+    end
 
     state = 1;
-    while 1
+    while ~isdeployed  % only display the popup dialog if not deployed
         if state
             option1 = 'Install pdftops';
         else
             option1 = 'Issue #137';
         end
-        answer = questdlg({errMsg1,'',errMsg2,'',errMsg3},'Pdftops error',option1,'Locate pdftops','Cancel','Cancel');
+        answer = questdlg(errMsg,'Pdftops error',option1,'Locate pdftops','Ignore','Ignore');
         drawnow;  % prevent a Matlab hang: http://undocumentedmatlab.com/blog/solving-a-matlab-hang-problem
         switch answer
             case 'Install pdftops'
@@ -131,7 +140,7 @@ function path_ = xpdf_path
                     return
                 end
 
-            otherwise  % User hit Cancel or closed window
+            otherwise  % User hit Ignore/Cancel or closed window
                 break
         end
     end
