@@ -32,6 +32,7 @@ function fh = isolate_axes(ah, vis)
 % 22/04/15: Bug fix: legends and colorbars were not exported when exporting axes handle in HG2
 % 02/02/21: Fix axes, figure size to preserve input axes image resolution (thanks @Optecks)
 % 25/10/21: Bug fix: subplots were not isolated properly leading to print error (issue #347)
+% 24/03/23: Remove any non-legendable objects from the legend (workaround for copyobj bug)
 %}
 
     % Make sure we have an array of handles
@@ -57,7 +58,19 @@ function fh = isolate_axes(ah, vis)
         old_tag = {old_tag};
     end
     set(ah, 'Tag', 'ObjectToCopy');
-    
+
+    % Mark all non-legendable objects in the original figure (if any legend shown)
+    % a workaround to the copyobj bug of not copying the ApplicationData property
+    lh = findall(fh, 'Tag','legend');
+    if ~isempty(lh)
+        ax = arrayfun(@(h) get(h,'Axes'), lh);
+        c = findall(ax);
+        hb = ~arrayfun(@(h)hasbehavior(h,'legend'), c);
+        c = c(hb);
+        oldTags = get(c,'Tag');
+        set(c,'Tag','non-legendable!')
+    end
+
     % Create a new figure exactly the same as the old one
     fh = copyfig(fh); %copyobj(fh, 0);
 
@@ -77,7 +90,7 @@ function fh = isolate_axes(ah, vis)
         set(fh, 'Visible', 'off');
     end
     
-    % Reset the object tags
+    % Restore the object tags back to what they were originally
     for a = 1:nAx
         set(ah(a), 'Tag', old_tag{a});
     end
@@ -89,17 +102,19 @@ function fh = isolate_axes(ah, vis)
         error('Incorrect number of objects found.');
     end
     
-    % Set the axes tags to what they should be
-    for a = 1:nAx
-        set(ah(a), 'Tag', old_tag{a});
-    end
-    
     % Keep any legends and colorbars which overlap the subplots
     % Note: in HG1 these are axes objects; in HG2 they are separate objects, therefore we
     %       don't test for the type, only the tag (hopefully nobody but Matlab uses them!)
     lh = findall(fh, 'Tag','legend', '-or', 'Tag','Colorbar');
     nLeg = numel(lh);
     if nLeg > 0
+        % Remove any non-legendable objects from the legend (if previously set)
+        c2 = findall(ah,'Tag','non-legendable!');
+        if ~isempty(c2)
+            arrayfun(@(h)hasbehavior(h,'legend',false), c2);
+            arrayfun(@(h,t)set(h,'Tag',t{1}),c,oldTags);  %restore object tags to orig values
+        end
+
         set([ah(:); lh(:)], 'Units', 'normalized');
         try
             ax_pos = get(ah, 'OuterPosition'); % axes and figures have the OuterPosition property
