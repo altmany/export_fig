@@ -90,7 +90,7 @@ function fh = isolate_axes(ah, vis)
         set(fh, 'Visible', 'off');
     end
     
-    % Restore the object tags back to what they were originally
+    % Restore the axes tags in the original figure back to their original values
     for a = 1:nAx
         set(ah(a), 'Tag', old_tag{a});
     end
@@ -101,7 +101,12 @@ function fh = isolate_axes(ah, vis)
         close(fh);
         error('Incorrect number of objects found.');
     end
-    
+
+    % Set the axes tags in the new figure to what they should be
+    for a = 1:nAx
+        set(ah(a), 'Tag', old_tag{a});
+    end
+
     % Keep any legends and colorbars which overlap the subplots
     % Note: in HG1 these are axes objects; in HG2 they are separate objects, therefore we
     %       don't test for the type, only the tag (hopefully nobody but Matlab uses them!)
