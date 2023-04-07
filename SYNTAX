@@ -32,9 +32,11 @@ Examples:
   export_fig ... -preserve_size
   export_fig ... -options <optionsStruct>
   export_fig ... -silent
+  export_fig ... -notify
   export_fig ... -regexprep <pattern> <replace>
   export_fig ... -toolbar
   export_fig ... -menubar
+  export_fig ... -contextmenu
   export_fig(..., handle)
   export_fig(..., figName)
 
@@ -93,13 +95,14 @@ Description:
 Inputs:
   filename - string containing the name (optionally including full or
             relative path) of the file the figure is to be saved as. If
-            a path is not specified, the figure is saved in the current
-            directory. If no name and no output arguments are specified,
-            the default name, 'export_fig_out', is used. If neither a
-            file extension nor a format are specified, a ".png" is added
-            and the figure saved in that format.
+            no path is specified, the figure is saved in the current folder.
+            If no name and no output arguments are specified, the figure's
+            FileName property is used. If this property is empty, then the
+            default name 'export_fig_out' is used. If neither file extension
+            nor a format parameter are specified, a ".png" is added to the
+            filename and the figure saved in PNG format.
   -<format> - string(s) containing the output file extension(s). Options:
-            '-pdf', '-eps', 'emf', '-svg', '-png', '-tif', '-jpg' and '-bmp'.
+            '-pdf','-eps','emf','-svg','-png','-tif','-jpg','-gif' and '-bmp'.
             Multiple formats can be specified, without restriction.
             For example: export_fig('-jpg', '-pdf', '-png', ...)
             Note: '-tif','-tiff' are equivalent, and so are '-jpg','-jpeg'.
@@ -113,7 +116,7 @@ Inputs:
             Note: this option is not supported by SVG and EMF formats.
   -p<val> - option to pad a border of width val to exported files, where
             val is either a relative size with respect to cropped image
-            size (i.e. p=0.01 adds a 1border). For EPS & PDF formats,
+            size (i.e. p=0.01 adds a 1% border). For EPS & PDF formats,
             val can also be integer in units of 1/72" points (abs(val)>1).
             val can be positive (padding) or negative (extra cropping).
             If used, the -nocrop flag will be ignored, i.e. the image will
@@ -197,12 +200,15 @@ Inputs:
             by all supported output formats of the export_fig command.
   -silent - option to avoid various warning and informational messages, such
             as version update checks, transparency or renderer issues, etc.
+  -notify - option to notify the user when export is done, in both a console
+            message and a popup dialog (allow opening the exported file/folder).
   -regexprep <old> <new> - replaces all occurances of <old> (a regular expression
             string or array of strings; case-sensitive), with the corresponding
             <new> string(s), in EPS/PDF files (only). See regexp function's doc.
             Warning: invalid replacement can make your EPS/PDF file unreadable!
   -toolbar - adds an interactive export button to the figure's toolbar
   -menubar - adds an interactive export menu to the figure's menubar
+  -contextmenu - adds interactive export menu to figure context-menu (right-click)
   handle -  handle of the figure, axes or uipanels (can be an array of handles
             but all the objects must be in the same figure) to be exported.
             Default: gcf (handle of current figure).
