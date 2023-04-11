@@ -15,6 +15,9 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
 %   export_fig ... -a<val>
 %   export_fig ... -q<val>
 %   export_fig ... -p<val>
+%   export_fig ... -n<val>   or:  -n<val>,<val>
+%   export_fig ... -x<val>   or:  -x<val>,<val>
+%   export_fig ... -s<val>   or:  -s<val>,<val>
 %   export_fig ... -d<gs_option>
 %   export_fig ... -depsc
 %   export_fig ... -metadata <metaDataInfo>
@@ -154,6 +157,21 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
 %             Default: '-q95' for JPG, ghostscript prepress default for PDF,EPS.
 %             Note: lossless compression can sometimes give a smaller file size
 %             than the default lossy compression, depending on the image type.
+%   -n<val> - option to set minimum output image size (bitmap formats only).
+%             The output size can be specified as a single value (for both rows
+%             & cols, e.g. -n200) or comma-separated values (e.g. -n300,400).
+%             Use an Inf value to keep a dimension unchanged (e.g. -n50,inf).
+%             Use a NaN value to keep aspect ratio unchanged (e.g. -n50,nan).
+%   -x<val> - option to set maximum output image size (bitmap formats only).
+%             The output size can be specified as a single value (for both rows
+%             & cols, e.g. -x200) or comma-separated values (e.g. -x300,400).
+%             Use an Inf value to keep a dimension unchanged (e.g. -x50,inf).
+%             Use a NaN value to keep aspect ratio unchanged (e.g. -x50,nan).
+%   -s<val> - option to scale output image to specific size (bitmap formats only).
+%             The fixed size can be specified as a single value (for rows=cols) or
+%             comma-separated values (e.g. -s300,400). Each value can be a scalar
+%             integer (signifying pixels) or percentage (e.g. -s125%). The scaling
+%             is done last, after any other cropping/rescaling due to other params.
 %   -append - option indicating that if the file already exists the figure is to
 %             be appended as a new page, instead of being overwritten (default).
 %             PDF, TIF & GIF output formats only (multi-image GIF = animated).
@@ -363,6 +381,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
 % 21/02/23: (3.32) Fixed EPS export error handling in deployed apps; use Matlab's builtin EPS export if pdftops is not installed or fails; disabled EMF export option on MacOS/Linux; fixed some EMF warning messages; don't export PNG if only -toolbar etc were specified
 % 23/02/23: (3.33) Fixed PDF -append (issue #369); Added -notify option to notify user when the export is done; propagate all specified export_fig options to -toolbar,-menubar,-contextmenu exports; -silent is no longer set by default in deployed apps (i.e. you need to call -silent explicitly)
 % 23/03/23: (3.34) Fixed error when exporting axes handle to clipboard without filename (issue #372)
+% 11/04/23: (3.35) Added -n,-x,-s options to set min, max, and fixed output image size (issue #315)
 %}
 
     if nargout
@@ -400,7 +419,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
     [fig, options] = parse_args(nargout, fig, argNames, varargin{:});
 
     % Check for newer version and exportgraphics/copygraphics compatibility
-    currentVersion = 3.34;
+    currentVersion = 3.35;
     if options.version  % export_fig's version requested - return it and bail out
         imageData = currentVersion;
         return
@@ -627,12 +646,13 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
             renderer = '-opengl'; % Default for bitmaps
     end
 
-    % initialize
+    % Initialize
     tmp_nam = '';
     exported_files = 0;
 
+    % Main processing 
     try
-        % Do the bitmap formats first
+        % Export bitmap formats first
         if isbitmap(options)
             if abs(options.bb_padding) > 1
                 displaySuggestedWorkarounds = false;
@@ -782,6 +802,41 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
             end
             % Change alpha from [0:255] uint8 => [0:1] single from here onward:
             alpha = single(alpha) / 255;
+            % Clamp the image's min/max size (if specified)
+            sz = size(A,1:2);
+            szNew = options.min_size;
+            if numel(szNew) == 2
+                szNew(isinf(szNew)) = 0;
+                szNew = round(max(sz,szNew,'includenan'));
+                idxToCompare = ~isnan(szNew);
+                if ~isequal(sz(idxToCompare), szNew(idxToCompare))
+                    A     = imresize(A,szNew);
+                    alpha = imresize(alpha,szNew);
+                end
+            end
+            szNew = options.max_size;
+            if numel(szNew) == 2
+                szNew(szNew <= 1) = inf;
+                szNew = round(min(sz,szNew,'includenan'));
+                idxToCompare = ~isnan(szNew);
+                if ~isequal(sz(idxToCompare), szNew(idxToCompare))
+                    A     = imresize(A,szNew);
+                    alpha = imresize(alpha,szNew);
+                end
+            end
+            % Clamp the image's fixed size (if specified) - has to be done last!
+            szNew = options.fixed_size;
+            if numel(szNew) == 2
+                if szNew(1) < 0, szNew(1) = round(-sz(1)*szNew(1)/100); end
+                if szNew(2) < 0, szNew(2) = round(-sz(2)*szNew(2)/100); end
+                szNew(szNew <= 1) = inf;
+                szNew(isinf(szNew)) = sz(isinf(szNew));  % unchanged dimensions
+                idxToCompare = ~isnan(szNew);
+                if ~isequal(sz(idxToCompare), szNew(idxToCompare))
+                    A     = imresize(A,szNew);
+                    alpha = imresize(alpha,szNew);
+                end
+            end
             % Outputs
             if options.im
                 imageData = A;
@@ -916,7 +971,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
             end
         end
 
-        % Now do the vector formats which are based on EPS
+        % Now export the vector formats which are based on EPS
         if isvector(options)
             hImages = findall(fig,'type','image');
             % Set the default renderer to painters
@@ -1629,6 +1684,9 @@ function options = default_options()
         'toolbar',         false, ...
         'menubar',         false, ...
         'contextmenu',     false, ...
+        'min_size',        [], ...
+        'max_size',        [], ...
+        'fixed_size',      [], ...
         'gs_options',      {{}}, ...
         'propagatedOpts',  {{}});
 end
@@ -1839,8 +1897,36 @@ function [fig, options] = parse_args(nout, fig, argNames, varargin)
                                 end
                                 options.crop_amounts = vals;
                                 options.crop = true;
+                            elseif thisArg(1)=='-' && any(thisArg(2)=='nNxXsS') %issue #315
+                                if numel(thisArg)==2
+                                    skipNext = 1;
+                                    valsStr = varargin{a+1};
+                                else
+                                    valsStr = thisArg(3:end);
+                                end
+                                numVals = sum(valsStr==',');
+                                if any(valsStr=='-')
+                                    wasError = true;
+                                    error('export_fig:BadOptionValue','option -%s must be a positive scalar value or 2-value vector',thisArg(2));
+                                elseif numVals > 1
+                                    wasError = true;
+                                    error('export_fig:BadOptionValue','option -%s must be a scalar value or 2-value vector',thisArg(2));
+                                elseif numVals == 0  % -s100 => -s100,100
+                                    valsStr = [valsStr ',' valsStr]; %#ok<AGROW>
+                                end
+                                valsStr = regexprep(valsStr,'([\d\.]*)%','-$1'); % -s95%,100 => [-95,100]
+                                vals = str2num(valsStr); %#ok<ST2NM>
+                                if any(vals < 0) && lower(thisArg(2)) ~= 's'
+                                    wasError = true;
+                                    error('export_fig:BadOptionValue','option -%s cannot use percentage values',thisArg(2));
+                                end
+                                switch lower(thisArg(2))
+                                    case 'n', options.min_size   = vals;
+                                    case 'x', options.max_size   = vals;
+                                    case 's', options.fixed_size = vals;
+                                end
                             else  % scalar parameter value
-                                val = str2double(regexp(thisArg, '(?<=-(m|M|r|R|q|Q|p|P))-?\d*.?\d+', 'match'));
+                                val = str2double(regexpi(thisArg, '(?<=-([mrqp]))-?\d*.?\d+', 'match'));
                                 if isempty(val) || isnan(val)
                                     % Issue #51: improved processing of input args (accept space between param name & value)
                                     val = str2double(varargin{a+1});

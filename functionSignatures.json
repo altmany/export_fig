@@ -7,7 +7,7 @@
     {"name":"filename",        "kind":"ordered", "type":[["char"],["string"]],    "purpose":"output filename"},
 	{"tuple":
 	[
-		{"name":"actions",     "kind":"ordered", "type":["choices={'-pdf','-eps','-emf','-svg','-png','-tif','-jpg','-bmp','-transparent','-nocrop','-c','-p','-m','-r','-native','-a1','-a2','-a3','-a4','-painters','-opengl','-RGB','-CMYK','-gray','-q','-append','-bookmark','-d','-depsc','-update','-version','-nofontswap','-linecaps','-noinvert','-preserve_size','-silent','-regexprep','-toolbar','-menubar','-contextmenu','-clipboard','-clipboard:image','-clipboard:bitmap','-clipboard:emf','-clipboard:pdf'}"], "purpose":"export actions"},
+		{"name":"actions",     "kind":"ordered", "type":["choices={'-pdf','-eps','-emf','-svg','-png','-tif','-jpg','-bmp','-transparent','-nocrop','-c','-p','-m','-r','-native','-a1','-a2','-a3','-a4','-painters','-opengl','-RGB','-CMYK','-gray','-q','-n','-x','-s','-append','-bookmark','-d','-depsc','-update','-version','-nofontswap','-linecaps','-noinvert','-preserve_size','-silent','-regexprep','-toolbar','-menubar','-contextmenu','-clipboard','-clipboard:image','-clipboard:bitmap','-clipboard:emf','-clipboard:pdf'}"], "purpose":"export actions"},
 		{"name":"-metadata",   "kind":"namevalue", "type":["struct","cell"], "purpose":"PDF meta-data"},
 		{"name":"-font_space", "kind":"namevalue", "type":"char",            "purpose":"font-name space character"},
 		{"name":"-options",    "kind":"namevalue", "type":["struct","cell"], "purpose":"export options"}

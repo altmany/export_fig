@@ -15,6 +15,9 @@ Examples:
   export_fig ... -a<val>
   export_fig ... -q<val>
   export_fig ... -p<val>
+  export_fig ... -n<val>   or:  -n<val>,<val>
+  export_fig ... -x<val>   or:  -x<val>,<val>
+  export_fig ... -s<val>   or:  -s<val>,<val>
   export_fig ... -d<gs_option>
   export_fig ... -depsc
   export_fig ... -metadata <metaDataInfo>
@@ -155,6 +158,21 @@ Inputs:
             Default: '-q95' for JPG, ghostscript prepress default for PDF,EPS.
             Note: lossless compression can sometimes give a smaller file size
             than the default lossy compression, depending on the image type.
+  -n<val> - option to set minimum output image size (bitmap formats only).
+            The output size can be specified as a single value (for both rows
+            & cols, e.g. -n200) or comma-separated values (e.g. -n300,400).
+            Use an Inf value to keep a dimension unchanged (e.g. -n50,inf).
+            Use a NaN value to keep aspect ratio unchanged (e.g. -n50,nan).
+  -x<val> - option to set maximum output image size (bitmap formats only).
+            The output size can be specified as a single value (for both rows
+            & cols, e.g. -x200) or comma-separated values (e.g. -x300,400).
+            Use an Inf value to keep a dimension unchanged (e.g. -x50,inf).
+            Use a NaN value to keep aspect ratio unchanged (e.g. -x50,nan).
+  -s<val> - option to scale output image to specific size (bitmap formats only).
+            The fixed size can be specified as a single value (for rows=cols) or
+            comma-separated values (e.g. -s300,400). Each value can be a scalar
+            integer (signifying pixels) or percentage (e.g. -s125%). The scaling
+            is done last, after any other cropping/rescaling due to other params.
   -append - option indicating that if the file already exists the figure is to
             be appended as a new page, instead of being overwritten (default).
             PDF, TIF & GIF output formats only (multi-image GIF = animated).
