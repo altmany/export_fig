@@ -382,6 +382,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
 % 23/02/23: (3.33) Fixed PDF -append (issue #369); Added -notify option to notify user when the export is done; propagate all specified export_fig options to -toolbar,-menubar,-contextmenu exports; -silent is no longer set by default in deployed apps (i.e. you need to call -silent explicitly)
 % 23/03/23: (3.34) Fixed error when exporting axes handle to clipboard without filename (issue #372)
 % 11/04/23: (3.35) Added -n,-x,-s options to set min, max, and fixed output image size (issue #315)
+% 13/04/23: (3.36) Reduced (hopefully fixed) unintended EPS/PDF image cropping (issues #97, #318); clarified warning in case of PDF/EPS export of transparent patches (issues #94, #106, #108)
 %}
 
     if nargout
@@ -419,7 +420,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
     [fig, options] = parse_args(nargout, fig, argNames, varargin{:});
 
     % Check for newer version and exportgraphics/copygraphics compatibility
-    currentVersion = 3.35;
+    currentVersion = 3.36;
     if options.version  % export_fig's version requested - return it and bail out
         imageData = currentVersion;
         return
@@ -979,14 +980,17 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
                 % Handle transparent patches
                 hasTransparency = ~isempty(findall(fig,'-property','FaceAlpha','-and','-not','FaceAlpha',1));
                 if hasTransparency
-                    % Alert if trying to export transparent patches/areas to non-supported outputs (issue #108)
+                    % Alert if trying to export transparent patches/areas to non-supported outputs (issues #94, #106, #108)
                     % http://www.mathworks.com/matlabcentral/answers/265265-can-export_fig-or-else-draw-vector-graphics-with-transparent-surfaces
                     % TODO - use transparency when exporting to PDF by not passing via print2eps
-                    msg = 'export_fig currently supports transparent patches/areas only in PNG output. ';
+                    if options.pdf, format = 'PDF'; else, format = 'non-PNG formats'; end
+                    msg = 'export_fig supports transparent patches/areas best in PNG output format. ';
+                    msg = sprintf('%s\nExporting figures with transparency to %s sometimes renders incorrectly. ', msg, format);
+                    msg = sprintf('%s\nIn such cases, try to use the', msg);
                     if options.pdf && ~options.silent
-                        warning('export_fig:transparency', '%s\nTo export transparent patches/areas to PDF, use the print command:\n print(gcf, ''-dpdf'', ''%s.pdf'');', msg, options.name);
+                        warning('export_fig:transparency', '%s print command: print(gcf, ''-dpdf'', ''%s.pdf'');', msg, options.name);
                     elseif ~options.png && ~options.tif && ~options.silent  % issue #168
-                        warning('export_fig:transparency', '%s\nTo export the transparency correctly, try using the ScreenCapture utility on the Matlab File Exchange: http://bit.ly/1QFrBip', msg);
+                        warning('export_fig:transparency', '%s ScreenCapture utility on the Matlab File Exchange: http://bit.ly/1QFrBip', msg);
                     end
                 elseif ~isempty(hImages)
                     % Fix for issue #230: use OpenGL renderer when exported image contains transparency

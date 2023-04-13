@@ -81,7 +81,7 @@ function [A, bcol, alpha] = print2array(fig, res, renderer, gs_options)
     px = get(fig, 'Position');
     set(fig, 'Units', old_mode);
 
-    pause(0.02);  % add a short pause to avoid unintended cropping (issue #318)
+    pause(0.05);  % add a short pause to avoid unintended cropping (issue #318)
 
     % Retrieve the background colour
     bcol = get(fig, 'Color');

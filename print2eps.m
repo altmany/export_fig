@@ -114,6 +114,7 @@ function print2eps(name, fig, export_options, varargin)
 % 26/08/21: Added a short pause to avoid unintended image cropping (issue #318)
 % 16/03/22: Fixed occasional empty files due to excessive cropping (issues #350, #351)
 % 15/05/22: Fixed EPS bounding box (issue #356)
+% 13/04/23: Reduced (hopefully fixed) unintended EPS/PDF image cropping (issues #97, #318)
 %}
 
     options = {'-loose'};
@@ -327,7 +328,7 @@ function print2eps(name, fig, export_options, varargin)
     end
 
     % Ensure that everything is fully rendered, to avoid cropping (issue #318)
-    drawnow; pause(0.02);
+    drawnow; pause(0.05);
 
     % Print to eps file
     print(fig, options{:}, name);
@@ -435,7 +436,7 @@ function print2eps(name, fig, export_options, varargin)
             %}
 
             % This is much faster although less accurate: fix all non-gray lines to have a LineWidth of 0.75 (=1 LW)
-            % Note: This will give incorrect LineWidth of 075 for lines having LineWidth<0.75, as well as for non-gray grid-lines (if present)
+            % Note: This will give incorrect LineWidth of 0.75 for lines having LineWidth<0.75, as well as for non-gray grid-lines (if present)
             %       However, in practice these edge-cases are very rare indeed, and the difference in LineWidth should not be noticeable
             %fstrm = regexprep(fstrm, '([CR]C\n2 setlinecap\n1 LJ)\nN', '$1\n1 LW\nN');
             % This is faster (the original regexprep could take many seconds when the axes contains many lines):
@@ -545,7 +546,7 @@ function print2eps(name, fig, export_options, varargin)
         drawnow; pause(0.05);  % avoid unintended cropping (issue #318)
         [A, bcol] = print2array(fig, 1, renderer);
         [aa, aa, aa, bb_rel] = crop_borders(A, bcol, bb_padding, crop_amounts); %#ok<ASGLU>
-        if any(bb_rel>1) || any(bb_rel<=0)  % invalid cropping - retry after prolonged pause
+        if any(bb_rel>1) || any(bb_rel<=0) || bb_rel(2)>0.15 % invalid cropping - retry after prolonged pause
             pause(0.15);  % avoid unintended cropping (issues #350, #351)
             [A, bcol] = print2array(fig, 1, renderer);
             [aa, aa, aa, bb_rel] = crop_borders(A, bcol, bb_padding, crop_amounts); %#ok<ASGLU>
