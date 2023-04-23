@@ -383,6 +383,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
 % 23/03/23: (3.34) Fixed error when exporting axes handle to clipboard without filename (issue #372)
 % 11/04/23: (3.35) Added -n,-x,-s options to set min, max, and fixed output image size (issue #315)
 % 13/04/23: (3.36) Reduced (hopefully fixed) unintended EPS/PDF image cropping (issues #97, #318); clarified warning in case of PDF/EPS export of transparent patches (issues #94, #106, #108)
+% 23/04/23: (3.37) Fixed run-time error with old Matlab releases (issue #374); -notify console message about exported image now displays black (STDOUT) not red (STDERR)
 %}
 
     if nargout
@@ -420,7 +421,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
     [fig, options] = parse_args(nargout, fig, argNames, varargin{:});
 
     % Check for newer version and exportgraphics/copygraphics compatibility
-    currentVersion = 3.36;
+    currentVersion = 3.37;
     if options.version  % export_fig's version requested - return it and bail out
         imageData = currentVersion;
         return
@@ -804,7 +805,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
             % Change alpha from [0:255] uint8 => [0:1] single from here onward:
             alpha = single(alpha) / 255;
             % Clamp the image's min/max size (if specified)
-            sz = size(A,1:2);
+            sz = size(A); sz(3:end) = []; %sz=size(A,1:2); %issue #374 & X. Xu PM
             szNew = options.min_size;
             if numel(szNew) == 2
                 szNew(isinf(szNew)) = 0;
@@ -1618,7 +1619,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
 
     % Notify user about a successful file export
     function notify(filename)
-        fprintf(2, 'Exported screenshot image to %s\n', filename)
+        fprintf('Exported screenshot image to %s\n', filename)
         exported_files = exported_files + 1;
     end
 end
