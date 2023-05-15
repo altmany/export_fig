@@ -384,6 +384,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
 % 11/04/23: (3.35) Added -n,-x,-s options to set min, max, and fixed output image size (issue #315)
 % 13/04/23: (3.36) Reduced (hopefully fixed) unintended EPS/PDF image cropping (issues #97, #318); clarified warning in case of PDF/EPS export of transparent patches (issues #94, #106, #108)
 % 23/04/23: (3.37) Fixed run-time error with old Matlab releases (issue #374); -notify console message about exported image now displays black (STDOUT) not red (STDERR)
+% 15/05/23: (3.38) Fixed endless recursion when using export_fig in Live Scripts (issue #375); don't warn about exportgraphics/copygraphics alternatives in deployed mode
 %}
 
     if nargout
@@ -421,12 +422,12 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
     [fig, options] = parse_args(nargout, fig, argNames, varargin{:});
 
     % Check for newer version and exportgraphics/copygraphics compatibility
-    currentVersion = 3.37;
+    currentVersion = 3.38;
     if options.version  % export_fig's version requested - return it and bail out
         imageData = currentVersion;
         return
     end
-    if ~options.silent
+    if ~options.silent && ~isdeployed
         % Check for newer version (not too often)
         checkForNewerVersion(currentVersion);  % this breaks in version 3.05- due to regexp limitation in checkForNewerVersion()
 
@@ -444,7 +445,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
         error('export_fig:MultipleFigures','export_fig can only process one figure at a time');
     elseif ~ishandle(fig)
         error('export_fig:InvalidHandle','invalid figure handle specified to export_fig');
-    else
+    elseif ~isequal(getappdata(fig,'isExportFigCopy'),true)
         oldWarn = warning('off','MATLAB:HandleGraphics:ObsoletedProperty:JavaFrame');
         warning off MATLAB:ui:javaframe:PropertyToBeRemoved
         hFig = handle(ancestor(fig,'figure'));
@@ -478,6 +479,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
                     end
                 end
                 try fig.UserData = oldUserData; catch, end  % restore axes UserData, if modified above
+                setappdata(hNewFig,'isExportFigCopy',true); % avoid endless recursion (issue #375)
                 % Replace the uihandle in the input args with the legacy handle
                 if isUiaxes  % uiaxes
                     % Locate the corresponding axes handle in the new legacy figure
@@ -2573,6 +2575,7 @@ end
 
 % Cross-check existance of other programs
 function programsCrossCheck()
+    if isdeployed, return, end  % don't check in deployed mode
     try
         % IQ
         hasTaskList = false;
@@ -2625,6 +2628,7 @@ end
 % Hint to users to use exportgraphics/copygraphics in certain cases
 function alertForExportOrCopygraphics(options)
     %matlabVerNum = str2num(regexprep(version,'(\d+\.\d+).*','$1'));
+    if isdeployed, return, end  % don't check in deployed mode
     try
         % Bail out on R2019b- (copygraphics/exportgraphics not available/reliable)
         if verLessThan('matlab','9.8')  % 9.8 = R2020a
