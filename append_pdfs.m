@@ -41,6 +41,7 @@ function append_pdfs(varargin)
 % 22/03/20: Alert if ghostscript.m is not found on Matlab path
 % 29/03/20: Accept a cell-array of input files (issue #299); accept both "strings", 'chars'
 % 25/01/22: Improved handling of missing input files & folder with non-ASCII chars (issue #349)
+% 07/06/23: Fixed (hopefully) unterminated quote run-time error (issues #367, #378); fixed handling of pathnames with non-ASCII chars (issue #349); display ghostscript command upon run-time invocation error
 %}
 
     if nargin < 2,  return;  end  % sanity check
@@ -106,6 +107,7 @@ function append_pdfs(varargin)
         cmdfile = fullfile(fpath,[fname '.txt']);
     end
     prepareCmdFile(cmdfile, output, varargin{:});
+    hCleanup = onCleanup(@()cleanup(cmdfile));
 
     % Call ghostscript
     [status, errMsg] = ghostscript(['@"' cmdfile '"']);
@@ -123,10 +125,11 @@ function append_pdfs(varargin)
     end
 
     % Delete the command file
-    delete(cmdfile);
+    %delete(cmdfile);
 
     % Check for ghostscript execution errors
     if status
+        type(cmdfile);
         errMsg = strrep(errMsg,'\','\\');  % Avoid an "invalid escape-char" warning
         error('export_fig:append_pdf:ghostscriptError',errMsg);
     end
@@ -137,11 +140,24 @@ function append_pdfs(varargin)
     end
 end
 
+% Cleanup function
+function cleanup(cmdfile)
+    % Delete the command file
+    try delete(cmdfile); catch, end
+end
+
 % Prepare a text file with ghostscript directives
 function prepareCmdFile(cmdfile, output, varargin)
+    if ispc, output(output=='\') = '/'; varargin = strrep(varargin,'\','/'); end
+    varargin = strrep(varargin,'"','');
+
+    str = ['-q -dNOPAUSE -dBATCH -sDEVICE=pdfwrite -dPDFSETTINGS=/prepress ' ...
+           '-sOutputFile="' output '" -f ' sprintf('"%s" ',varargin{:})];
+    str = regexprep(str, ' "?" ','');  % remove empty strings (issues #367,#378)
+    str = strtrim(str);  % trim extra spaces
+
     fh = fopen(cmdfile, 'w');
-    fprintf(fh, '-q -dNOPAUSE -dBATCH -sDEVICE=pdfwrite -dPDFSETTINGS=/prepress -sOutputFile="%s" -f', output);
-    fprintf(fh, ' "%s"', varargin{:});
+    fprintf(fh,'%s',str);
     fclose(fh);
 end
 
@@ -152,7 +168,7 @@ function pathStr = normalizePath(pathStr)
     dirOutput = evalc(['system(''dir /X /AD "' pathStr '*"'')']);
     regexpStr = ['.*\s(\S+)\s*' fname fext '.*'];
     shortName = regexprep(dirOutput,regexpStr,'$1');
-    if isempty(shortName) || isequal(shortName,dirOutput)
+    if isempty(shortName) || isequal(shortName,dirOutput) || strcmpi(shortName,'<DIR>')
         shortName = [fname fext];
     end
     fpath = normalizePath(fpath);  %recursive until entire fpath is processed
