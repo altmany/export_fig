@@ -153,7 +153,7 @@ function prepareCmdFile(cmdfile, output, varargin)
 
     str = ['-q -dNOPAUSE -dBATCH -sDEVICE=pdfwrite -dPDFSETTINGS=/prepress ' ...
            '-sOutputFile="' output '" -f ' sprintf('"%s" ',varargin{:})];
-    str = regexprep(str, ' "?" ','');  % remove empty strings (issues #367,#378)
+    str = regexprep(str, ' "?" ',' ');  % remove empty strings (issues #367,#378)
     str = strtrim(str);  % trim extra spaces
 
     fh = fopen(cmdfile, 'w');
