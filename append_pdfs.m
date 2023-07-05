@@ -42,6 +42,7 @@ function append_pdfs(varargin)
 % 29/03/20: Accept a cell-array of input files (issue #299); accept both "strings", 'chars'
 % 25/01/22: Improved handling of missing input files & folder with non-ASCII chars (issue #349)
 % 07/06/23: Fixed (hopefully) unterminated quote run-time error (issues #367, #378); fixed handling of pathnames with non-ASCII chars (issue #349); display ghostscript command upon run-time invocation error
+% 06/07/23: Another attempt to fix issue #378 (remove unnecessary quotes from ghostscript cmdfile)
 %}
 
     if nargin < 2,  return;  end  % sanity check
@@ -154,6 +155,7 @@ function prepareCmdFile(cmdfile, output, varargin)
     str = ['-q -dNOPAUSE -dBATCH -sDEVICE=pdfwrite -dPDFSETTINGS=/prepress ' ...
            '-sOutputFile="' output '" -f ' sprintf('"%s" ',varargin{:})];
     str = regexprep(str, ' "?" ',' ');  % remove empty strings (issues #367,#378)
+    str = regexprep(str, '"([^ ]*)"', '$1');  % remove unnecessary quotes
     str = strtrim(str);  % trim extra spaces
 
     fh = fopen(cmdfile, 'w');
