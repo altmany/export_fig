@@ -387,6 +387,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
 % 15/05/23: (3.38) Fixed endless recursion when using export_fig in Live Scripts (issue #375); don't warn about exportgraphics/copygraphics alternatives in deployed mode
 % 30/05/23: (3.39) Fixed exported bgcolor of uifigures or figures in Live Scripts (issue #377)
 % 06/07/23: (3.40) For Tiff compression, use AdobeDeflate codec (if available) instead of Deflate (issue #379)
+% 29/11/23: (3.41) Fixed error when no filename is specified nor available in the exported figure (issue #381)
 %}
 
     if nargout
@@ -424,7 +425,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
     [fig, options] = parse_args(nargout, fig, argNames, varargin{:});
 
     % Check for newer version and exportgraphics/copygraphics compatibility
-    currentVersion = 3.40;
+    currentVersion = 3.41;
     if options.version  % export_fig's version requested - return it and bail out
         imageData = currentVersion;
         return
@@ -2086,6 +2087,7 @@ function [fig, options] = parse_args(nout, fig, argNames, varargin)
     % Use the figure's FileName property as the default export filename
     if isempty(options.name)
         options.name = get(ancestor(fig(1),'figure'),'FileName'); %fix issue #372
+        options.name = char(options.name); %fix issue #381
         options.name = regexprep(options.name,'[*?"<>|]+','-'); %remove illegal filename chars, but not folder seperators!
         if isempty(options.name)
             % No FileName property specified for the figure, use 'export_fig_out'
