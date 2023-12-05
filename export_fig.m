@@ -388,6 +388,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
 % 30/05/23: (3.39) Fixed exported bgcolor of uifigures or figures in Live Scripts (issue #377)
 % 06/07/23: (3.40) For Tiff compression, use AdobeDeflate codec (if available) instead of Deflate (issue #379)
 % 29/11/23: (3.41) Fixed error when no filename is specified nor available in the exported figure (issue #381)
+% 05/12/23: (3.42) Fixed unintended cropping of colorbar title in PDF export with -transparent (issue #382)
 %}
 
     if nargout
@@ -425,7 +426,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
     [fig, options] = parse_args(nargout, fig, argNames, varargin{:});
 
     % Check for newer version and exportgraphics/copygraphics compatibility
-    currentVersion = 3.41;
+    currentVersion = 3.42;
     if options.version  % export_fig's version requested - return it and bail out
         imageData = currentVersion;
         return
@@ -1089,19 +1090,10 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
 
                     % Correct black titles to off-black
                     % https://www.mathworks.com/matlabcentral/answers/567027-matlab-export_fig-crops-title
-                    try
-                        hTitle = get(hAxes, 'Title');
-                        for idx = numel(hTitle) : -1 : 1
-                            color = get(hTitle,'Color');
-                            if isequal(color,[0,0,0]) || isequal(color,'k')
-                                set(hTitle(idx), 'Color', [0,0,0.01]); %off-black
-                            else
-                                hTitle(idx) = [];  % remove from list
-                            end
-                        end
-                    catch
-                        hTitle = [];
-                    end
+                    hTitle = fixBlackText(hAxes,'Title');
+                    hColorBars = unique([findall(fig,'tag','Colorbar'), ...
+                                         getappdata(hAxes,'LayoutPeers')]);
+                    hCbTxt = fixBlackText(hColorBars,'Title'); % issue #382
                 end
                 % Generate an eps
                 print2eps(tmp_nam, fig, options, printArgs{:}); %winopen(tmp_nam)
@@ -1110,7 +1102,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
                 if options.transparent %&& ~isequal(get(fig, 'Color'), 'none')
                     eps_remove_background(tmp_nam, 1 + using_hg2(fig));
 
-                    % Revert the black axes colors
+                    % Revert the black axles/titles colors
                     set(hXs, 'XColor', [0,0,0]);
                     set(hYs, 'YColor', [0,0,0]);
                     set(hZs, 'ZColor', [0,0,0]);
@@ -1118,6 +1110,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
                     set(hYrs, 'Color', [0,0,0]);
                     set(hZrs, 'Color', [0,0,0]);
                     set(hTitle,'Color',[0,0,0]);
+                    set(hCbTxt,'Color',[0,0,0]);
                 end
                 %}
                 % Restore the figure's previous background color (if modified)
@@ -2439,6 +2432,22 @@ function [hBlackAxles, hBlackRulers] = fixBlackAxle(hAxes, axleName)
         end
     end
     set(hBlackAxles, axleName, [0,0,0.01]);  % off-black
+end
+
+function hText = fixBlackText(hObject, propName)
+    try
+        hText = get(hObject, propName);
+        for idx = numel(hText) : -1 : 1
+            color = get(hText,'Color');
+            if isequal(color,[0,0,0]) || isequal(color,'k')
+                set(hText(idx), 'Color', [0,0,0.01]); %off-black
+            else
+                hText(idx) = [];  % remove from list
+            end
+        end
+    catch
+        hText = [];
+    end
 end
 
 % Issue #269: format-specific options
