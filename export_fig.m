@@ -388,7 +388,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
 % 30/05/23: (3.39) Fixed exported bgcolor of uifigures or figures in Live Scripts (issue #377)
 % 06/07/23: (3.40) For Tiff compression, use AdobeDeflate codec (if available) instead of Deflate (issue #379)
 % 29/11/23: (3.41) Fixed error when no filename is specified nor available in the exported figure (issue #381)
-% 05/12/23: (3.42) Fixed unintended cropping of colorbar title in PDF export with -transparent (issue #382)
+% 05/12/23: (3.42) Fixed unintended cropping of colorbar title in PDF export with -transparent (issues #382, #383)
 %}
 
     if nargout
@@ -1091,9 +1091,9 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
                     % Correct black titles to off-black
                     % https://www.mathworks.com/matlabcentral/answers/567027-matlab-export_fig-crops-title
                     hTitle = fixBlackText(hAxes,'Title');
-                    hColorBars = unique([findall(fig,'tag','Colorbar'), ...
-                                         getappdata(hAxes,'LayoutPeers')]);
-                    hCbTxt = fixBlackText(hColorBars,'Title'); % issue #382
+                    try hCBs = getappdata(hAxes,'LayoutPeers'); catch, hCBs=[]; end  %issue #383
+                    hCBs = unique([findall(fig,'tag','Colorbar'), hCBs]);
+                    hCbTxt = fixBlackText(hCBs,'Title'); % issue #382
                 end
                 % Generate an eps
                 print2eps(tmp_nam, fig, options, printArgs{:}); %winopen(tmp_nam)
@@ -2437,10 +2437,13 @@ end
 function hText = fixBlackText(hObject, propName)
     try
         hText = get(hObject, propName);
+        try hText = [hText{:}]; catch, end  %issue #383
         for idx = numel(hText) : -1 : 1
-            color = get(hText,'Color');
+            hThisText = hText(idx);
+            try hThisText = hThisText{1}; catch, end
+            color = get(hThisText,'Color');
             if isequal(color,[0,0,0]) || isequal(color,'k')
-                set(hText(idx), 'Color', [0,0,0.01]); %off-black
+                set(hThisText, 'Color', [0,0,0.01]); %off-black
             else
                 hText(idx) = [];  % remove from list
             end
