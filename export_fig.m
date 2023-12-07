@@ -389,6 +389,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
 % 06/07/23: (3.40) For Tiff compression, use AdobeDeflate codec (if available) instead of Deflate (issue #379)
 % 29/11/23: (3.41) Fixed error when no filename is specified nor available in the exported figure (issue #381)
 % 05/12/23: (3.42) Fixed unintended cropping of colorbar title in PDF export with -transparent (issues #382, #383)
+% 07/12/23: (3.43) Fixed unintended modification of colorbar in bitmap export (issue #385)
 %}
 
     if nargout
@@ -426,7 +427,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
     [fig, options] = parse_args(nargout, fig, argNames, varargin{:});
 
     % Check for newer version and exportgraphics/copygraphics compatibility
-    currentVersion = 3.42;
+    currentVersion = 3.43;
     if options.version  % export_fig's version requested - return it and bail out
         imageData = currentVersion;
         return
@@ -2382,6 +2383,7 @@ function set_manual_axes_modes(Hlims, ax)
                 % Fix for issue #205 - only set manual ticks when the Ticks number match the TickLabels number
                 if numel(tickVals) == numel(tickStrs)
                     set(hAxes, props{:});  % no exponent and matching ticks, so update both ticks and tick labels to manual
+                    drawnow  % issue #385
                 end
             end
         catch  % probably HG1
