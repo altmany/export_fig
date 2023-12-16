@@ -43,6 +43,7 @@ function append_pdfs(varargin)
 % 25/01/22: Improved handling of missing input files & folder with non-ASCII chars (issue #349)
 % 07/06/23: Fixed (hopefully) unterminated quote run-time error (issues #367, #378); fixed handling of pathnames with non-ASCII chars (issue #349); display ghostscript command upon run-time invocation error
 % 06/07/23: Another attempt to fix issue #378 (remove unnecessary quotes from ghostscript cmdfile)
+% 16/12/23: Fixed error when input file is on path but not in current folder; assume .pdf file extensions
 %}
 
     if nargin < 2,  return;  end  % sanity check
@@ -67,7 +68,7 @@ function append_pdfs(varargin)
     end
 
     % Are we appending or creating a new file?
-    append = exist(varargin{1}, 'file') == 2;
+    append = ~isempty(dir(varargin{1})); %exist(varargin{1}, 'file') == 2;
     if ~append && numArgs == 2  % only 1 input file - copy it directly to output
         copyfile(varargin{2}, varargin{1});
         return
@@ -94,10 +95,16 @@ function append_pdfs(varargin)
     end
 
     % Ensure that all input files exist
-    for fileIdx = 2 : numel(varargin)
-        filename = varargin{fileIdx};
-        if ~exist(filename,'file')
-            error('export_fig:append_pdf:MissingFile','Input file %s does not exist',filename);
+    for fileIdx = 1 : numel(varargin)
+        filename = char(varargin{fileIdx});
+        [~,~,ext] = fileparts(filename);
+        if isempty(ext) || isempty(dir(filename)) %~exist(filename,'file')
+            filename2 = [filename '.pdf'];
+            if ~isempty(dir(filename2)) %exist(filename2,'file')
+                varargin{fileIdx} = filename2;
+            else
+                error('export_fig:append_pdf:MissingFile','Input file %s does not exist',filename);
+            end
         end
     end
 
