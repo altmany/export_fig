@@ -390,6 +390,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
 % 29/11/23: (3.41) Fixed error when no filename is specified nor available in the exported figure (issue #381)
 % 05/12/23: (3.42) Fixed unintended cropping of colorbar title in PDF export with -transparent (issues #382, #383)
 % 07/12/23: (3.43) Fixed unintended modification of colorbar in bitmap export (issue #385)
+% 21/02/24: (3.44) Fixed: text objects with normalized units were not exported in some cases (issue #373); added check for invalid ghostscript installation (issue #365)
 %}
 
     if nargout
@@ -427,7 +428,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
     [fig, options] = parse_args(nargout, fig, argNames, varargin{:});
 
     % Check for newer version and exportgraphics/copygraphics compatibility
-    currentVersion = 3.43;
+    currentVersion = 3.44;
     if options.version  % export_fig's version requested - return it and bail out
         imageData = currentVersion;
         return
@@ -561,6 +562,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
         end
     end
 
+    % Axes tweaks to avoid various exporting problems
     try
         % MATLAB "feature": axes limits and tick marks can change when printing
         Hlims = findall(fig, 'Type', 'axes');
@@ -637,6 +639,11 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
     set(fig,'Units','pixels');
     pixelpos = get(fig, 'Position'); %=getpixelposition(fig);
 
+    % Fix issue #373: text objects with normalized units not properly exported in some cases
+    textn = findall(fig, 'Type','text', 'Units','normalized');
+    try set(textn,'units','data'); catch, end
+
+    % Save the original figure color
     tcol = get(fig, 'Color');
     tcol_orig = tcol;
 
@@ -1381,6 +1388,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
             end
             % Revert figure properties in case they were changed
             try set(fig, 'Units',oldFigUnits, 'Position',pos, 'Color',tcol_orig); catch, end
+            try set(textn, 'Units','normalized'); catch, end
         end
 
         % Output to clipboard (if requested)
@@ -1540,6 +1548,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
         warning(oldWarn);
         % Revert figure properties in case they were changed
         try set(fig,'Units',oldFigUnits, 'Position',pos, 'Color',tcol_orig); catch, end
+        try set(textn, 'Units','normalized'); catch, end
         % Display possible workarounds before the error message
         if ~isempty(regexpi(err.message,'setopacityalpha')) %#ok<RGXPI>
             % Alert the user that transparency is not supported (issue #285)
@@ -1584,29 +1593,29 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
                 else
                     url = 'http://ghostscript.com';
                 end
-                fpath = user_string('ghostscript');
+                fpath = strtrim(char(user_string('ghostscript')));
                 fpath_link = fpath;
                 if ispc  % winopen only works on Windows
                     fpath_link = hyperlink(['matlab:winopen(''' fileparts(fpath) ''')'], fpath);
                 end
                 fprintf(2, ' * and that %s is properly installed in %s\n', ...
                         hyperlink(url,'ghostscript'), fpath_link);
-                if isempty(strtrim(char(fpath)))
+                if isempty(fpath) || exist(fpath,'file')==0 %issue #365
                     selectUtilityPath('Ghostscript',url,'Exporting to vector format (EPS, PDF etc.)');
                     return
                 end
             end
-            try  % EPS require pdftops
+            try  % EPS export requires the pdftops utility
                 if options.eps
                     url = 'http://xpdfreader.com/download.html';
-                    fpath = user_string('pdftops');
+                    fpath = strtrim(char(user_string('pdftops')));
                     fpath_link = fpath;
                     if ispc  % winopen only works on Windows
                         fpath_link = hyperlink(['matlab:winopen(''' fileparts(fpath) ''')'], fpath);
                     end
                     fprintf(2, ' * and that %s is properly installed in %s\n', ...
                             hyperlink(url,'pdftops'), fpath_link);
-                    if isempty(fpath)
+                    if isempty(fpath) || exist(fpath,'file')==0 %issue #365
                         selectUtilityPath('pdftops',url,'Exporting to EPS format');
                         return
                     end
