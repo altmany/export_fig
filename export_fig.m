@@ -81,7 +81,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
 %   2) For bitmap formats, only opengl correctly renders transparent patches
 %   3) For bitmap formats, only painters correctly scales line dash and dot
 %      lengths when magnifying or anti-aliasing
-%   4) Fonts may be substitued with Courier when using painters
+%   4) Fonts may be substituted with Courier when using painters
 %
 % When exporting to vector format (PDF & EPS) and bitmap format using the
 % painters renderer, this function requires that ghostscript is installed
@@ -201,7 +201,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
 %             done in vector formats (only): 11 standard Matlab fonts are
 %             replaced by the original figure fonts. This option prevents this.
 %   -font_space <char> - option to set a spacer character for font-names that
-%             contain spaces, used by EPS/PDF. Default: ''
+%             contain spaces, used by EPS/PDF. Default: '' (i.e. no space char)
 %   -linecaps - option to create rounded line-caps (vector formats only).
 %   -noinvert - option to avoid setting figure's InvertHardcopy property to
 %             'off' during output (this solves some problems of empty outputs).
@@ -391,6 +391,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
 % 05/12/23: (3.42) Fixed unintended cropping of colorbar title in PDF export with -transparent (issues #382, #383)
 % 07/12/23: (3.43) Fixed unintended modification of colorbar in bitmap export (issue #385)
 % 21/02/24: (3.44) Fixed: text objects with normalized units were not exported in some cases (issue #373); added check for invalid ghostscript installation (issue #365)
+% 02/05/24: (3.45) Display the builtin error message when uifigure cannot be exported (issue #387); fixed contour labels with non-default FontName incorrectly exported as Courier (issue #388)
 %}
 
     if nargout
@@ -428,7 +429,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
     [fig, options] = parse_args(nargout, fig, argNames, varargin{:});
 
     % Check for newer version and exportgraphics/copygraphics compatibility
-    currentVersion = 3.44;
+    currentVersion = 3.45;
     if options.version  % export_fig's version requested - return it and bail out
         imageData = currentVersion;
         return
@@ -481,9 +482,10 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
                 try
                     hChildren = allchild(hFig); %=uifig.Children;
                     copyobj(hChildren,hNewFig);
-                catch
+                catch e
                     if ~options.silent
-                        warning('export_fig:uifigure:controls', 'Some uifigure controls cannot be exported by export_fig and will not appear in the generated output.');
+                        errMsg = 'Some uifigure controls cannot be exported by export_fig and will not appear in the generated output.';
+                        warning('export_fig:uifigure:controls','%s\n%s',errMsg,e.message); %issue #387
                     end
                 end
                 try fig.UserData = oldUserData; catch, end  % restore axes UserData, if modified above

@@ -115,6 +115,7 @@ function print2eps(name, fig, export_options, varargin)
 % 16/03/22: Fixed occasional empty files due to excessive cropping (issues #350, #351)
 % 15/05/22: Fixed EPS bounding box (issue #356)
 % 13/04/23: Reduced (hopefully fixed) unintended EPS/PDF image cropping (issues #97, #318)
+% 02/05/24: Fixed contour labels with non-default FontName incorrectly exported as Courier (issue #388)
 %}
 
     options = {'-loose'};
@@ -526,7 +527,6 @@ function print2eps(name, fig, export_options, varargin)
         % 1b. Fix issue #239: black title meshes with temporary black background figure bgcolor, causing bad cropping
         hTitles = [];
         if isequal(get(fig,'Color'),'none')
-            hAxes = findall(fig,'type','axes');
             for idx = 1 : numel(hAxes)
                 hAx = hAxes(idx);
                 try
@@ -590,6 +590,7 @@ function print2eps(name, fig, export_options, varargin)
 
     % If user requested a regexprep replacement of string(s), do this now (issue #324)
     if isstruct(export_options) && isfield(export_options,'regexprep') && ~isempty(export_options.regexprep)  %issue #338
+        useRegexprepOption = true;
         try
             oldStrOrRegexp = export_options.regexprep{1};
             newStrOrRegexp = export_options.regexprep{2};
@@ -597,6 +598,30 @@ function print2eps(name, fig, export_options, varargin)
         catch err
             warning('YMA:export_fig:regexprep', 'Error parsing regexprep: %s', err.message);
         end
+    else
+        useRegexprepOption = false;
+    end
+
+    % Fix issue #388: contour labels with non-default FontName incorrectly exported as Courier
+    try
+        fontNames = {};
+        for idx = 1 : numel(hAxes)
+            try hPlots = allchild(hAxes(idx)); catch, hPlots = []; end
+            for idx2 = 1 : numel(hPlots)
+                try hLabels = hPlots(idx2).TextPrims; catch, hLabels = []; end
+                for idx3 = 1 : numel(hLabels)
+                    try fontNames{end+1} = hLabels(idx3).Font.Name; catch, end %#ok<AGROW>
+                end
+            end
+        end
+        fontNames = setdiff(fontNames,'Helvetica'); %Helvetica actually works ok
+        if numel(fontNames) > 1 && ~useRegexprepOption
+            warning('YMA:export_fig:countourFonts', 'export_fig cannot fix multiple contour label fonts; try using the -regexprep option to convert /Courier into %s etc.',fontNames{1});
+        elseif numel(fontNames) == 1
+            fstrm = regexprep(fstrm, '\n/Courier (\d+ F\nGS\n)', ['\n/' fontNames{1} ' $1']);
+        end
+    catch
+        % never mind - probably no matching contour labels
     end
 
     % Write out the fixed eps file
