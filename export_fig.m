@@ -37,6 +37,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
 %   export_fig ... -silent
 %   export_fig ... -notify
 %   export_fig ... -regexprep <pattern> <replace>
+%   export_fig ... -xkcd
 %   export_fig ... -toolbar
 %   export_fig ... -menubar
 %   export_fig ... -contextmenu
@@ -103,6 +104,9 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
 %             default name 'export_fig_out' is used. If neither file extension
 %             nor a format parameter are specified, a ".png" is added to the
 %             filename and the figure saved in PNG format.
+%             Special case: if filename has .fig extension the current figure is
+%             saved to that file in Matlab FIG format; if no file is open, the
+%             specified file is regarded as input file, and used for re-export.
 %   -<format> - string(s) containing the output file extension(s). Options:
 %             '-pdf','-eps','emf','-svg','-png','-tif','-jpg','-gif' and '-bmp'.
 %             Multiple formats can be specified, without restriction.
@@ -149,8 +153,9 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
 %             formats or figures with patches and/or transparent annotations;
 %             painters for vector formats without patches/transparencies.
 %   -<colorspace> - option indicating which colorspace color figures should
-%             be saved in: RGB (default), CMYK or gray. Usage example: '-gray'.
-%             Note: CMYK is only supported in PDF, EPS and TIF formats.
+%             be saved in: RGB (default), CMYK or gray. 
+%             Usage example: '-gray' creates a grayscale version of the figure.
+%             Note: CMYK is only supported in PDF, EPS and TIF output formats.
 %   -q<val> - option to vary bitmap image quality (PDF, EPS, JPG formats only).
 %             A larger val, in the range 0-100, produces higher quality and
 %             lower compression. val > 100 results in lossless compression.
@@ -223,6 +228,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
 %             string or array of strings; case-sensitive), with the corresponding
 %             <new> string(s), in EPS/PDF files (only). See regexp function's doc.
 %             Warning: invalid replacement can make your EPS/PDF file unreadable!
+%   -xkcd   - renders the axes in XKCD hand-drawn style (see http://xkcd.com)
 %   -toolbar - adds an interactive export button to the figure's toolbar
 %   -menubar - adds an interactive export menu to the figure's menubar
 %   -contextmenu - adds interactive export menu to figure context-menu (right-click)
@@ -392,6 +398,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
 % 07/12/23: (3.43) Fixed unintended modification of colorbar in bitmap export (issue #385)
 % 21/02/24: (3.44) Fixed: text objects with normalized units were not exported in some cases (issue #373); added check for invalid ghostscript installation (issue #365)
 % 02/05/24: (3.45) Display the builtin error message when uifigure cannot be exported (issue #387); fixed contour labels with non-default FontName incorrectly exported as Courier (issue #388)
+% 09/05/24: (3.46) Added -xkcd option (thanks @slayton); added .fig input and output format (previously undocumented & buggy); redirect .tex output to matlab2tikz utility
 %}
 
     if nargout
@@ -429,7 +436,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
     [fig, options] = parse_args(nargout, fig, argNames, varargin{:});
 
     % Check for newer version and exportgraphics/copygraphics compatibility
-    currentVersion = 3.45;
+    currentVersion = 3.46;
     if options.version  % export_fig's version requested - return it and bail out
         imageData = currentVersion;
         return
@@ -673,6 +680,11 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
     % Main processing 
     try
         oldWarn = warning;
+
+        % If XKCD option was specified, render figure as XKCD before any export
+        if options.xkcd
+            xkcd_axes = xkcdify(fig);
+        end
 
         % Export bitmap formats first
         if isbitmap(options)
@@ -1516,6 +1528,9 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
             end
         end
 
+        % Revert any XKCD rendering
+        try delete(xkcd_axes); catch, end
+
         % Notify user by popup, if -notify option was specified
         if options.notify && exported_files > 0
             % TODO don't notify when exporting to file just for clipboard output
@@ -1551,6 +1566,8 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
         % Revert figure properties in case they were changed
         try set(fig,'Units',oldFigUnits, 'Position',pos, 'Color',tcol_orig); catch, end
         try set(textn, 'Units','normalized'); catch, end
+        % Revert any XKCD rendering
+        try delete(xkcd_axes); catch, end
         % Display possible workarounds before the error message
         if ~isempty(regexpi(err.message,'setopacityalpha')) %#ok<RGXPI>
             % Alert the user that transparency is not supported (issue #285)
@@ -1710,6 +1727,7 @@ function options = default_options()
         'preserve_size',   false, ...
         'silent',          false, ...
         'notify',          false, ...
+        'xkcd',            false, ...
         'regexprep',       [], ...
         'toolbar',         false, ...
         'menubar',         false, ...
@@ -1735,6 +1753,7 @@ function [fig, options] = parse_args(nout, fig, argNames, varargin)
     options.alpha = (nout == 2);  % user requested alpha output
     options.handleName = '';  % default handle name
     wasOutputRequested = false;
+    saveFig = false;
 
     % Go through the other arguments
     skipNext = 0;
@@ -1804,6 +1823,12 @@ function [fig, options] = parse_args(nout, fig, argNames, varargin)
                         options.gif = true;
                         addToOptionsStr = false;
                         wasOutputRequested = true;
+                    case 'tex'
+                        url = hyperlink('https://github.com/matlab2tikz/matlab2tikz','matlab2tikz');
+                        error('export_fig:TEX','export_fig does not support tex output. Use the %s utility for this.', url);
+                    case 'fig'
+                        saveFig = true;
+                        addToOptionsStr = false;
                     case 'rgb'
                         options.colourspace = 0;
                     case 'cmyk'
@@ -1882,6 +1907,9 @@ function [fig, options] = parse_args(nout, fig, argNames, varargin)
                     case 'regexprep'
                         options.regexprep = varargin(a+1:a+2);
                         skipNext = 2;
+                    case 'xkcd'
+                        options.xkcd = true;
+                        addToOptionsStr = false;
                     case 'toolbar'
                         options.toolbar = true;
                         addToOptionsStr = false;
@@ -2044,7 +2072,7 @@ function [fig, options] = parse_args(nout, fig, argNames, varargin)
                     case {'tif', 'tiff','jpg', 'jpeg','png','bmp','eps','emf','pdf','svg','gif'}
                         options = setOptionsFormat(options, ext);
                         wasOutputRequested = true;
-                    case '.fig'
+                    case 'fig'
                         % If no open figure, then load the specified .fig file and continue
                         figFilename = thisArg;
                         if isempty(fig)
@@ -2054,10 +2082,14 @@ function [fig, options] = parse_args(nout, fig, argNames, varargin)
                             options.handleName = ['openfig(''' figFilename ''')'];
                         else
                             % save the current figure as the specified .fig file and exit
-                            saveas(fig(1),figFilename);
+                            hFig = ancestor(fig(1), 'figure');
+                            saveas(hFig,figFilename);
                             fig = -1;
                             return
                         end
+                    case 'tex'
+                        url = hyperlink('https://github.com/matlab2tikz/matlab2tikz','matlab2tikz');
+                        error('export_fig:TEX','export_fig does not support tex output. Use the %s utility for this.', url);
                     otherwise
                         options.name = thisArg;
                         wasOutputRequested = true;
@@ -2114,6 +2146,17 @@ function [fig, options] = parse_args(nout, fig, argNames, varargin)
     % Convert user dir '~' to full path
     if numel(options.name) > 2 && options.name(1) == '~' && (options.name(2) == '/' || options.name(2) == '\')
         options.name = fullfile(char(java.lang.System.getProperty('user.home')), options.name(2:end));
+    end
+
+    % Export the current figure without any manipulation, if requested
+    if saveFig
+        if ~isempty(options.name)
+            [fpath,fname,~] = fileparts(options.name);
+            filename = fullfile(fpath,[fname '.fig']);
+        else
+            filename = 'output.fig';
+        end
+        saveas(ancestor(fig(1),'figure'), filename);
     end
 
     % Compute the magnification and resolution
