@@ -8,7 +8,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
 %   export_fig ... -<format>
 %   export_fig ... -nocrop
 %   export_fig ... -c[<val>,<val>,<val>,<val>]
-%   export_fig ... -transparent
+%   export_fig ... -transparent  or:  -transparent=<color>
 %   export_fig ... -native
 %   export_fig ... -m<val>
 %   export_fig ... -r<val>
@@ -112,8 +112,14 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
 %             Multiple formats can be specified, without restriction.
 %             For example: export_fig('-jpg', '-pdf', '-png', ...)
 %             Note: '-tif','-tiff' are equivalent, and so are '-jpg','-jpeg'.
-%   -transparent - option indicating that the figure background is to be made
-%             transparent (PNG,PDF,TIF,EPS,EMF formats only). Implies -noinvert.
+%   -transparent - indicates that figure background should be made transparent.
+%             Note: PNG,GIF,TIF,PDF,EPS,EMF formats only. Implies -noinvert.
+%   -transparent=<color> convert all pixels in the specified color (RGB tripplet
+%             or a Matlab predefined color string e.g. 'r'). Usage examples:
+%             -transparent=g or -transparent=[1,.5,.2] or -transparent=80,65,235
+%             Optional suffix +-<value> adds tolerance to pixels color matching
+%             for example: -transparent=g+-30 or -transparent=[1,.5,.2]+-0.1
+%             Note: only supported by PNG,GIF,TIF formats.
 %   -nocrop - option indicating that empty margins should not be cropped.
 %   -c[<val>,<val>,<val>,<val>] - option indicating crop amounts. Must be
 %             a 4-element vector of numeric values: [top,right,bottom,left]
@@ -399,6 +405,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
 % 21/02/24: (3.44) Fixed: text objects with normalized units were not exported in some cases (issue #373); added check for invalid ghostscript installation (issue #365)
 % 02/05/24: (3.45) Display the builtin error message when uifigure cannot be exported (issue #387); fixed contour labels with non-default FontName incorrectly exported as Courier (issue #388)
 % 09/05/24: (3.46) Added -xkcd option (thanks @slayton); added .fig input and output format (previously undocumented & buggy); redirect .tex output to matlab2tikz utility
+% 05/11/24: (3.47) Fixed -transparency in case the default bgcolor is already used in the figure (issue #398); enabled specifying non-default transparency color via -transparency parameter; suppress warnings about setting figure position; multiple -xkcd fixes
 %}
 
     if nargout
@@ -436,7 +443,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
     [fig, options] = parse_args(nargout, fig, argNames, varargin{:});
 
     % Check for newer version and exportgraphics/copygraphics compatibility
-    currentVersion = 3.46;
+    currentVersion = 3.47;
     if options.version  % export_fig's version requested - return it and bail out
         imageData = currentVersion;
         return
@@ -675,9 +682,10 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
 
     % Initialize
     tmp_nam = '';
+    isBgColor = false(0);
     exported_files = 0;
 
-    % Main processing 
+    % Main processing
     try
         oldWarn = warning;
 
@@ -693,17 +701,21 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
                 error('export_fig:padding','For bitmap output (png,jpg,tif,bmp) the padding value (-p) must be between -1<p<1')
             end
             % Print large version to array
-            [A, tcol, alpha] = getFigImage(fig, magnify, renderer, options, pixelpos);
+            [A, bgcol, alpha] = getFigImage(fig, magnify, renderer, options, pixelpos);
             % Get the background colour
+            if isempty(options.tcol), tcol = bgcol; else, tcol = options.tcol; end
             if options.transparent
                 if (options.png || options.alpha || options.gif || options.tif)
                     try %options.aa_factor < 4  % default, faster but lines are not anti-aliased
                         % If all pixels are indicated as opaque (i.e. something went wrong with the Java screen-capture)
-                        isBgColor = A(:,:,1) == tcol(1) & ...
-                                    A(:,:,2) == tcol(2) & ...
-                                    A(:,:,3) == tcol(3);
+                        A2   = single(A);
+                        tcol = single(tcol);
+                        ttol = single(options.ttol);
+                        isBgColor = abs(A2(:,:,1)-tcol(1)) <= ttol & ...
+                                    abs(A2(:,:,2)-tcol(2)) <= ttol & ...
+                                    abs(A2(:,:,3)-tcol(3)) <= ttol;
                         % Set the bgcolor pixels to be fully-transparent
-                        A(repmat(isBgColor,[1,1,3])) = 254; %=off-white % TODO: more memory efficient without repmat
+                        %A(repmat(isBgColor,[1,1,3])) = 254; %=off-white % TODO: more memory efficient without repmat
                         alpha(isBgColor) = 0;
                     catch  % older logic - much slower and causes figure flicker
                         if true  % to fold the code below...
@@ -805,7 +817,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
             if options.crop
                 %[alpha, v] = crop_borders(alpha, 0, 1, options.crop_amounts);
                 %A = A(v(1):v(2),v(3):v(4),:);
-                [A, vA, vB] = crop_borders(A, tcol, options.bb_padding, options.crop_amounts);
+                [A, vA, vB] = crop_borders(A, bgcol, options.bb_padding, options.crop_amounts);
                 if ~any(isnan(vB)) % positive padding
                     sz = size(A); % Fix issue #308
                     B = repmat(uint8(zeros(1,1,size(alpha,3))),sz([1,2])); % Fix issue #307 %=zeros(sz([1,2]),'uint8');
@@ -825,7 +837,9 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
             end
             %}
             % Revert the figure properties back to their original values
-            set(fig, 'Units',oldFigUnits, 'Position',pos, 'Color',tcol_orig);
+            oldWarn = warning('off','MATLAB:Figure:SetPosition');
+            try set(fig, 'Units',oldFigUnits, 'Position',pos, 'Color',tcol_orig); catch, end
+            warning(oldWarn);
             % Check for greyscale images
             if options.colourspace == 2
                 % Convert to greyscale
@@ -1694,6 +1708,8 @@ function options = default_options()
         'crop',            true, ...
         'crop_amounts',    nan(1,4), ...  % auto-crop all 4 image sides
         'transparent',     false, ...
+        'tcol',            [], ...
+        'ttol',            0, ...
         'renderer',        0, ...         % 0: default, 1: OpenGL, 2: ZBuffer, 3: Painters
         'pdf',             false, ...
         'eps',             false, ...
@@ -1775,12 +1791,51 @@ function [fig, options] = parse_args(nout, fig, argNames, varargin)
         else %if ischar(thisArg) && ~isempty(thisArg)
             if thisArg(1) == '-'
                 addToOptionsStr = true;
+                [thisArg,extra] = strtok(thisArg,'=');
                 switch lower(thisArg(2:end))
                     case 'nocrop'
                         options.crop = false;
                         options.crop_amounts = [0,0,0,0];
                     case {'trans', 'transparent'}
                         options.transparent = true;
+                        extra = strtrim(lower(extra));
+                        if length(extra) > 1
+                            [extra,tol] = strtok(extra(2:end),'+-'); %discrad '='
+                            if extra(1) >= 'a' && extra(1) <= 'z'
+                                % convert predefined color => RGB
+                                colIdx = find(extra(1)=='wrgbcmyk',1);
+                                assert(~isempty(colIdx),'export_fig:invalid_tcol','Invalid transparent color ''%s'' specified',extra);
+                                defaultColors = 255 * uint8([1,1,1; ... w
+                                                             1,0,0; ... r
+                                                             0,1,0; ... g
+                                                             0,0,1; ... b
+                                                             0,1,1; ... c
+                                                             1,0,1; ... m
+                                                             1,1,0; ... y
+                                                             0,0,0]); % k
+                                options.tcol = defaultColors(colIdx,:);
+                            else
+                                tcol = str2num(extra); %#ok<ST2NM>
+                                assert(isequal(size(tcol),[1,3]),'export_fig:invalid_tcol','Invalid transparent color %s specified',extra);
+                                if all(tcol <= 1) %fractional values
+                                    tcol = 255 * tcol; %[0-1] => [0-255]
+                                end
+                                options.tcol = uint8(tcol);
+                            end
+                            if length(tol) > 2
+                                tol = tol(3:end);  % discard '+-'
+                                ttol = str2num(tol); %#ok<ST2NM>
+                                assert(isscalar(ttol) && ttol>=0,'export_fig:invalid_ttol','Invalid transparent color tolerance %s specified',tol);
+                                if ttol <= 1 %fractional value
+                                    ttol = 255 * ttol; %[0-1] => [0-255]
+                                end
+                                options.ttol = uint8(ttol);
+                            elseif ~isempty(tol)  % just '+-'
+                                warning('export_fig:invalid_ttol','No transparent color tolerance specified - ignored');
+                            end
+                        elseif ~isempty(extra) % just '='
+                            warning('export_fig:invalid_tcol','No transparent color specified - ignored');
+                        end
                     case 'opengl'
                         options.renderer = 1;
                     case 'zbuffer'
@@ -1929,8 +1984,8 @@ function [fig, options] = parse_args(nout, fig, argNames, varargin)
                             error('export_fig:BadOptionValue','export_fig metadata must be a struct or cell-array of name-value pairs');
                         end
                         metadata = cellfun(@num2str,metadata(:)','uniform',0);
-                        str = sprintf(' /%s (%s)', metadata{:});
-                        options.gs_options{end+1} = ['-c "[' str ' /DOCINFO pdfmark"'];
+                        extra = sprintf(' /%s (%s)', metadata{:});
+                        options.gs_options{end+1} = ['-c "[' extra ' /DOCINFO pdfmark"'];
                         skipNext = 1;
                     otherwise
                         try
@@ -2098,6 +2153,11 @@ function [fig, options] = parse_args(nout, fig, argNames, varargin)
         end
     end
 
+    % transparent color cannot be specified for vector output
+    if ~isempty(options.tcol) && ~isbitmap(options)
+        error('export_fig:vector_tcol','Transparent color cannot be specified with non-bitmap outputs');
+    end
+
     % Quick bail-out if no figure found
     if isempty(fig),  return;  end
 
@@ -2232,6 +2292,7 @@ function [fig, options] = parse_args(nout, fig, argNames, varargin)
         end
     end
 end
+
 function options = setOptionsFormat(options, ext)
     switch lower(ext(2:end))
         case {'tif', 'tiff'},  options.tif = true;
@@ -2335,27 +2396,50 @@ function b = isbitmap(options)
         options.gif || options.im || options.alpha;
 end
 
-function [A, tcol, alpha] = getFigImage(fig, magnify, renderer, options, pos)
+function [A, bgcol, alpha] = getFigImage(fig, magnify, renderer, options, pos)
     if options.transparent
-        % MATLAB "feature": figure size can change when changing color in -nodisplay mode
-        % Note: figure background is set to off-white, not 'w', to handle common white elements (issue #330)
-        set(fig, 'Color',254/255*[1,1,1], 'Position',pos);
-        % repaint figure, otherwise Java screencapture will see black bgcolor
-        % Yair 19/12/21 - unnecessary: drawnow is called at top of print2array
-        %drawnow;
+        % Modify the figure's bgcolor to off-white
+        if isempty(options.tcol)
+            bgcol = uint8(254*[1,1,1]);  %default bgcolor =off-white
+
+            % Determine off-white shade not already used in the fig - issue #398
+            A = getFigImage2(fig, magnify, renderer, options);  % get RGB tripplets
+            A = unique(reshape(A,[],3),'rows');    % reshape [m,n,3] => [m*n,3]
+            A = sum(double(A).*(256.^[2,1,0]),2);  % convert RGB tripplets => int
+            d = A(find(diff(A)>1,1,'last')+1) - 1; %=largest RGB value -1 (off-white)
+            if ~isempty(d)
+                n=2; while n>=0, p=256^n; bgcol(3-n)=floor(d/p); d=rem(d,p); n=n-1; end %int => RGB tripplet
+            end
+
+            % MATLAB "feature": figure size can change when changing color in -nodisplay mode
+            % Note: figure background is set to off-white, not 'w', to handle common white elements (issue #330)
+            set(fig, 'Color',double(bgcol)/255, 'Position',pos);
+
+            % repaint figure, otherwise Java screencapture will see black bgcolor
+            % Yair 19/12/21 - unnecessary: drawnow is called at top of print2array
+            %drawnow;
+        else
+            %bgcol = options.tcol;
+        end
     end
+
     % Print large version to array
-    try
-        % The following code might cause out-of-memory errors
-        [A, tcol, alpha] = print2array(fig, magnify, renderer);
-    catch
-        % This is more conservative in memory, but perhaps kills transparency(?)
-        [A, tcol, alpha] = print2array(fig, magnify/options.aa_factor, renderer, 'retry');
-    end
+    [A, bgcol, alpha] = getFigImage2(fig, magnify, renderer, options);
+
     % In transparent mode, set the bgcolor to white
     if options.transparent
-        % Note: tcol should already be [255,255,255] here, but just in case it's not...
-        tcol = uint8(254*[1,1,1]);  %=off-white
+        % Note: bgcol should already be [255,255,255] here, but just in case it's not...
+        %bgcol = uint8(254*[1,1,1]);  %=off-white
+    end
+end
+
+function [A, bgcol, alpha] = getFigImage2(fig, magnify, renderer, options)
+    try
+        % The following code might cause out-of-memory errors
+        [A, bgcol, alpha] = print2array(fig, magnify, renderer);
+    catch
+        % This is more conservative in memory, but perhaps kills transparency(?)
+        [A, bgcol, alpha] = print2array(fig, magnify/options.aa_factor, renderer, 'retry');
     end
 end
 
