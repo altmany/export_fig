@@ -116,6 +116,7 @@ function print2eps(name, fig, export_options, varargin)
 % 15/05/22: Fixed EPS bounding box (issue #356)
 % 13/04/23: Reduced (hopefully fixed) unintended EPS/PDF image cropping (issues #97, #318)
 % 02/05/24: Fixed contour labels with non-default FontName incorrectly exported as Courier (issue #388)
+% 11/05/25: Override Matlab's default Title & Creator meta-data (issue #402)
 %}
 
     options = {'-loose'};
@@ -587,6 +588,37 @@ function print2eps(name, fig, export_options, varargin)
     fstrm = regexprep(fstrm, '\n([-\d.]+ [-\d.]+) ([-\d.]+ [-\d.]+) ([-\d.]+ [-\d.]+) 3 MP\nPP\n\2 \3 \1 3 MP\nPP\n','\n$1 $2 $3 0 0 4 MP\nPP\n');
     fstrm = regexprep(fstrm, '\n([-\d.]+ [-\d.]+) ([-\d.]+ [-\d.]+) ([-\d.]+ [-\d.]+) 3 MP\nPP\n\3 \1 \2 3 MP\nPP\n','\n$1 $2 $3 0 0 4 MP\nPP\n');
     fstrm = regexprep(fstrm, '\n([-\d.]+ [-\d.]+) ([-\d.]+ [-\d.]+) ([-\d.]+ [-\d.]+) 3 MP\nPP\n\3 \2 \1 3 MP\nPP\n','\n$1 $2 $3 0 0 4 MP\nPP\n');
+
+    % Fix issue #402: override Matlab's default Title & Creator meta-data
+    idx = strfind(export_options.gs_options,'/Title ');
+    override_meta = ~isempty(idx) && (~iscell(idx) || ~isempty(idx{1}));
+    if override_meta
+        % Remove this meta property from the EPS so Ghostscript will override it
+        fstrm = regexprep(fstrm, '%%Title:[^\n]*\n', '');
+    else
+        % Replace Matlab-created default meta property value with a usable one
+        %%Title: C:/Users/Yair/AppData/Local/Temp/tp28b8a11e_42a7_40d4_b254_65d0af3c436f.eps
+        title_str = get(fig,'Name');
+        if isempty(title_str) && ~isempty(hAxes)
+            try title_str = hAxes(1).Title.String; catch, end
+        end
+        fstrm = regexprep(fstrm, '(%%Title:)[^\n]*\n', ['$1 ' title_str '\n']);
+    end
+
+    idx = strfind(export_options.gs_options,'/Creator ');
+    override_meta = ~isempty(idx) && (~iscell(idx) || ~isempty(idx{1}));
+    if override_meta
+        % Remove this meta property from the EPS so Ghostscript will override it
+        fstrm = regexprep(fstrm, '%%Creator:[^\n]*\n', '');
+    else
+        % Replace Matlab-created default meta property value with a usable one
+        %%Creator: (MATLAB, The Mathworks, Inc. Version 9.13.0.2049777 \(R2022b\). Operating System: Windows 10)
+        try
+            ver_str = ['export_fig v' num2str(export_fig('-version')) ' via '];
+            fstrm = regexprep(fstrm, '(%%Creator: *\(?)', ['$1' ver_str]);
+        catch
+        end
+    end
 
     % If user requested a regexprep replacement of string(s), do this now (issue #324)
     if isstruct(export_options) && isfield(export_options,'regexprep') && ~isempty(export_options.regexprep)  %issue #338

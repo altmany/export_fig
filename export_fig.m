@@ -410,6 +410,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
 % 09/05/24: (3.46) Added -xkcd option (thanks @slayton); added .fig input and output format (previously undocumented & buggy); redirect .tex output to matlab2tikz utility
 % 05/11/24: (3.47) Fixed -transparency in case the default bgcolor is already used in the figure (issue #398); enabled specifying non-default transparency color via -transparency parameter; suppress warnings about setting figure position; multiple -xkcd fixes
 % 06/03/25: (3.48) Fixed -transparency color artifacts, set default bgcolor tolerance of +-0.1 (issue #400)
+% 31/03/25: (3.49) Fixed(?) -transparency in PDF/EPS files (issue #401); override Matlab's default Title & Creator meta-data (issue #402)
 %}
 
     if nargout
@@ -447,7 +448,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
     [fig, options] = parse_args(nargout, fig, argNames, varargin{:});
 
     % Check for newer version and exportgraphics/copygraphics compatibility
-    currentVersion = 3.48;
+    currentVersion = 3.49;
     if options.version  % export_fig's version requested - return it and bail out
         imageData = currentVersion;
         return
@@ -1049,6 +1050,9 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
                     elseif ~options.png && ~options.tif && ~options.silent  % issue #168
                         warning('export_fig:transparency', '%s ScreenCapture utility on the Matlab File Exchange: http://bit.ly/1QFrBip', msg);
                     end
+                elseif options.transparent %issue #401
+                    % https://www.mathworks.com/matlabcentral/answers/452533-using-painters-saving-to-eps-does-not-give-transparency
+                    hasTransparency = true;  % bypass the warning message above
                 elseif ~isempty(hImages)
                     % Fix for issue #230: use OpenGL renderer when exported image contains transparency
                     for idx = 1 : numel(hImages)
