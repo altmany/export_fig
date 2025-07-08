@@ -412,6 +412,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
 % 06/03/25: (3.48) Fixed -transparency color artifacts, set default bgcolor tolerance of +-0.1 (issue #400)
 % 31/03/25: (3.49) Fixed(?) -transparency in PDF/EPS files (issue #401); override Matlab's default Title & Creator meta-data (issue #402)
 % 31/03/25: (3.50) Revert bad fix for issue #401
+% 08/07/25: (3.51) Fixed: figure with non-default colormap exported with default colormap in some cases (issue #389)
 %}
 
     if nargout
@@ -497,7 +498,8 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
                 % Create an invisible legacy figure at the same position/size as the uifigure
                 hNewFig = figure('Visible','off',    'Color',hFig.Color, ...
                                  'Units',hFig.Units, 'Position',hFig.Position, ...
-                                 'MenuBar','none',   'ToolBar','none');
+                                 'MenuBar','none',   'ToolBar','none', ...
+                                 'Colormap',hFig.Colormap);  % issue #389
                 % Copy the uifigure contents onto the new invisible legacy figure
                 try
                     hChildren = allchild(hFig); %=uifig.Children;
