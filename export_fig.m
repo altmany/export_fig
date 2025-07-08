@@ -450,7 +450,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
     [fig, options] = parse_args(nargout, fig, argNames, varargin{:});
 
     % Check for newer version and exportgraphics/copygraphics compatibility
-    currentVersion = 3.50;
+    currentVersion = 3.51;
     if options.version  % export_fig's version requested - return it and bail out
         imageData = currentVersion;
         return
