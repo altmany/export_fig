@@ -86,7 +86,7 @@ function path_ = gs_path
     end
     % Check whether the binary is on the path
     if ispc
-        bin = {'gswin32c.exe', 'gswin64c.exe', 'gs'};
+        bin = {'gswin32c.exe', 'gswin64c.exe', 'gs', 'mgs'};
     else
         bin = {'gs'};
     end
