@@ -413,7 +413,6 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
 % 31/03/25: (3.49) Fixed(?) -transparency in PDF/EPS files (issue #401); override Matlab's default Title & Creator meta-data (issue #402)
 % 31/03/25: (3.50) Revert bad fix for issue #401
 % 08/07/25: (3.51) Fixed: figure with non-default colormap exported with default colormap in some cases (issue #389)
-% 07/09/25: (3.52) Fixed: sgtitle was cropped in transparent PDF/EPS output (thanks @JohanWesto)
 %}
 
     if nargout
@@ -451,7 +450,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
     [fig, options] = parse_args(nargout, fig, argNames, varargin{:});
 
     % Check for newer version and exportgraphics/copygraphics compatibility
-    currentVersion = 3.52;
+    currentVersion = 3.51;
     if options.version  % export_fig's version requested - return it and bail out
         imageData = currentVersion;
         return
@@ -1142,10 +1141,6 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
                     try hCBs = getappdata(hAxes,'LayoutPeers'); catch, hCBs=[]; end  %issue #383
                     hCBs = unique([findall(fig,'tag','Colorbar'), hCBs]);
                     hCbTxt = fixBlackText(hCBs,'Title'); % issue #382
-
-                    % Fix subplot grid title (sgtitle) issue #406
-                    hSpTxt = findobj(fig,'Type','subplottext');
-                    hSpTxt = fixBlackText(hSpTxt,'');
                 end
                 % Generate an eps
                 print2eps(tmp_nam, fig, options, printArgs{:}); %winopen(tmp_nam)
@@ -1163,7 +1158,6 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
                     set(hZrs, 'Color', [0,0,0]);
                     set(hTitle,'Color',[0,0,0]);
                     set(hCbTxt,'Color',[0,0,0]);
-                    set(hSpTxt,'Color',[0,0,0]);
                 end
                 %}
                 % Restore the figure's previous background color (if modified)
@@ -2602,11 +2596,7 @@ end
 
 function hText = fixBlackText(hObject, propName)
     try
-        if isempty(propName)  %issue #406
-            hText = hObject;
-        else
-            hText = get(hObject, propName);
-        end
+        hText = get(hObject, propName);
         try hText = [hText{:}]; catch, end  %issue #383
         for idx = numel(hText) : -1 : 1
             hThisText = hText(idx);
