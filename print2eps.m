@@ -117,6 +117,7 @@ function print2eps(name, fig, export_options, varargin)
 % 13/04/23: Reduced (hopefully fixed) unintended EPS/PDF image cropping (issues #97, #318)
 % 02/05/24: Fixed contour labels with non-default FontName incorrectly exported as Courier (issue #388)
 % 11/05/25: Override Matlab's default Title & Creator meta-data (issue #402)
+% 12/09/25: Fixed error in case of escaped tex/latex chars in Title (issue #407)
 %}
 
     options = {'-loose'};
@@ -601,6 +602,7 @@ function print2eps(name, fig, export_options, varargin)
         title_str = get(fig,'Name');
         if isempty(title_str) && ~isempty(hAxes)
             try title_str = hAxes(1).Title.String; catch, end
+            title_str = strrep(title_str,'\','\\'); %issue #407
         end
         fstrm = regexprep(fstrm, '(%%Title:)[^\n]*\n', ['$1 ' title_str '\n']);
     end
@@ -706,7 +708,7 @@ function [StoredColors, fstrm, foundFlags] = eps_maintainAlpha(fig, fstrm, Store
                 %Find and replace the RGBA values within the EPS text fstrm
                 %Note: .setopacityalpha is an unsupported PS extension that croaks in some GS versions (issue #285, https://bugzilla.redhat.com/show_bug.cgi?id=1632030)
                 %      (such cases are caught in eps2pdf.m and corrected by adding the -dNOSAFER Ghosscript option or by removing the .setopacityalpha line)
-                if strcmpi(propName,'Face')
+                if strcmpi(propName,'Face') %#ok<IFBDUP>
                     oldStr = sprintf(['\n' colorID ' RC\n']);  % ...N\n (removed to fix issue #225)
                     newStr = sprintf(['\n' origRGB ' RC\n' origAlpha ' .setopacityalpha true\n']);  % ...N\n
                 else  %'Edge'
