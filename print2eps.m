@@ -118,6 +118,7 @@ function print2eps(name, fig, export_options, varargin)
 % 02/05/24: Fixed contour labels with non-default FontName incorrectly exported as Courier (issue #388)
 % 11/05/25: Override Matlab's default Title & Creator meta-data (issue #402)
 % 12/09/25: Fixed error in case of escaped tex/latex chars in Title (issue #407)
+% 16/10/25: Fixed error in case of latex-format axes title (issue #409)
 %}
 
     options = {'-loose'};
@@ -603,6 +604,7 @@ function print2eps(name, fig, export_options, varargin)
         if isempty(title_str) && ~isempty(hAxes)
             try title_str = hAxes(1).Title.String; catch, end
             title_str = strrep(title_str,'\','\\'); %issue #407
+            title_str = strrep(title_str,'$','\$'); %issue #409
         end
         fstrm = regexprep(fstrm, '(%%Title:)[^\n]*\n', ['$1 ' title_str '\n']);
     end

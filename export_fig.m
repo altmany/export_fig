@@ -415,6 +415,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
 % 08/07/25: (3.51) Fixed: figure with non-default colormap exported with default colormap in some cases (issue #389)
 % 07/09/25: (3.52) Fixed: sgtitle was cropped in transparent PDF/EPS output (thanks @JohanWesto)
 % 12/09/25: (3.53) Fixed error in case of escaped tex/latex chars in EPS/PDF Title (issue #407)
+% 16/10/25: (3.54) Fixed error in case of latex-format axes title (issue #409)
 %}
 
     if nargout
@@ -452,7 +453,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
     [fig, options] = parse_args(nargout, fig, argNames, varargin{:});
 
     % Check for newer version and exportgraphics/copygraphics compatibility
-    currentVersion = 3.53;
+    currentVersion = 3.54;
     if options.version  % export_fig's version requested - return it and bail out
         imageData = currentVersion;
         return
