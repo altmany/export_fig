@@ -66,6 +66,7 @@ function [A, bcol, alpha] = print2array(fig, res, renderer, gs_options)
 % 19/12/21: Speedups; fixed exporting non-current figure (hopefully fixes issue #318)
 % 22/12/21: Avoid memory leak during screen-capture
 % 30/03/23: Added another short pause to avoid unintended image cropping (issue #318) 
+% 01/06/26: Supressed InvertHardcopy warning when exporting uifigures
 %}
 
     % Generate default input arguments, if needed
@@ -93,7 +94,7 @@ function [A, bcol, alpha] = print2array(fig, res, renderer, gs_options)
         else
             error('magnify/downscale via print() to image file and then import');
         end
-    catch err  %#ok<NASGU>
+    catch err
         % Warn if output is large
         npx = prod(px(3:4)*res)/1e6;
         if npx > 30
@@ -330,6 +331,7 @@ function [imgData, alpha, err, ex] = getPrintImage(fig, res_str, renderer, tmp_n
     old_pos_mode    = get(fig, 'PaperPositionMode');
     old_orientation = get(fig, 'PaperOrientation');
     set(fig, 'PaperPositionMode','auto', 'PaperOrientation','portrait');
+    oldWarn = warning('off','MATLAB:print:InvertHardcopyIgnoredDefaultColorUsed');
     try
         % Workaround for issue #69: patches with LineWidth==0.75 appear wide (internal bug in Matlab's print() function)
         fp = [];  % in case we get an error below
@@ -352,6 +354,7 @@ function [imgData, alpha, err, ex] = getPrintImage(fig, res_str, renderer, tmp_n
     catch ex
         err = true;
     end
+    warning(oldWarn);
     if ~isempty(fp)  % this check is not really needed, but makes the code cleaner
         set(fp, 'LineWidth',0.75);  % restore original figure appearance
     end
