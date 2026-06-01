@@ -15,7 +15,7 @@ function [A, bcol, alpha] = print2array(fig, res, renderer, gs_options)
 % If the Java screen-capture fails or if resolution~=1, the builtin print()
 % function is used to create a temp TIF file, which is then loaded and reported.
 % If this fails, print() is used to create a temp EPS file which is converted to
-% a TIF file using Ghostcript (http://www.ghostscript.com), loaded and reported.
+% a TIF file using Ghostscript (http://www.ghostscript.com), loaded and reported.
 %
 % Inputs:
 %   figure_handle - The handle of the figure to be exported. Default: gcf.

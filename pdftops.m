@@ -92,7 +92,7 @@ function path_ = xpdf_path
         errMsg = {errMsg1,errMsg2};
     else
         % Provide an alternative possible explanation as per issue #137
-        errMsg2 = 'If pdftops is installed, maybe Matlab is shaddowing it, as described in ';
+        errMsg2 = 'If pdftops is installed, maybe Matlab is shadowing it, as described in ';
         url2 = 'https://github.com/altmany/export_fig/issues/137';
         fprintf(2, '%s%s\n', errMsg2, hyperlink(url2,'issue #137'));
         errMsg2 = [errMsg2 url2];

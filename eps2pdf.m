@@ -155,7 +155,7 @@ function eps2pdf(source, dest, crop, append, gray, quality, gs_options) %#ok<*RG
             % The output pdf should now be in dest
 
             % If the returned message is non-empty, a possible error may have
-            % occured, so check the file size to ensure whether the file grew
+            % occurred, so check the file size to ensure whether the file grew
             if ~isempty(message) && ~isempty(orig_bytes)
                 file_info = dir(dest);
                 new_bytes = file_info.bytes;
