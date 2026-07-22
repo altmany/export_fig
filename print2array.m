@@ -1,4 +1,4 @@
-function [A, bcol, alpha] = print2array(fig, res, renderer, gs_options)
+function [A, bcol, alpha] = print2array(fig, res, renderer, gs_options, silent)
 %PRINT2ARRAY  Exports a figure to a bitmap RGB image array
 %
 % Examples:
@@ -7,6 +7,7 @@ function [A, bcol, alpha] = print2array(fig, res, renderer, gs_options)
 %   A = print2array(figure_handle, resolution)
 %   A = print2array(figure_handle, resolution, renderer)
 %   A = print2array(figure_handle, resolution, renderer, gs_options)
+%   A = print2array(figure_handle, resolution, renderer, gs_options, silent)
 %   [A, bcol, alpha] = print2array(...)
 %
 % This function outputs a bitmap image of a figure, at the desired resolution.
@@ -26,6 +27,7 @@ function [A, bcol, alpha] = print2array(fig, res, renderer, gs_options)
 %   gs_options - optional ghostscript parameters (e.g.: '-dNoOutputFonts').
 %                Enclose multiple options in a cell array, e.g. {'-a','-b'}
 %                Note: only used when resolution ~= 1 and basic print() fails
+%   silent     - optional parameter to suppress runtime warnings (default=false)
 %
 % Outputs:
 %   A     - MxNx3 uint8 bitmap image of the figure (MxN pixels x 3 RGB values)
@@ -66,12 +68,14 @@ function [A, bcol, alpha] = print2array(fig, res, renderer, gs_options)
 % 19/12/21: Speedups; fixed exporting non-current figure (hopefully fixes issue #318)
 % 22/12/21: Avoid memory leak during screen-capture
 % 30/03/23: Added another short pause to avoid unintended image cropping (issue #318) 
-% 01/06/26: Supressed InvertHardcopy warning when exporting uifigures
+% 01/06/26: Suppressed InvertHardcopy warning when exporting uifigures
+% 02/06/26: Added optional silent option to suppress warnings (default=false)
 %}
 
     % Generate default input arguments, if needed
     if nargin < 1,  fig = gcf;  end
     if nargin < 2,  res = 1;    end
+    silent = nargin > 4 && silent;
 
     % Force a repaint to ensure we get an accurate snapshot image (issue #211)
     drawnow
@@ -94,10 +98,10 @@ function [A, bcol, alpha] = print2array(fig, res, renderer, gs_options)
         else
             error('magnify/downscale via print() to image file and then import');
         end
-    catch err
+    catch err %#ok<NASGU>
         % Warn if output is large
         npx = prod(px(3:4)*res)/1e6;
-        if npx > 30
+        if npx > 30 && ~silent
             % 30M pixels or larger!
             warning('MATLAB:LargeImage', 'print2array generating a %.1fM pixel image. This could be slow and might also cause memory problems.', npx);
         end

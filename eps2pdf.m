@@ -1,4 +1,4 @@
-function eps2pdf(source, dest, crop, append, gray, quality, gs_options) %#ok<*RGXPI>
+function eps2pdf(source, dest, crop, append, gray, quality, gs_options, silent) %#ok<*RGXPI>
 %EPS2PDF  Convert an eps file to pdf format using ghostscript
 %
 % Examples:
@@ -8,6 +8,7 @@ function eps2pdf(source, dest, crop, append, gray, quality, gs_options) %#ok<*RG
 %   eps2pdf(source, dest, crop, append, gray)
 %   eps2pdf(source, dest, crop, append, gray, quality)
 %   eps2pdf(source, dest, crop, append, gray, quality, gs_options)
+%   eps2pdf(source, dest, crop, append, gray, quality, gs_options, silent)
 %
 % This function converts an eps file to pdf format. The output can be
 % optionally cropped and also converted to grayscale. If the output pdf
@@ -35,6 +36,7 @@ function eps2pdf(source, dest, crop, append, gray, quality, gs_options) %#ok<*RG
 %             gives lossless output. Default: ghostscript prepress default.
 %   gs_options - optional ghostscript options (e.g.: '-dNoOutputFonts'). If
 %                multiple options are needed, enclose in call array: {'-a','-b'}
+%   silent  - suppress run-time warnings (default=false, i.e. display warnings)
 
 % Copyright (C) Oliver Woodford 2009-2014, Yair Altman 2015-
 
@@ -61,6 +63,7 @@ function eps2pdf(source, dest, crop, append, gray, quality, gs_options) %#ok<*RG
 % 12/02/20: Improved fix for issue #285: add -dNOSAFER and -dALLOWPSTRANSPARENCY (thanks @linasstonys)
 % 26/08/21: Added GS version to error message; fixed some problems with PDF append (issue #339)
 % 20/02/23: Added GS fixes suggested by @scholnik (issues #285, #368)
+% 02/06/26: Added optional silent option to suppress warnings (default=false)
 
     % Intialise the options string for ghostscript
     downsampleOptions = ['-dDownsampleColorImages=false ' ...
@@ -184,6 +187,9 @@ function eps2pdf(source, dest, crop, append, gray, quality, gs_options) %#ok<*RG
         [status, message] = ghostscript(options);
     end
 
+    % Set the optional silent option (default=false)
+    silent = nargin > 7 && silent;
+
     % Check for error
     if status
         % Catch and correct undefined .setopacityalpha errors (issue #285)
@@ -204,7 +210,9 @@ function eps2pdf(source, dest, crop, append, gray, quality, gs_options) %#ok<*RG
                 [status, message] = ghostscript(options);
                 if ~status % hurray! (no error)
                     % Alert the user that transparency is not supported
-                    warning('export_fig:GS:quality','Export_fig Face/Edge alpha transparancy is ignored - not supported by your Ghostscript version')
+                    if ~silent
+                        warning('export_fig:GS:quality','Export_fig Face/Edge alpha transparancy is ignored - not supported by your Ghostscript version')
+                    end
                     return
                 end
             end
@@ -217,7 +225,9 @@ function eps2pdf(source, dest, crop, append, gray, quality, gs_options) %#ok<*RG
             options = regexprep(options, ' -sFONTPATH=[^ ]+ ',' ');
             [status, message] = ghostscript(options);
             if ~status % hurray! (no error)
-                warning('export_fig:GS:fontpath','Export_fig font option is ignored - not supported by your Ghostscript version')
+                if ~silent
+                    warning('export_fig:GS:fontpath','Export_fig font option is ignored - not supported by your Ghostscript version')
+                end
                 return
             end
         end
@@ -228,19 +238,23 @@ function eps2pdf(source, dest, crop, append, gray, quality, gs_options) %#ok<*RG
             options = strrep(orig_options, '.setpdfwrite', '3000000 setvmthreshold');
             if ~ghostscript(options) % hurray! (no error)
                 % No warning: there's no known drawback when this works so no need to inform the user
-                %warning('export_fig:GS:setpdfwrite','Successfully worked around deprecated .setpdfwrite')
+                %if ~silent, warning('export_fig:GS:setpdfwrite','Successfully worked around deprecated .setpdfwrite'); end
                 return
             end
             % Well, we tried.  Fall back to no quality options.
             options = strrep(orig_options, qualityOptions, '');
             if ~ghostscript(options) % hurray! (no error)
-                warning('export_fig:GS:quality','Export_fig quality option ignored - not supported by your Ghostscript version')
+                if ~silent
+                    warning('export_fig:GS:quality','Export_fig quality option ignored - not supported by your Ghostscript version')
+                end
                 return
             end
             % Hmm, perhaps the problem is just with the downsampleOptions?
             options = strrep(orig_options, downsampleOptions, '');
             if ~ghostscript(options) % hurray! (no error)
-                warning('export_fig:GS:downsample','Export_fig quality option ignored - not supported by your Ghostscript version')
+                if ~silent
+                    warning('export_fig:GS:downsample','Export_fig quality option ignored - not supported by your Ghostscript version')
+                end
                 return
             end
             % Nope, last attempt: remove both downsampleOptions & qualityOptions
@@ -248,14 +262,18 @@ function eps2pdf(source, dest, crop, append, gray, quality, gs_options) %#ok<*RG
             options = strrep(options,   downsampleOptions, '');
             [status, message] = ghostscript(options);
             if ~status % hurray! (no error)
-                warning('export_fig:GS:quality2','Export_fig quality option ignored - not supported by your Ghostscript version')
+                if ~silent
+                    warning('export_fig:GS:quality2','Export_fig quality option ignored - not supported by your Ghostscript version')
+                end
                 return
             end
         else  % no quality options, the problem lies elsewhere...
             % Hmm, perhaps the problem is just with the downsampleOptions?
             options = strrep(orig_options, downsampleOptions, '');
             if ~ghostscript(options) % hurray! (no error)
-                warning('export_fig:GS:downsample','Export_fig quality option ignored - not supported by your Ghostscript version')
+                if ~silent
+                    warning('export_fig:GS:downsample','Export_fig quality option ignored - not supported by your Ghostscript version')
+                end
                 return
             end
         end

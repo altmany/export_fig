@@ -18,24 +18,25 @@ function print2eps(name, fig, export_options, varargin)
 %              relative path) of the file the figure is to be saved as. A
 %              ".eps" extension is added if not there already. If a path is
 %              not specified, the figure is saved in the current directory.
-%   fig_handle - The handle of the figure to be saved. Default: gcf().
+%   fig_handle - The handle of the figure to be saved. Default=gcf().
 %   export_options - array or struct of optional values:
 %       bb_padding    - Scalar value of amount of padding to add to border around
 %                       the cropped image, in points (if >1) or percent (if <1).
-%                       Can be negative as well as positive; Default: 0
+%                       Can be negative as well as positive; Default=0
 %       crop          - Cropping flag. Deafult: 0
-%       fontswap      - Whether to swap non-default fonts in figure. Default: true
-%       preserve_size - Whether to preserve the figure's PaperSize. Default: false
+%       fontswap      - Whether to swap non-default fonts in figure. Default=true
+%       preserve_size - Whether to preserve the figure's PaperSize. Default=false
 %       font_space    - Character used to separate font-name terms in the EPS output
-%                       e.g. "Courier New" => "Courier-New". Default: ''
+%                       e.g. "Courier New" => "Courier-New". Default=''
 %                       (available only via the struct alternative)
-%       renderer      - Renderer used to generate bounding-box. Default: 'opengl'
+%       rendererStr   - Renderer used to generate bounding-box. Default='opengl'
 %                       (available only via the struct alternative)
 %       crop_amounts  - 4-element vector of crop amounts: [top,right,bottom,left]
 %                       (available only via the struct alternative)
 %       regexprep     - 2-element cell-array of regular-expression replacement in the
 %                       generated EPS. 1st element is the replaced string(s), 2nd is
 %                       the replacement(s) (available only via the struct alternative)
+%       silent        - Logical flag to suppress runtime warnings. Default=false
 %   print_options - Additional parameter strings to be passed to the print command
 
 %{
@@ -119,6 +120,7 @@ function print2eps(name, fig, export_options, varargin)
 % 11/05/25: Override Matlab's default Title & Creator meta-data (issue #402)
 % 12/09/25: Fixed error in case of escaped tex/latex chars in Title (issue #407)
 % 16/10/25: Fixed error in case of latex-format axes title (issue #409)
+% 02/06/26: Added optional silent option to suppress warnings (default=false)
 %}
 
     options = {'-loose'};
@@ -133,6 +135,7 @@ function print2eps(name, fig, export_options, varargin)
 
     % Retrieve padding, crop & font-swap values
     crop_amounts = nan(1,4);  % auto-crop all 4 sides by default
+    silent = false;
     if isstruct(export_options)
         try preserve_size = export_options.preserve_size; catch, preserve_size = false; end
         try fontswap      = export_options.fontswap;      catch, fontswap = true;       end
@@ -143,6 +146,7 @@ function print2eps(name, fig, export_options, varargin)
         try bb_padding    = export_options.bb_padding;    catch, bb_padding = 0;        end
         try renderer      = export_options.rendererStr;   catch, renderer = 'opengl';   end  % fix for issue #110
         if renderer(1)~='-',  renderer = ['-' renderer];  end
+        try silent        = export_options.silent;        catch,                        end
     else
         if numel(export_options) > 3  % preserve_size
             preserve_size = export_options(4);
@@ -291,10 +295,12 @@ function print2eps(name, fig, export_options, varargin)
                     % They look the same, so use SortMethod='ChildOrder' when generating the EPS
                 else
                     % They look different, so revert SortMethod and issue a warning message
-                    warning('YMA:export_fig:issue211', ...
-                            ['You seem to be using axes that have overlapping/hidden graphic elements. ' 10 ...
-                             'Setting axes.SortMethod=''ChildOrder'' may solve potential problems in EPS/PDF export. ' 10 ...
-                             'Additional info: https://github.com/altmany/export_fig/issues/211'])
+                    if ~silent
+                        warning('YMA:export_fig:issue211', ...
+                                ['You seem to be using axes that have overlapping/hidden graphic elements. ' 10 ...
+                                 'Setting axes.SortMethod=''ChildOrder'' may solve potential problems in EPS/PDF export. ' 10 ...
+                                 'Additional info: https://github.com/altmany/export_fig/issues/211'])
+                    end
                     set(hAxes,{'SortMethod'},oldSortMethods);
                 end
             end
@@ -314,7 +320,7 @@ function print2eps(name, fig, export_options, varargin)
         options{end+1} = '-depsc2';
         % Issue a warning if multiple images & lines were found in the figure, and HG1 with painters renderer is used
         isPainters = any(strcmpi(options,'-painters'));
-        if isPainters && ~using_hg2 && numel(findall(fig,'Type','image'))>1 && ~isempty(findall(fig,'Type','line'))
+        if isPainters && ~using_hg2 && ~silent && numel(findall(fig,'Type','image'))>1 && ~isempty(findall(fig,'Type','line'))
             warning('YMA:export_fig:issue45', ...
                     ['Multiple images & lines detected. In such cases, the lines might \n' ...
                      'appear with an invalid color due to an internal MATLAB bug (fixed in R2014b). \n' ...
@@ -374,7 +380,9 @@ function print2eps(name, fig, export_options, varargin)
 
     % Bail out if EPS post-processing is not possible
     if isempty(fstrm)
-        warning('YMA:export_fig:EPS','Loading EPS file failed, so unable to perform post-processing. This is usually because the figure contains a large number of patch objects. Consider exporting to a bitmap format in this case.');
+        if ~silent
+            warning('YMA:export_fig:EPS','Loading EPS file failed, so unable to perform post-processing. This is usually because the figure contains a large number of patch objects. Consider exporting to a bitmap format in this case.');
+        end
         return
     end
 
@@ -393,6 +401,8 @@ function print2eps(name, fig, export_options, varargin)
             fstrm = strrep(fstrm, sprintf('GC\n2 setlinecap\n1 LJ\nN'), sprintf('GC\n2 setlinecap\n1 LJ\n0.667 LW\nN'));
 
             % This is more accurate but *MUCH* slower (issue #52)
+            % Note: alternative (even more accurate) fix for issue #90 in @tnowotny's commit 2596e6f :
+            %       https://github.com/tnowotny/export_fig/commit/2596e6f7fd6d6f04207b4986c6fcb44851336f0d
             %{
             % Modify all thin lines in the figure to have 10x LineWidths
             hLines = findall(fig,'Type','line');
@@ -482,7 +492,7 @@ function print2eps(name, fig, export_options, varargin)
         for a = 1:size(font_swap, 2)
             fontName = font_swap{3,a};
             %fontName = fontName(~isspace(font_swap{3,a}));
-            if length(fontName) > 29
+            if length(fontName) > 29 && ~silent
                 warning('YMA:export_fig:font_name','Font name ''%s'' is longer than 29 characters. This might cause problems in some EPS/PDF readers. Consider using a different font.',fontName);
             end
             if isempty(font_space)
@@ -632,7 +642,9 @@ function print2eps(name, fig, export_options, varargin)
             newStrOrRegexp = export_options.regexprep{2};
             fstrm = regexprep(fstrm, oldStrOrRegexp, newStrOrRegexp);
         catch err
-            warning('YMA:export_fig:regexprep', 'Error parsing regexprep: %s', err.message);
+            if ~silent
+                warning('YMA:export_fig:regexprep', 'Error parsing regexprep: %s', err.message);
+            end
         end
     else
         useRegexprepOption = false;
@@ -651,7 +663,7 @@ function print2eps(name, fig, export_options, varargin)
             end
         end
         fontNames = setdiff(fontNames,'Helvetica'); %Helvetica actually works ok
-        if numel(fontNames) > 1 && ~useRegexprepOption
+        if numel(fontNames) > 1 && ~useRegexprepOption && ~silent
             warning('YMA:export_fig:countourFonts', 'export_fig cannot fix multiple contour label fonts; try using the -regexprep option to convert /Courier into %s etc.',fontNames{1});
         elseif numel(fontNames) == 1
             fstrm = regexprep(fstrm, '\n/Courier (\d+ F\nGS\n)', ['\n/' fontNames{1} ' $1']);
