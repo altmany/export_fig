@@ -19,10 +19,10 @@ function [A, bcol, alpha] = print2array(fig, res, renderer, gs_options, silent)
 % a TIF file using Ghostscript (http://www.ghostscript.com), loaded and reported.
 %
 % Inputs:
-%   figure_handle - The handle of the figure to be exported. Default: gcf.
-%   resolution - Output resolution as a factor of screen resolution. Default: 1
+%   figure_handle - The handle of the figure to be exported. Default=gcf.
+%   resolution - Output resolution as a factor of screen resolution. Default=1
 %                Note: resolution ~= 1 uses a slow print to/from image file
-%   renderer   - The renderer to be used by print() function. Default: '-opengl'
+%   renderer   - The renderer to be used by print() function. Default='-opengl'
 %                Note: only used when resolution ~= 1
 %   gs_options - optional ghostscript parameters (e.g.: '-dNoOutputFonts').
 %                Enclose multiple options in a cell array, e.g. {'-a','-b'}
@@ -69,7 +69,7 @@ function [A, bcol, alpha] = print2array(fig, res, renderer, gs_options, silent)
 % 22/12/21: Avoid memory leak during screen-capture
 % 30/03/23: Added another short pause to avoid unintended image cropping (issue #318) 
 % 01/06/26: Suppressed InvertHardcopy warning when exporting uifigures
-% 02/06/26: Added optional silent option to suppress warnings (default=false)
+% 02/06/26: Added optional silent parameter to suppress warnings (default=false)
 %}
 
     % Generate default input arguments, if needed

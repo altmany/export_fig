@@ -25,15 +25,15 @@ function eps2pdf(source, dest, crop, append, gray, quality, gs_options, silent) 
 %   dest    - filename of the destination pdf file. The filename is assumed
 %             to already have the extension ".pdf".
 %   crop    - boolean indicating whether to crop the borders off the pdf.
-%             Default: true.
+%             Default=true.
 %   append  - boolean indicating whether the eps should be appended to the
 %             end of the pdf as a new page (if the pdf exists already).
-%             Default: false.
+%             Default=false.
 %   gray    - boolean indicating whether the output pdf should be grayscale
-%             or not. Default: false.
-%   quality - scalar indicating the level of image bitmap quality to
-%             output. A larger value gives a higher quality. quality > 100
-%             gives lossless output. Default: ghostscript prepress default.
+%             or not. Default=false.
+%   quality - scalar indicating the level of image bitmap quality to output.
+%             A larger value gives a higher quality. quality > 100 results in
+%             lossless output. Default: ghostscript prepress default.
 %   gs_options - optional ghostscript options (e.g.: '-dNoOutputFonts'). If
 %                multiple options are needed, enclose in call array: {'-a','-b'}
 %   silent  - suppress run-time warnings (default=false, i.e. display warnings)
@@ -63,7 +63,7 @@ function eps2pdf(source, dest, crop, append, gray, quality, gs_options, silent) 
 % 12/02/20: Improved fix for issue #285: add -dNOSAFER and -dALLOWPSTRANSPARENCY (thanks @linasstonys)
 % 26/08/21: Added GS version to error message; fixed some problems with PDF append (issue #339)
 % 20/02/23: Added GS fixes suggested by @scholnik (issues #285, #368)
-% 02/06/26: Added optional silent option to suppress warnings (default=false)
+% 02/06/26: Added optional silent parameter to suppress warnings (default=false)
 
     % Intialise the options string for ghostscript
     downsampleOptions = ['-dDownsampleColorImages=false ' ...

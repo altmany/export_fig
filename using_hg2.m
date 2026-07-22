@@ -19,8 +19,8 @@ function tf = using_hg2(fig)
             if nargin < 1,  fig = figure('visible','off');  end
             oldWarn = warning('off','MATLAB:graphicsversion:GraphicsVersionRemoval');
             try
-                % This generates a [supressed] warning in R2015b:
-                tf = ~graphicsversion(fig, 'handlegraphics');
+                % This generates a [suppressed] warning in R2015b:
+                tf = ~graphicsversion(fig, 'handlegraphics'); %#ok<DGRAPHICSVER>
             catch
                 tf = ~verLessThan('matlab','8.4');  % =R2014b
             end

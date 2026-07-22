@@ -51,12 +51,11 @@ function print2eps(name, fig, export_options, varargin)
 % 14/11/11: Fix a MATLAB bug rendering black or white text incorrectly.
 %           Thanks to Mathieu Morlighem for reporting the issue and
 %           obtaining a fix from TMW.
-% 08/12/11: Added ability to correct fonts. Several people have requested
-%           this at one time or another, and also pointed me to printeps
-%           (fex id: 7501), so thank you to them. My implementation (which
-%           was not inspired by printeps - I'd already had the idea for my
-%           approach) goes slightly further in that it allows multiple
-%           fonts to be swapped.
+% 08/12/11: Added ability to correct fonts. Several people have requested this
+%           at one time or another, and also pointed me to printeps (fex id: 
+%           7501), so thank you to them. My implementation (which was not
+%           inspired by printeps - I'd already had the idea for my approach)
+%           goes slightly further in that it allows multiple fonts to be swapped.
 % 14/12/11: Fix bug affecting font names containing spaces. Thanks to David
 %           Szwer for reporting the issue.
 % 25/01/12: Add a font not to be swapped. Thanks to Anna Rafferty and Adam
@@ -65,13 +64,11 @@ function print2eps(name, fig, export_options, varargin)
 % 10/04/12: Make the font swapping case insensitive.
 % 26/10/12: Set PaperOrientation to portrait. Thanks to Michael Watts for
 %           reporting the issue.
-% 26/10/12: Fix issue to do with swapping fonts changing other fonts and
-%           sizes we don't want, due to listeners. Thanks to Malcolm Hudson
-%           for reporting the issue.
+% 26/10/12: Fix issue of swapping fonts changing other fonts and sizes we don't
+%           want, due to listeners. Thanks to Malcolm Hudson for reporting the issue.
 % 22/03/13: Extend font swapping to axes labels. Thanks to Rasmus Ischebeck
 %           for reporting the issue.
-% 23/07/13: Bug fix to font swapping. Thanks to George for reporting the
-%           issue.
+% 23/07/13: Bug fix to font swapping. Thanks to George for reporting the issue.
 % 13/08/13: Fix MATLAB feature of not exporting white lines correctly.
 %           Thanks to Sebastian Hesslinger for reporting it.
 % 24/02/15: Fix for Matlab R2014b bug (issue #31): LineWidths<0.75 are not
@@ -120,7 +117,7 @@ function print2eps(name, fig, export_options, varargin)
 % 11/05/25: Override Matlab's default Title & Creator meta-data (issue #402)
 % 12/09/25: Fixed error in case of escaped tex/latex chars in Title (issue #407)
 % 16/10/25: Fixed error in case of latex-format axes title (issue #409)
-% 02/06/26: Added optional silent option to suppress warnings (default=false)
+% 02/06/26: Added an optional silent option to suppress warnings (default=false)
 %}
 
     options = {'-loose'};

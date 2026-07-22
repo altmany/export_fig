@@ -417,7 +417,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
 % 12/09/25: (3.53) Fixed error in case of escaped tex/latex chars in EPS/PDF Title (issue #407)
 % 16/10/25: (3.54) Fixed error in case of latex-format axes title (issue #409)
 % 01/06/26: (3.55) Fixes for exporting uifigures in Matlab R2025a+ (issue #408)
-% 22/07/26: (3.56) Suppress some warnings/alerts if -silent option was specified or in parallel mode (issue #415); added default comment in GIF/JPG/PNG/TIF images; try to create export folder if it does not exist
+% 22/07/26: (3.56) Suppress some warnings/alerts if -silent option specified or in parallel mode (issue #415); added default comment in GIF/JPG/PNG/TIF images; try to create export folder if it does not exist
 %}
 
     if nargout
