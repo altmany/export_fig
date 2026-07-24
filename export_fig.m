@@ -417,7 +417,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
 % 12/09/25: (3.53) Fixed error in case of escaped tex/latex chars in EPS/PDF Title (issue #407)
 % 16/10/25: (3.54) Fixed error in case of latex-format axes title (issue #409)
 % 01/06/26: (3.55) Fixes for exporting uifigures in Matlab R2025a+ (issue #408)
-% 22/07/26: (3.56) Suppress some warnings/alerts if -silent option specified or in parallel mode (issue #415); added default comment in GIF/JPG/PNG/TIF images; try to create export folder if it does not exist
+% 22/07/26: (3.56) Suppress some warnings/alerts if -silent option specified or in parallel/batch mode (issue #415); added default comment in GIF/JPG/PNG/TIF images; try to create export folder if it does not exist
 %}
 
     if nargout
@@ -435,7 +435,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
         try promo_time = getpref('export_fig','promo_time'); catch, promo_time=-inf; end
         if promo_time > now, promo_time=0; end  %invalid value
     end
-    if abs(now-promo_time) > 10 && ~isdeployed && ~isParallel()
+    if abs(now-promo_time) > 10 && ~isdeployed && ~isParallelOrBatch()
         programsCrossCheck;
         msg = char('Gps!qspgfttjpobm!Nbumbc!bttjtubodf-!qmfbtf!dpoubdu!=%?'-1);
         url = char('iuuqt;00VoepdvnfoufeNbumbc/dpn0dpotvmujoh'-1);
@@ -461,7 +461,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
         imageData = currentVersion;
         return
     end
-    if ~options.silent && ~isdeployed && ~isParallel()
+    if ~options.silent && ~isdeployed && ~isParallelOrBatch()
         % Check for newer version (not too often)
         checkForNewerVersion(currentVersion);  % this breaks in version 3.05- due to regexp limitation in checkForNewerVersion()
 
@@ -1406,7 +1406,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
                     if ~isequal(options.bb_padding,0) || ~isempty(options.quality)
                         warning('export_fig:EMF:Options', 'export_fig cropping, padding and quality options are ignored for EMF export.');
                     end
-                    if ~anythingChanged && ~isdeployed %&& ~isParallel()
+                    if ~anythingChanged && ~isdeployed %&& ~isParallelOrBatch()
                         warning('export_fig:EMF:print', 'For a figure without background transparency, export_fig uses Matlab''s built-in print(''-dmeta'') function without any extra processing, so try using it directly.');
                     end
                 end
@@ -2697,7 +2697,7 @@ end
 function isNewerVersionAvailable = checkForNewerVersion(currentVersion)
     persistent lastCheckTime lastVersion
     isNewerVersionAvailable = false;
-    if isdeployed || isParallel(), return, end
+    if isdeployed || isParallelOrBatch(), return, end
     if nargin < 1 || isempty(lastCheckTime) || now - lastCheckTime > 1
         url = 'https://raw.githubusercontent.com/altmany/export_fig/master/export_fig.m';
         try
@@ -2817,7 +2817,7 @@ end
 
 % Cross-check existance of other programs (except in deployed/parallel mode)
 function programsCrossCheck()
-    if isdeployed || isParallel(), return, end  % bail out in deployed/parallel
+    if isdeployed || isParallelOrBatch(), return, end  % bail out in deployed/parallel
     try
         % IQ
         hasTaskList = false;
@@ -2870,7 +2870,7 @@ end
 % Hint to users to use exportgraphics/copygraphics in certain cases
 function alertForExportOrCopygraphics(options)
     %matlabVerNum = str2num(regexprep(version,'(\d+\.\d+).*','$1'));
-    if isdeployed || isParallel(), return, end  % bail out in deployed/parallel (issue #415)
+    if isdeployed || isParallelOrBatch(), return, end  % bail out in deployed/parallel (issue #415)
     try
         % Bail out on R2019b- (copygraphics/exportgraphics not available/reliable)
         if verLessThan('matlab','9.8')  % 9.8 = R2020a
@@ -3335,8 +3335,8 @@ function interactiveExport(hObject, options)
     end
 end
 
-% Is this program running in a parallel worker?
-function [flag, isLocal] = isParallel()
+% Is this program running in a parallel worker or in batch mode? (issue #415)
+function [flag, isLocal] = isParallelOrBatch()
     %flag = system_dependent('isdmlworker');
     persistent isParallelFlag isLocalCluster
     if isempty(isParallelFlag)
@@ -3360,5 +3360,6 @@ function [flag, isLocal] = isParallel()
         end
     end
     flag = isParallelFlag;
+    if ~flag, try flag = batchStartupOptionUsed; catch, flag=false; end, end
     isLocal = isLocalCluster;
 end
