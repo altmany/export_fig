@@ -25,6 +25,7 @@ function [A, vA, vB, bb_rel] = crop_borders(A, bcol, padding, crop_amounts)
 % 04/04/16: Fix per Luiz Carvalho for old Matlab releases
 % 23/10/16: Fixed issue #175: there used to be a 1px minimal padding in case of crop, now removed
 % 15/05/22: Fixed EPS bounding box (issue #356)
+% 26/07/26: Fixed left edge auto-crop in Matlab R2025a+ (issue #408)
 %}
 
     if nargin < 3
@@ -36,7 +37,7 @@ function [A, vA, vB, bb_rel] = crop_borders(A, bcol, padding, crop_amounts)
     crop_amounts(end+1:4) = NaN;  % fill missing values with NaN
 
     [h, w, c, n] = size(A);
-    if isempty(bcol)  % case of transparent bgcolor
+    if isempty(bcol)  % case of transparent bgcolor: use middle pixel in left col
         bcol = A(ceil(end/2),1,:,1);
     end
     if isscalar(bcol)
@@ -45,10 +46,12 @@ function [A, vA, vB, bb_rel] = crop_borders(A, bcol, padding, crop_amounts)
 
     % Crop margin from left
     if ~isfinite(crop_amounts(4))
+        bcol2 = A(ceil(end/2),1,:,1); %actual color of middle pixel in left col
         bail = false;
         for l = 1:w
             for a = 1:c
-                if ~all(col(A(:,l,a,:)) == bcol(a))
+                vec = col(A(:,l,a,:));
+                if ~all(vec == bcol(a) | vec == bcol2(a))
                     bail = true;
                     break;
                 end
@@ -63,11 +66,12 @@ function [A, vA, vB, bb_rel] = crop_borders(A, bcol, padding, crop_amounts)
 
     % Crop margin from right
     if ~isfinite(crop_amounts(2))
-        bcol = A(ceil(end/2),w,:,1);
+        bcol2 = A(ceil(end/2),w,:,1); %actual color of middle pixel in right col
         bail = false;
         for r = w:-1:l
             for a = 1:c
-                if ~all(col(A(:,r,a,:)) == bcol(a))
+                vec = col(A(:,r,a,:));
+                if ~all(vec == bcol(a) | vec == bcol2(a))
                     bail = true;
                     break;
                 end
@@ -82,11 +86,12 @@ function [A, vA, vB, bb_rel] = crop_borders(A, bcol, padding, crop_amounts)
 
     % Crop margin from top
     if ~isfinite(crop_amounts(1))
-        bcol = A(1,ceil(end/2),:,1);
+        bcol2 = A(1,ceil(end/2),:,1); %actual color of middle pixel in top row
         bail = false;
         for t = 1:h
             for a = 1:c
-                if ~all(col(A(t,:,a,:)) == bcol(a))
+                vec = col(A(t,:,a,:));
+                if ~all(vec == bcol(a) | vec == bcol2(a))
                     bail = true;
                     break;
                 end
@@ -100,12 +105,14 @@ function [A, vA, vB, bb_rel] = crop_borders(A, bcol, padding, crop_amounts)
     end
 
     % Crop margin from bottom
-    bcol = A(h,ceil(end/2),:,1);
+    %bcol = A(h,ceil(end/2),:,1);
     if ~isfinite(crop_amounts(3))
+        bcol2 = A(h,ceil(end/2),:,1); %actual color of middle pixel in bottom row
         bail = false;
         for b = h:-1:t
             for a = 1:c
-                if ~all(col(A(b,:,a,:)) == bcol(a))
+                vec = col(A(b,:,a,:));
+                if ~all(vec == bcol(a) | vec == bcol2(a))
                     bail = true;
                     break;
                 end

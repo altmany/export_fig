@@ -418,12 +418,13 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
 % 16/10/25: (3.54) Fixed error in case of latex-format axes title (issue #409)
 % 01/06/26: (3.55) Fixes for exporting uifigures in Matlab R2025a+ (issue #408)
 % 22/07/26: (3.56) Suppress some warnings/alerts if -silent option specified or in parallel/batch mode (issue #415); added default comment in GIF/JPG/PNG/TIF images; try to create export folder if it does not exist
+% 26/07/26: (3.57) Fixed unintended figure undock, bgcolor and bad auto-cropping in Matlab R2025a+ (issue #408)
 %}
 
     if nargout
         [imageData, alpha] = deal([]);
     end
-    displaySuggestedWorkarounds = true;
+    displaySuggestedWorkarounds = true; %#ok<NASGU>
 
     % Ensure the figure is rendered correctly _now_ so that properties like axes limits are up-to-date
     drawnow;
@@ -456,7 +457,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
     [fig, options] = parse_args(nargout, fig, argNames, varargin{:});
 
     % Check for newer version and exportgraphics/copygraphics compatibility
-    currentVersion = 3.56;
+    currentVersion = 3.57;
     if options.version  % export_fig's version requested - return it and bail out
         imageData = currentVersion;
         return
@@ -676,6 +677,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
     % Fix issue #46: Ghostscript crash if figure units <> pixels
     pos = get(fig, 'Position');  % Fix issues #313, #314
     oldFigUnits = get(fig,'Units');
+    figUnitsChanged = ~strncmpi(oldFigUnits,'pixel',5);
     set(fig,'Units','pixels');
     pixelpos = get(fig, 'Position'); %=getpixelposition(fig);
 
@@ -686,6 +688,9 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
     % Save the original figure color
     tcol = get(fig, 'Color');
     tcol_orig = tcol;
+
+    % Fix internal Matlab R2025a+ bug: print() thinks bgcolor='w' until explicitly set
+    set(fig, 'Color',tcol_orig);
 
     % Set to print exactly what is there
     if options.invert_hardcopy
@@ -705,7 +710,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
     end
 
     % Initialize
-    tmp_nam = '';
+    tmp_nam = ''; %#ok<NASGU>
     isBgColor = false(0);
     exported_files = 0;
 
@@ -721,7 +726,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
         % Export bitmap formats first
         if isbitmap(options)
             if abs(options.bb_padding) > 1
-                displaySuggestedWorkarounds = false;
+                displaySuggestedWorkarounds = false; %#ok<NASGU>
                 error('export_fig:padding','For bitmap output (png,jpg,tif,bmp) the padding value (-p) must be between -1<p<1')
             end
             % Print large version to array
@@ -867,9 +872,11 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
             end
             %}
             % Revert the figure properties back to their original values
-            oldWarn = warning('off','MATLAB:Figure:SetPosition');
-            try set(fig, 'Units',oldFigUnits, 'Position',pos, 'Color',tcol_orig); catch, end
-            warning(oldWarn);
+            if figUnitsChanged %avoid unintended figure undock in R2025a+ (issue #408)
+                warning('off','MATLAB:Figure:SetPosition');
+                try set(fig, 'Units',oldFigUnits, 'Position',pos); catch, end
+            end
+            set(fig, 'Color',tcol_orig);
             % Check for greyscale images
             if options.colourspace == 2
                 % Convert to greyscale
@@ -1460,7 +1467,11 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
                 try set(annotationHandles(handleIdx),'Units',oldUnits); catch, end
             end
             % Revert figure properties in case they were changed
-            try set(fig, 'Units',oldFigUnits, 'Position',pos, 'Color',tcol_orig); catch, end
+            if figUnitsChanged %avoid unintended figure undock in R2025a+ (issue #408)
+                warning('off','MATLAB:Figure:SetPosition');
+                try set(fig, 'Units',oldFigUnits, 'Position',pos); catch, end
+            end
+            try set(fig, 'Color',tcol_orig); catch, end
             try set(textn, 'Units','normalized'); catch, end
         end
 
@@ -1620,11 +1631,15 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
         % Revert warnings state
         warning(oldWarn);
     catch err
+        % Revert figure properties in case they were changed
+        if figUnitsChanged %avoid unintended figure undock in R2025a+ (issue #408)
+            warning('off','MATLAB:Figure:SetPosition');
+            try set(fig, 'Units',oldFigUnits, 'Position',pos); catch, end
+        end
+        try set(fig, 'Color',tcol_orig); catch, end
+        try set(textn, 'Units','normalized'); catch, end
         % Revert warnings state
         warning(oldWarn);
-        % Revert figure properties in case they were changed
-        try set(fig,'Units',oldFigUnits, 'Position',pos, 'Color',tcol_orig); catch, end
-        try set(textn, 'Units','normalized'); catch, end
         % Revert any XKCD rendering
         try delete(xkcd_axes); catch, end
         % Display possible workarounds before the error message
