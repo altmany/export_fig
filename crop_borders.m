@@ -142,7 +142,7 @@ function [A, vA, vB, bb_rel] = crop_borders(A, bcol, padding, crop_amounts)
     if padding > 0  % extra padding
         % Create an empty image, containing the background color, that has the
         % cropped image size plus the padded border
-        B = repmat(bcol,[(b-t)+1+padding*2,(r-l)+1+padding*2,1,n]);  % Fix per Luiz Carvalho
+        B = repmat(bcol,[(b-t)+1+padding*2,(r-l)+1+padding*2,c,n]);  % Fix per Luiz Carvalho
         % vA - coordinates in A that contain the cropped image
         vA = [t b l r];
         % vB - coordinates in B where the cropped version of A will be placed
