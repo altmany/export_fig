@@ -1023,7 +1023,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
                     format_options = getFormatOptions(options, 'tif');  %Issue #269
                     default_options = {'Resolution',resolution, 'WriteMode',mode, ...
                                        'Description',createdUsing};
-                    imwrite(img, filename, default_options, format_options{:});
+                    imwrite(img, filename, default_options{:}, format_options{:});
                 end
                 if options.notify, notify(filename); end
             end
