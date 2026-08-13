@@ -419,6 +419,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
 % 01/06/26: (3.55) Fixes for exporting uifigures in Matlab R2025a+ (issue #408)
 % 22/07/26: (3.56) Suppress some warnings/alerts if -silent option specified or in parallel/batch mode (issue #415); added default comment in GIF/JPG/PNG/TIF images; try to create export folder if it does not exist
 % 26/07/26: (3.57) Fixed unintended figure undock, bgcolor and bad auto-cropping in Matlab R2025a+ (issue #408)
+% 13/08/26: (3.58) Fixed TIF export bug; fixed bug when using -p (extra padding/cropping) parameter; improved parsing of parameter-value input pairs
 %}
 
     if nargout
@@ -457,7 +458,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
     [fig, options] = parse_args(nargout, fig, argNames, varargin{:});
 
     % Check for newer version and exportgraphics/copygraphics compatibility
-    currentVersion = 3.57;
+    currentVersion = 3.58;
     if options.version  % export_fig's version requested - return it and bail out
         imageData = currentVersion;
         return
@@ -2106,12 +2107,16 @@ function [fig, options] = parse_args(nout, fig, argNames, varargin)
                                     case 's', options.fixed_size = vals;
                                 end
                             else  % scalar parameter value
-                                val = str2double(regexpi(thisArg, '(?<=-([mrqp]))-?\d*.?\d+', 'match'));
+                                val = str2double(regexpi(thisArg, '(?<=-([mrqp]))\s*-?\d*.?\d+', 'match'));
                                 if isempty(val) || isnan(val)
-                                    % Issue #51: improved processing of input args (accept space between param name & value)
-                                    val = str2double(varargin{a+1});
-                                    if isscalar(val) && ~isnan(val)
-                                        skipNext = 1;
+                                    if ~isempty(extra)
+                                        val = str2double(extra(2:end));
+                                    else
+                                        % Issue #51: improved processing of input args (accept space between param name & value)
+                                        val = str2double(varargin{a+1});
+                                        if isscalar(val) && ~isnan(val)
+                                            skipNext = 1;
+                                        end
                                     end
                                 end
                                 if ~isscalar(val) || isnan(val)

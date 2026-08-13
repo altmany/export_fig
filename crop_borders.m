@@ -26,6 +26,7 @@ function [A, vA, vB, bb_rel] = crop_borders(A, bcol, padding, crop_amounts)
 % 23/10/16: Fixed issue #175: there used to be a 1px minimal padding in case of crop, now removed
 % 15/05/22: Fixed EPS bounding box (issue #356)
 % 26/07/26: Fixed left edge auto-crop in Matlab R2025a+ (issue #408)
+% 13/08/26: Fixed bug when using positive (extra) padding parameter (PR #416)
 %}
 
     if nargin < 3
@@ -142,7 +143,12 @@ function [A, vA, vB, bb_rel] = crop_borders(A, bcol, padding, crop_amounts)
     if padding > 0  % extra padding
         % Create an empty image, containing the background color, that has the
         % cropped image size plus the padded border
-        B = repmat(bcol,[(b-t)+1+padding*2,(r-l)+1+padding*2,c,n]);  % Fix per Luiz Carvalho
+        padPixels = 1 + padding*2;
+        bgImgSize = [(b-t)+padPixels,(r-l)+padPixels, 1, n];
+        %B = repmat(bcol,bgImgSize);  % Fix per Luiz Carvalho
+        B(:,:,3) = repmat(bcol(3),bgImgSize);  % Fix of PR #416
+        B(:,:,2) = repmat(bcol(2),bgImgSize);  % Fix of PR #416
+        B(:,:,1) = repmat(bcol(1),bgImgSize);  % Fix of PR #416
         % vA - coordinates in A that contain the cropped image
         vA = [t b l r];
         % vB - coordinates in B where the cropped version of A will be placed
