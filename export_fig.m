@@ -2239,7 +2239,14 @@ function [fig, options] = parse_args(nout, fig, argNames, varargin)
     end
 
     % Set default anti-aliasing now we know the renderer
+    if ~isMATLABReleaseOlderThan('R2026b') % turns off deprecation warning in R2026b
+        w = warning('query','MATLAB:opengl:deprecatedGraphicsSmoothing');
+        if strcmp(w.state,'on'), warning('off',w.identifier); end
+    end
     try isAA = strcmp(get(ancestor(fig, 'figure'), 'GraphicsSmoothing'), 'on'); catch, isAA = false; end
+    if ~isMATLABReleaseOlderThan('R2026b')
+        if strcmp(w.state,'on'), warning('on',w.identifier); end
+    end
     if isAA
         if options.aa_factor > 1 && ~options.silent
             warning('export_fig:AntiAliasing','You requested anti-aliased export_fig output of a figure that is already anti-aliased - your -a option in export_fig is ignored.')
