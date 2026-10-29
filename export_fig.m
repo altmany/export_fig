@@ -420,6 +420,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
 % 22/07/26: (3.56) Suppress some warnings/alerts if -silent option specified or in parallel/batch mode (issue #415); added default comment in GIF/JPG/PNG/TIF images; try to create export folder if it does not exist
 % 26/07/26: (3.57) Fixed unintended figure undock, bgcolor and bad auto-cropping in Matlab R2025a+ (issue #408)
 % 13/08/26: (3.58) Fixed TIF export bug; fixed bug when using -p (extra padding/cropping) parameter; improved parsing of parameter-value input pairs
+% 29/10/26: (3.59) Fixed GraphicsSmoothing warning on R2026b (adaptation of PR#417, thanks @markmikkelsen)
 %}
 
     if nargout
@@ -458,7 +459,7 @@ function [imageData, alpha] = export_fig(varargin) %#ok<*STRCL1,*DATST,*TNOW1>
     [fig, options] = parse_args(nargout, fig, argNames, varargin{:});
 
     % Check for newer version and exportgraphics/copygraphics compatibility
-    currentVersion = 3.58;
+    currentVersion = 3.59;
     if options.version  % export_fig's version requested - return it and bail out
         imageData = currentVersion;
         return
@@ -2239,7 +2240,9 @@ function [fig, options] = parse_args(nout, fig, argNames, varargin)
     end
 
     % Set default anti-aliasing now we know the renderer
+    oldWarn = warning('off','MATLAB:opengl:deprecatedGraphicsSmoothing'); %PR #417
     try isAA = strcmp(get(ancestor(fig, 'figure'), 'GraphicsSmoothing'), 'on'); catch, isAA = false; end
+    warning(oldWarn);
     if isAA
         if options.aa_factor > 1 && ~options.silent
             warning('export_fig:AntiAliasing','You requested anti-aliased export_fig output of a figure that is already anti-aliased - your -a option in export_fig is ignored.')
